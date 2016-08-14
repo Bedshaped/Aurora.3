@@ -156,6 +156,7 @@ var/list/gamemode_cache = list()
 	var/admin_legacy_system = 0	//Defines whether the server uses the legacy admin system with admins.txt or the SQL system. Config option in config.txt
 	var/ban_legacy_system = 0	//Defines whether the server uses the legacy banning system with the files in /data or the SQL system. Config option in config.txt
 	var/use_age_restriction_for_jobs = 0 //Do jobs use account age restrictions? --requires database
+	var/sql_stats = 0			//Do we record round statistics on the database (deaths, round reports, population, etcetera) or not?
 	var/sql_whitelists = 0		//Defined whether the server uses an SQL based whitelist system, or the legacy one with two .txts. Config option in config.txt
 	var/sql_saves = 0			//Defines whether the server uses an SQL based character and preference saving system. Config option in config.txt
 
@@ -224,6 +225,10 @@ var/list/gamemode_cache = list()
 
 	//Mark-up enabling
 	var/allow_chat_markup = 0
+
+	//Snowflake antag contest boolean
+	//AUG2016
+	var/antag_contest_enabled = 0
 
 /datum/configuration/New()
 	var/list/L = typesof(/datum/game_mode) - /datum/game_mode
@@ -717,6 +722,12 @@ var/list/gamemode_cache = list()
 
 				if("allow_chat_markup")
 					config.allow_chat_markup = 1
+
+				if("sql_stats")
+					config.sql_stats = 1
+
+				if("antag_contest_enabled")
+					config.antag_contest_enabled = 1
 
 				else
 					log_misc("Unknown setting in configuration: '[name]'")

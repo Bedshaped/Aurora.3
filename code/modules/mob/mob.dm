@@ -15,7 +15,19 @@
 		spellremove(src)
 	for(var/infection in viruses)
 		qdel(infection)
-	ghostize()
+
+
+
+	//Added this to prevent nonliving mobs from ghostising
+	//The only non 'living' mobs are:
+		//observers (ie ghosts),
+		//new_player, an abstraction used to handle people who are sitting in the lobby
+		//Freelook, an abstraction used to handle the AI looking through cameras, and possibly remote viewing mutation
+
+	//None of these mobs can 'die' in any sense, and none of them should be able to become ghosts.
+	//Ghosts are the only ones that even technically 'exist' and aren't just an abstraction using mob code for convenience
+	if (istype(src, /mob/living))
+		ghostize()
 	..()
 
 /mob/proc/remove_screen_obj_references()
@@ -93,6 +105,29 @@
 				M.show_message(blind_message, 2)
 		else
 			M.show_message(message, 1, blind_message, 2)
+
+
+// Designed for mobs contained inside things, where a normal visible message wont actually be visible
+// Useful for visible actions by pAIs, and held mobs
+// Broadcaster is the place the action will be seen/heard from, mobs in sight of THAT will see the message. This is generally the object or mob that src is contained in
+// message is the message output to anyone who can see e.g. "[src] does something!"
+// self_message (optional) is what the src mob sees  e.g. "You do something!"
+// blind_message (optional) is what blind people will hear e.g. "You hear something!"
+/mob/proc/contained_visible_message(var/atom/broadcaster, var/message, var/self_message, var/blind_message)
+	var/self_served = 0
+	for(var/mob/M in viewers(broadcaster))
+		if(self_message && M==src)
+			M.show_message(self_message, 1, blind_message, 2)
+			self_served = 1
+		else if(M.see_invisible < invisibility)  // Cannot view the invisible, but you can hear it.
+			if(blind_message)
+				M.show_message(blind_message, 2)
+		else
+			M.show_message(message, 1, blind_message, 2)
+
+	if (!self_served)
+		src.show_message(self_message, 1, blind_message, 2)
+
 
 // Show a message to all mobs in sight of this atom
 // Use for objects performing visible actions
@@ -342,6 +377,9 @@
 	set name = "Respawn"
 	set category = "OOC"
 
+	if (!client)
+		return//This shouldnt happen
+
 	if (!( config.abandon_allowed ))
 		usr << "<span class='notice'>Respawn is disabled.</span>"
 		return
@@ -352,25 +390,19 @@
 		usr << "<span class='notice'>Respawn is disabled for this roundtype.</span>"
 		return
 	else
-		var/deathtime = world.time - src.timeofdeath
+
 		if(istype(src,/mob/dead/observer))
 			var/mob/dead/observer/G = src
 			if(G.has_enabled_antagHUD == 1 && config.antag_hud_restricted)
 				usr << "\blue <B>Upon using the antagHUD you forfeighted the ability to join the round.</B>"
 				return
-		var/deathtimeminutes = round(deathtime / 600)
-		var/pluralcheck = "minute"
-		if(deathtimeminutes == 0)
-			pluralcheck = ""
-		else if(deathtimeminutes == 1)
-			pluralcheck = " [deathtimeminutes] minute and"
-		else if(deathtimeminutes > 1)
-			pluralcheck = " [deathtimeminutes] minutes and"
-		var/deathtimeseconds = round((deathtime - deathtimeminutes * 600) / 10,1)
-		usr << "You have been dead for[pluralcheck] [deathtimeseconds] seconds."
 
-		if (deathtime < 18000)
-			usr << "You must wait 30 minutes to respawn!"
+		var/deathtime = world.time - get_death_time(CREW)//get/set death_time functions are in mob_helpers.dm
+		if (deathtime < RESPAWN_CREW)
+			var/timedifference_text = time2text(RESPAWN_CREW - deathtime,"mm:ss")
+			var/basetime = time2text(RESPAWN_CREW,"mm:ss")
+			usr << "<span class='warning'>You may only respawn than [basetime] minutes after your death. You have [timedifference_text] left.</span>"
+
 			return
 		else
 			usr << "You can respawn now, enjoy your new life!"
@@ -639,6 +671,7 @@
 
 	if(.)
 		if(statpanel("Status") && ticker && ticker.current_state != GAME_STATE_PREGAME)
+			stat("Game ID", game_id)
 			stat("Station Time", worldtime2text())
 			stat("Round Duration", round_duration())
 			stat("Last Transfer Vote", vote.last_transfer_vote ? time2text(vote.last_transfer_vote, "hh:mm") : "Never")
@@ -873,7 +906,7 @@ mob/proc/yank_out_object()
 	usr.next_move = world.time + 20
 
 	if(usr.stat == 1)
-		usr << "You are unconcious and cannot do that!"
+		usr << "You are unconscious and cannot do that!"
 		return
 
 	if(usr.restrained())

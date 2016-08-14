@@ -202,7 +202,7 @@
 			return
 		else if(handled)
 			nanomanager.update_uis(src)
-			return // don't smack that machine with your 2 thalers
+			return // don't smack that machine with your 2 credits
 
 	if (I || istype(W, /obj/item/weapon/spacecash))
 		attack_hand(user)
@@ -530,12 +530,20 @@
 		if(coin.string_attached)
 			if(prob(50))
 				user << "\blue You successfully pull the coin out before \the [src] could swallow it."
+				src.visible_message("\blue The [src] putters to life, coughing out its 'premium' item after a moment.")
+				playsound(src.loc, 'sound/items/poster_being_created.ogg', 50, 1)
 			else
-				user << "\blue You weren't able to pull the coin out fast enough, the machine ate it, string and all."
+				user << "\red You weren't able to pull the coin out fast enough, the machine ate it, string and all."
+				src.visible_message("\blue The [src] putters to life, coughing out its 'premium' item after a moment.")
+				playsound(src.loc, 'sound/items/poster_being_created.ogg', 50, 1)
 				qdel(coin)
+				coin = null
 				categories &= ~CAT_COIN
 		else
+			src.visible_message("\blue The [src] putters to life, coughing out its 'premium' item after a moment.")
+			playsound(src.loc, 'sound/items/poster_being_created.ogg', 50, 1)
 			qdel(coin)
+			coin = null
 			categories &= ~CAT_COIN
 
 	R.amount--
@@ -694,7 +702,11 @@
 					/obj/item/weapon/reagent_containers/food/drinks/flask/barflask = 2, /obj/item/weapon/reagent_containers/food/drinks/flask/vacuumflask = 2,
 					/obj/item/weapon/reagent_containers/food/drinks/drinkingglass = 30,/obj/item/weapon/reagent_containers/food/drinks/ice = 9,
 					/obj/item/weapon/reagent_containers/food/drinks/bottle/melonliquor = 2,/obj/item/weapon/reagent_containers/food/drinks/bottle/bluecuracao = 2,
-					/obj/item/weapon/reagent_containers/food/drinks/bottle/absinthe = 2,/obj/item/weapon/reagent_containers/food/drinks/bottle/grenadine = 5)
+					/obj/item/weapon/reagent_containers/food/drinks/bottle/absinthe = 2,/obj/item/weapon/reagent_containers/food/drinks/bottle/grenadine = 5,
+					/obj/item/weapon/reagent_containers/food/drinks/bottle/chartreusegreen = 5,/obj/item/weapon/reagent_containers/food/drinks/bottle/chartreuseyellow =5,
+					/obj/item/weapon/reagent_containers/food/drinks/bottle/cremewhite = 4, /obj/item/weapon/reagent_containers/food/drinks/bottle/brandy = 4,
+					/obj/item/weapon/reagent_containers/food/drinks/bottle/guinnes = 4, /obj/item/weapon/reagent_containers/food/drinks/bottle/drambuie = 4,
+					/obj/item/weapon/reagent_containers/food/drinks/bottle/cremeyvette = 4)
 	contraband = list(/obj/item/weapon/reagent_containers/food/drinks/tea = 10)
 	vend_delay = 15
 	idle_power_usage = 211 //refrigerator - believe it or not, this is actually the average power consumption of a refrigerated vending machine according to NRCan.
@@ -732,12 +744,13 @@
 	icon_state = "snack"
 	products = list(/obj/item/weapon/reagent_containers/food/snacks/candy = 6,/obj/item/weapon/reagent_containers/food/drinks/dry_ramen = 6,/obj/item/weapon/reagent_containers/food/snacks/chips =6,
 					/obj/item/weapon/reagent_containers/food/snacks/sosjerky = 6,/obj/item/weapon/reagent_containers/food/snacks/no_raisin = 6,/obj/item/weapon/reagent_containers/food/snacks/spacetwinkie = 6,
-					/obj/item/weapon/reagent_containers/food/snacks/cheesiehonkers = 6, /obj/item/weapon/reagent_containers/food/snacks/tastybread = 6,  /obj/item/weapon/reagent_containers/food/snacks/skrellsnacks = 3)
+					/obj/item/weapon/reagent_containers/food/snacks/cheesiehonkers = 6, /obj/item/weapon/reagent_containers/food/snacks/tastybread = 6,  /obj/item/weapon/reagent_containers/food/snacks/skrellsnacks = 3,
+					/obj/item/weapon/reagent_containers/food/snacks/meatsnack = 2, /obj/item/weapon/reagent_containers/food/snacks/maps = 2, /obj/item/weapon/reagent_containers/food/snacks/nathisnack = 2)
 	contraband = list(/obj/item/weapon/reagent_containers/food/snacks/syndicake = 6)
 	prices = list(/obj/item/weapon/reagent_containers/food/snacks/candy = 1,/obj/item/weapon/reagent_containers/food/drinks/dry_ramen = 5,/obj/item/weapon/reagent_containers/food/snacks/chips = 1,
 					/obj/item/weapon/reagent_containers/food/snacks/sosjerky = 2,/obj/item/weapon/reagent_containers/food/snacks/no_raisin = 1,/obj/item/weapon/reagent_containers/food/snacks/spacetwinkie = 1,
-					/obj/item/weapon/reagent_containers/food/snacks/cheesiehonkers = 1, /obj/item/weapon/reagent_containers/food/snacks/tastybread = 2, /obj/item/weapon/reagent_containers/food/snacks/skrellsnacks = 4)
-
+					/obj/item/weapon/reagent_containers/food/snacks/cheesiehonkers = 1, /obj/item/weapon/reagent_containers/food/snacks/tastybread = 2, /obj/item/weapon/reagent_containers/food/snacks/skrellsnacks = 4,
+					/obj/item/weapon/reagent_containers/food/snacks/meatsnack = 4, /obj/item/weapon/reagent_containers/food/snacks/maps = 5, /obj/item/weapon/reagent_containers/food/snacks/nathisnack = 6)
 
 
 /obj/machinery/vending/cola

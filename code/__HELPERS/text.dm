@@ -57,7 +57,7 @@
 	return sanitize(replace_characters(input, list(">"=" ","<"=" ", "\""="'")), max_length, encode, trim, extra)
 
 //Filters out undesirable characters from names
-/proc/sanitizeName(var/input, var/max_length = MAX_NAME_LEN, var/allow_numbers = 0)
+/proc/sanitizeName(var/input, var/max_length = MAX_NAME_LEN, var/allow_numbers = 1)
 	if(!input || length(input) > max_length)
 		return //Rejects the input if it is null or if it is longer then the max length allowed
 
@@ -324,19 +324,28 @@ proc/TextPreview(var/string,var/len=40)
 	if (!message)
 		return ""
 
-	var/list/tags = list("*" = list("<b>", "</b>"),
-						"_" = list("<i>", "</i>"),
-						"~" = list("<stroke>", "</stroke>"),
-						"-" = list("<u>", "</u>"))
+	// ---Begin URL caching.
+	var/list/urls = list()
+	var/i = 1
+	while (url_find_lazy.Find(message))
+		urls["\ref[urls]-[i]"] = url_find_lazy.match
+		i++
 
-	if (ignore_tags && ignore_tags.len)
-		tags -= ignore_tags
+	for (var/ref in urls)
+		message = replacetextEx(message, urls[ref], ref)
+	// ---End URL caching
 
-	for (var/tag in tags)
-		var/marker_begin = tags[tag][1]
-		var/marker_end = tags[tag][2]
+	var/regex/tag_markup
+	for (var/tag in (markup_tags - ignore_tags))
+		tag_markup = markup_regex[tag]
+		message = tag_markup.Replace(message, "[markup_tags[tag][1]]$2[markup_tags[tag][2]]")
 
-		var/regex/markup = new("(\\[tag])(\[^\\[tag]\]*)(\\[tag])", "g")
-		message = markup.Replace(message, "[marker_begin]$2[marker_end]")
+	// ---Unload URL cache
+	for (var/ref in urls)
+		message = replacetextEx(message, ref, urls[ref])
 
 	return message
+
+//Converts New Lines to html <br>
+/proc/nl2br(var/text)
+	return replacetextEx(text,"\n","<br>")

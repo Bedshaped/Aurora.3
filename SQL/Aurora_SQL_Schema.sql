@@ -108,6 +108,7 @@ CREATE TABLE `ss13_characters` (
   `organs_data` text,
   `organs_robotic` text,
   `gear` text,
+  `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `ss13_characters_ckey` (`ckey`),
   KEY `ss13_characteres_name` (`name`),
@@ -120,6 +121,7 @@ CREATE TABLE `ss13_characters_flavour` (
   `records_medical` text,
   `records_security` text,
   `records_exploit` text,
+  `records_ccia` text,
   `flavour_general` text,
   `flavour_head` text,
   `flavour_face` text,
@@ -152,6 +154,24 @@ CREATE TABLE `ss13_connection_log` (
   `serverip` varchar(32) NOT NULL,
   `ip` varchar(18) NOT NULL,
   `computerid` varchar(32) NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `ss13_contest_participants` (
+  `player_ckey` varchar(32) NOT NULL,
+  `character_id` int(10) unsigned NOT NULL,
+  `contest_faction` enum('INDEP','SLF','BIS','ASI','PSIS','HSH','TCD') NOT NULL DEFAULT 'INDEP'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+CREATE TABLE `ss13_contest_reports` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `player_ckey` varchar(32) NOT NULL,
+  `character_id` int(10) unsigned DEFAULT NULL,
+  `character_faction` enum('INDEP','SLF','BIS','ASI','PSIS','HSH','TCD') NOT NULL DEFAULT 'INDEP',
+  `objective_type` text NOT NULL,
+  `objective_side` enum('pro_synth','anti_synth') NOT NULL,
+  `objective_outcome` tinyint(1) DEFAULT '0',
+  `objective_datetime` datetime NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -276,6 +296,8 @@ CREATE TABLE `ss13_player_preferences` (
   `UI_style_alpha` int(11) NOT NULL,
   `be_special` int(11) NOT NULL,
   `asfx_togs` int(11) NOT NULL,
+  `lastmotd` text NOT NULL,
+  `lastmemo` text NOT NULL,
   PRIMARY KEY (`ckey`),
   CONSTRAINT `player_preferences_fk_ckey` FOREIGN KEY (`ckey`) REFERENCES `ss13_player` (`ckey`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;

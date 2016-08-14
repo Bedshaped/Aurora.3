@@ -70,9 +70,18 @@
 
 	var/translator_on = 0 // keeps track of the translator module
 
+	var/greeted = 0
 	var/current_pda_messaging = null
 
-/mob/living/silicon/pai/New(var/obj/item/device/paicard)
+/mob/living/silicon/pai/New(var/obj/item/device/paicard/newlocation)
+	var/obj/item/device/paicard/paicard
+	if (istype(newlocation, /obj/item/device/paicard))
+		paicard = newlocation
+	else
+		//If we get here, then we must have been created by adminspawning.
+		//so lets assist with debugging by creating our own card and adding ourself to it
+		paicard = new/obj/item/device/paicard(newlocation)
+		paicard.pai = src
 
 	canmove = 0
 	src.loc = paicard
@@ -101,8 +110,17 @@
 	..()
 
 /mob/living/silicon/pai/Login()
+	greet()
 	..()
 
+
+/mob/living/silicon/pai/proc/greet()
+
+	if (!greeted)
+		// Basic intro text.
+		src << "<span class='danger'><font size=3>You are a Personal AI!</font></span>"
+		src << "<span class='notice'>You are a small artificial intelligence contained inside a portable tablet, and you are bound to a master. Your primary directive is to serve them and follow their instructions, follow this prime directive above all others. Check your Software interface to spend ram on programs that can help, and unfold your chassis to take a holographic form and move around the world.</span>"
+		greeted = 1
 
 // this function shows the information about being silenced as a pAI in the Status panel
 /mob/living/silicon/pai/proc/show_silenced()
@@ -333,6 +351,17 @@
 	verbs -= /mob/living/silicon/pai/proc/choose_chassis
 	verbs += /mob/living/proc/hide
 
+/mob/living/silicon/pai/verb/get_onmob_location()
+	set category = "pAI Commands"
+	set name = "Check location"
+	set desc = "Find out where on their person, someone is holding you."
+
+	if (!get_holding_mob())
+		src << "Nobody is holding you!"
+		return
+
+	card.report_onmob_location(0, card.get_equip_slot(), src)
+
 /mob/living/silicon/pai/proc/choose_verbs()
 	set category = "pAI Commands"
 	set name = "Choose Speech Verbs"
@@ -389,7 +418,8 @@
 
 	src.stop_pulling()
 	src.client.perspective = EYE_PERSPECTIVE
-	src.client.eye = card
+	src.client.eye = src
+//Changed the client eye to follow the mob itself instead of the card that contains it. This makes examining work, and the camera still follows wherever the card goes
 
 	//stop resting
 	resting = 0
@@ -417,3 +447,5 @@
 // No binary for pAIs.
 /mob/living/silicon/pai/binarycheck()
 	return 0
+
+
