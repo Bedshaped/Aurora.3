@@ -155,6 +155,8 @@
 		loaded.Insert(1, C) //add to the head of the list
 		user.visible_message("[user] inserts \a [C] into [src].", "<span class='notice'>You insert \a [C] into [src].</span>")
 		playsound(src.loc, 'sound/weapons/empty.ogg', 50, 1)
+	//else if (istype(A, /obj/item/stack/ammunition))
+		//stack stuff
 
 	update_icon()
 
