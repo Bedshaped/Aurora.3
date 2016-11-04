@@ -53,6 +53,9 @@
 /proc/Inverse(x)
 	return 1 / x
 
+/proc/Sign(x)
+	return x!=0?x/abs(x):0
+
 // Condition checks.
 /proc/IsAboutEqual(a, b, delta = 0.1)
 	return abs(a - b) <= delta
