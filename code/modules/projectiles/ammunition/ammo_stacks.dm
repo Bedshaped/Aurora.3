@@ -7,14 +7,36 @@
 	throwforce = 1
 	w_class = 2
 
+	var/last_load = 0
+
 	var/list/obj/item/ammo_casing/stored_ammo = list()
+
+/obj/item/stack/ammunition/New()
+	..()
+	update_stack_data()
 
 /obj/item/stack/ammunition/proc/update_stack_data()
 	if (!stored_ammo.len)
 		qdel(src)
+		return 0
 	if (!update_strings())
+		var/old_loc = src.loc
+		var/last_round = pop(stored_ammo)
 		qdel(src)
+		last_round.loc = old_loc
+		return 0
 	update_icons()
+	return 1
+
+/obj/item/stack/ammunition/proc/get_ammo_casing()
+	if (isemptylist(stored_ammo))
+		return 0
+	return stored_ammo[1]
+
+/obj/item/stack/ammunition/proc/get_ammo_caliber(var/list/list = stored_ammo)
+	if (isemptylist(list))
+		return 0
+	return stored_ammo[1].caliber
 
 /obj/item/stack/ammunition/proc/update_strings()
 	if (stored_ammo.len > 1)
@@ -50,15 +72,27 @@
 		else if (istype(ammo_path, /obj/item/ammo_casing/shotgun)
 			new_icon = image('icons/obj/ammo_stacks.dmi', icon_state = "shell", dir = pick(cardinal))
 			switch (ammo_path)
-				if (/obj/item/ammo_casing/shotgun)
+				if (/obj/item/ammo_casing/shotgun) // shotgun slug is black
 					new_icon.SwapColor(SHELL_BASE_COLOR, rgb(50, 50, 50))
 					new_icon.SwapColor(SHELL_SEC_COLOR, rgb(87, 87, 87))
-				if (/obj/item/ammo_casing/shotgun/pellet)
+				if (/obj/item/ammo_casing/shotgun/pellet) // shotgun pellet is red
 					new_icon.SwapColor(SHELL_BASE_COLOR, rgb(128, 0, 0))
 					new_icon.SwapColor(SHELL_SEC_COLOR, rgb(153, 33, 33))
-				if (/obj/item/ammo_casing/shotgun/beanbag)
+				if (/obj/item/ammo_casing/shotgun/beanbag) // shotgun beanbag is green
 					new_icon.SwapColor(SHELL_BASE_COLOR, rgb(24, 123, 6))
 					new_icon.SwapColor(SHELL_SEC_COLOR, rgb(30, 105, 3))
 		if (prob(50))
 			new_icon.Flip(pick(cardinal))
 		overlays += new_icon.Shift(pick(all_dirs), rand(0, 8))
+
+/obj/item/stack/ammunition/attackby(obj/item/I as obj, mob/user as mob)
+	if (istype(I, /obj/item/ammo_casing))
+		var/obj/item/ammo_casing/C = I
+		if (C.caliber == src.get_ammo_caliber())
+			stored_ammo.Add(C)
+			if (
+		else
+			user << "<span class='warning'>You shouldn't mix different ammo caliber types!</span>"
+	else if (istype(I, /obj/item/stack/ammunition)
+		var/obj/item/stack/ammunition/S = I
+		if

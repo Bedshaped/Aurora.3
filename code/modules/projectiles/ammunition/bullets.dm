@@ -26,6 +26,7 @@
 
 /obj/item/ammo_casing/c38r
 	desc = "A .38 rubber bullet casing."
+	icon_state = "s-casing-r"
 	caliber = "38"
 	projectile_type = /obj/item/projectile/bullet/pistol/rubber
 
