@@ -85,8 +85,8 @@
 	projectile_type = /obj/item/projectile/bullet/shotgun
 	matter = list(DEFAULT_WALL_MATERIAL = 360)
 
-	var/stack_singular_name = "shell"
-	var/stack_plural_name = "shells"
+	stack_singular_name = "shell"
+	stack_plural_name = "shells"
 
 /obj/item/ammo_casing/shotgun/pellet
 	name = "shotgun shell"
