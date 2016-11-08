@@ -139,6 +139,18 @@
 				new_state = ammo_states[idx]
 				break
 		icon_state = (new_state)? new_state : initial(icon_state)
+	else if(overlay_sprites)
+		var/diff = stored_ammo.len - overlays.len
+		if (Sign(diff) < 0)
+			while (overlays.len != stored_ammo.len)
+				overlays.len--
+		for (var/i in 1 to diff)
+			var/obj/item/ammo_casing/ammo = stored_ammo[overlays.len + i]
+			var/new_overlay = image('icon/obj/ammo.dmi', replacetext(path2text(ammo.type), path2text(ammo.parent_type) + "/", "") + "-overlay")
+			switch (position)
+				if (1)
+					new_icon.Shift(WEST, 2)
+					new_icon.Shift(NORTH, 5)
 
 /obj/item/ammo_magazine/examine(mob/user)
 	..()

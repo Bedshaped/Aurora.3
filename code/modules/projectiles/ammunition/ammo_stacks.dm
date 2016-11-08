@@ -11,10 +11,6 @@
 
 	var/list/obj/item/ammo_casing/stored_ammo = list()
 
-/obj/item/stack/ammunition/New()
-	..()
-	update_stack_data()
-
 /obj/item/stack/ammunition/proc/update_stack_data()
 	if (!stored_ammo.len)
 		qdel(src)

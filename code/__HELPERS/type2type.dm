@@ -370,3 +370,8 @@ proc/tg_list2text(list/list, glue=",")
 
 /proc/isLeap(y)
 	return ((y) % 4 == 0 && ((y) % 100 != 0 || (y) % 400 == 0))
+
+/proc/path2text(var/path)
+	if (!ispath(path))
+		CRASH("The value passed to path2text() is not a valid path!")
+	return "[path]"
