@@ -84,7 +84,7 @@
 					new_icon.SwapColor(SHELL_SEC_COLOR, rgb(153, 33, 33))
 		if (prob(50))
 			new_icon.Flip(pick(cardinal))
-		overlays += new_icon.Shift(pick(all_dirs), rand(0, 8))
+		overlays += new_icon.Shift(pick(alldirs), rand(0, 8))
 
 /obj/item/stack/ammunition/attackby(obj/item/I as obj, mob/user as mob)
 	if (istype(I, /obj/item/ammo_casing))
@@ -95,11 +95,11 @@
 			if (src.loc == user)
 				user << "<span class='notice'>You add \the [C.caliber] [C.stack_singular_name] to the pile.</span>"
 			else
-				user.visible_message("<span class='notice'>[user] adds \the [C.caliber] [C.stack_singular_name] a pile of [stack_plural_name].",
+				user.visible_message("<span class='notice'>[user] adds \the [C.caliber] [C.stack_singular_name] a pile of [name].",
 					                 "<span class='notice'>You add \the [C.caliber] [C.stack_singular_name] to the pile.</span>")
 		else
 			user << "<span class='warning'>You shouldn't mix different ammo caliber types!</span>"
-	else if (istype(I, /obj/item/stack/ammunition)
+	else if (istype(I, /obj/item/stack/ammunition))
 		var/obj/item/stack/ammunition/S = I
 		if (S.get_ammo_caliber() == get_ammo_caliber())
 			stored_ammo.Add(S.stored_ammo)
@@ -108,7 +108,7 @@
 			if (src.loc == user)
 				user << "<span class='notice'>You add \the [S.caliber] [S.stack_plural_name] to the pile.</span>"
 			else
-				user.visible_message("<span class='notice'>[user] adds \the [S.caliber] [S.stack_plural_name] a pile of [stack_plural_name].",
+				user.visible_message("<span class='notice'>[user] adds \the [S.caliber] [S.stack_plural_name] a pile of [name].",
 					                 "<span class='notice'>You add \the [S.caliber] [S.stack_plural_name] to the pile.</span>")
 		else
 			user << "<span class='warning'>You shouldn't mix different ammo caliber types!</span>"

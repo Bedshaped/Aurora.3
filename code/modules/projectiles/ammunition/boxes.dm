@@ -8,20 +8,23 @@
 	ammo_type = /obj/item/ammo_casing/a357
 	matter = list(DEFAULT_WALL_MATERIAL = 1260)
 	max_ammo = 7
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 
 /obj/item/ammo_magazine/c38
 	name = "speed loader (.38)"
-	icon_state = "38"
+	icon_state = "6sh_speedloader"
 	caliber = "38"
 	matter = list(DEFAULT_WALL_MATERIAL = 360)
 	ammo_type = /obj/item/ammo_casing/c38
 	max_ammo = 6
-	multiple_sprites = 1
+	icon_type = OVERLAY_SPRITES
 
 /obj/item/ammo_magazine/c38/rubber
-	name = "speed loader (.38 rubber)"
+	name = "speed loader (.38)"
 	ammo_type = /obj/item/ammo_casing/c38r
+
+/obj/item/ammo_magazine/c38/empty
+	initial_ammo = 0
 
 /obj/item/ammo_magazine/c45m
 	name = "magazine (.45)"
@@ -31,7 +34,7 @@
 	matter = list(DEFAULT_WALL_MATERIAL = 525) //metal costs are very roughly based around 1 .45 casing = 75 metal
 	caliber = ".45"
 	max_ammo = 7
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 
 /obj/item/ammo_magazine/c45m/empty
 	initial_ammo = 0
@@ -57,7 +60,7 @@
 	caliber = "9mm"
 	ammo_type = /obj/item/ammo_casing/c9mm
 	max_ammo = 10
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 
 /obj/item/ammo_magazine/mc9mm/empty
 	initial_ammo = 0
@@ -85,7 +88,7 @@
 	matter = list(DEFAULT_WALL_MATERIAL = 1200)
 	caliber = "9mm"
 	max_ammo = 20
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 
 /obj/item/ammo_magazine/mc9mmt/empty
 	initial_ammo = 0
@@ -119,7 +122,7 @@
 	matter = list(DEFAULT_WALL_MATERIAL = 1500)
 	ammo_type = "/obj/item/ammo_casing/a12mm"
 	max_ammo = 20
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 
 /obj/item/ammo_magazine/a12mm/empty
 	initial_ammo = 0
@@ -133,7 +136,7 @@
 	matter = list(DEFAULT_WALL_MATERIAL = 1800)
 	ammo_type = /obj/item/ammo_casing/a556
 	max_ammo = 10
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 
 /obj/item/ammo_magazine/a556/empty
 	initial_ammo = 0
@@ -151,7 +154,7 @@
 	matter = list(DEFAULT_WALL_MATERIAL = 1260)
 	ammo_type = /obj/item/ammo_casing/a50
 	max_ammo = 7
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 
 /obj/item/ammo_magazine/a50/empty
 	initial_ammo = 0
@@ -162,7 +165,7 @@
 	mag_type = MAGAZINE
 	caliber = "75"
 	ammo_type = /obj/item/ammo_casing/a75
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 	max_ammo = 4
 
 /obj/item/ammo_magazine/a75/empty
@@ -174,7 +177,7 @@
 	mag_type = MAGAZINE
 	caliber = "trod"
 	ammo_type = /obj/item/ammo_casing/trod
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 	max_ammo = 2
 
 /obj/item/ammo_magazine/trodpack/empty
@@ -190,7 +193,7 @@
 	matter = list(DEFAULT_WALL_MATERIAL = 4500)
 	ammo_type = /obj/item/ammo_casing/a762
 	max_ammo = 50
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 
 /obj/item/ammo_magazine/a762/empty
 	initial_ammo = 0
@@ -203,7 +206,7 @@
 	matter = list(DEFAULT_WALL_MATERIAL = 1800)
 	ammo_type = /obj/item/ammo_casing/a762
 	max_ammo = 20
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 
 /obj/item/ammo_magazine/chameleon
 	name = "magazine (.45)"
@@ -212,7 +215,7 @@
 	caliber = ".45"
 	ammo_type = /obj/item/ammo_casing/chameleon
 	max_ammo = 7
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 	matter = list()
 
 /obj/item/ammo_magazine/chameleon/empty
@@ -225,7 +228,7 @@
 	caliber = "a762"
 	matter = list(DEFAULT_WALL_MATERIAL = 1800)
 	max_ammo = 5
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 
 /obj/item/ammo_magazine/c45uzi
 	name = "stick magazine (.45)"
@@ -235,7 +238,7 @@
 	matter = list(DEFAULT_WALL_MATERIAL = 1200)
 	caliber = ".45"
 	max_ammo = 16
-	multiple_sprites = 1
+	icon_type = MULTIPLE_SPRITES
 
 /obj/item/ammo_magazine/c45uzi/empty
 	initial_ammo = 0

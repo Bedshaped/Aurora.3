@@ -64,6 +64,9 @@
 #define SPEEDLOADER 	2	//Transfers casings from the mag to the gun when used.
 #define MAGAZINE 		4	//The magazine item itself goes inside the gun
 
+#define MULTIPLE_SPRITES 1  // This defines are for update icons
+#define OVERLAY_SPRITES 2   //to differentiate different ways icons are updates
+
 //An item that holds casings and can be used to put them inside guns
 /obj/item/ammo_magazine
 	name = "magazine"
@@ -87,13 +90,13 @@
 	var/ammo_type = /obj/item/ammo_casing //ammo type that is initially loaded
 	var/initial_ammo = null
 
-	var/multiple_sprites = 0
+	var/icon_type = MULTIPLE_SPRITES
 	//because BYOND doesn't support numbers as keys in associative lists
 	var/list/icon_keys = list()		//keys
 	var/list/ammo_states = list()	//values
 
 /obj/item/ammo_magazine/New()
-	if(multiple_sprites)
+	if(icon_type == MULTIPLE_SPRITES)
 		initialize_magazine_icondata(src)
 
 	if(isnull(initial_ammo))
@@ -129,28 +132,49 @@
 	stored_ammo.Cut()
 	update_icon()
 
-/obj/item/ammo_magazine/update_icon()
-	if(multiple_sprites)
-		//find the lowest key greater than or equal to stored_ammo.len
-		var/new_state = null
-		for(var/idx in 1 to icon_keys.len)
-			var/ammo_count = icon_keys[idx]
-			if (ammo_count >= stored_ammo.len)
-				new_state = ammo_states[idx]
-				break
-		icon_state = (new_state)? new_state : initial(icon_state)
-	else if(overlay_sprites)
-		var/diff = stored_ammo.len - overlays.len
-		if (Sign(diff) < 0)
-			while (overlays.len != stored_ammo.len)
-				overlays.len--
-		for (var/i in 1 to diff)
-			var/obj/item/ammo_casing/ammo = stored_ammo[overlays.len + i]
-			var/new_overlay = image('icon/obj/ammo.dmi', replacetext(path2text(ammo.type), path2text(ammo.parent_type) + "/", "") + "-overlay")
-			switch (position)
-				if (1)
-					new_icon.Shift(WEST, 2)
-					new_icon.Shift(NORTH, 5)
+/obj/item/ammo_magazine/verb/update_icons()
+	overlays.Cut()
+	update_icon(1)
+
+/obj/item/ammo_magazine/update_icon(var/num = 0)
+
+	switch (icon_type)
+
+		if(MULTIPLE_SPRITES)
+			//find the lowest key greater than or equal to stored_ammo.len
+			var/new_state = null
+			for(var/idx in 1 to icon_keys.len)
+				var/ammo_count = icon_keys[idx]
+				if (ammo_count >= stored_ammo.len)
+					new_state = ammo_states[idx]
+					break
+			icon_state = (new_state)? new_state : initial(icon_state)
+		if(OVERLAY_SPRITES)
+			var/diff = stored_ammo.len - overlays.len
+			if (Sign(diff) < 0)
+				while (overlays.len != stored_ammo.len)
+					overlays.len--
+			for (var/i in 1 to diff)
+				var/obj/item/ammo_casing/ammo = stored_ammo[1]
+				var/icon/new_icon = icon('icons/obj/ammo.dmi', replacetext(path2text(ammo.type), path2text(ammo.parent_type) + "/", "") + "-overlay")
+				switch (overlays.len + 1) // this expression is the position in the speedloader the next icon needs to be placed
+					if (1)
+						new_icon.Shift(WEST, 2)
+						new_icon.Shift(NORTH, 5)
+					if (2)
+						new_icon.Shift(WEST, 4)
+						new_icon.Shift(NORTH, 2)
+					if (3)
+						new_icon.Shift(WEST, 4)
+						new_icon.Shift(SOUTH, 2)
+					if (4)
+						new_icon.Shift(WEST, 2)
+						new_icon.Shift(SOUTH, 5)
+					if (5)
+						new_icon.Shift(SOUTH, 2)
+					if (6)
+						new_icon.Shift(NORTH, 2)
+				overlays += new_icon
 
 /obj/item/ammo_magazine/examine(mob/user)
 	..()
