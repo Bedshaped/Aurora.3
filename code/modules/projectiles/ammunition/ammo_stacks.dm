@@ -17,7 +17,7 @@
 		return 0
 	if (!update_strings())
 		var/old_loc = src.loc
-		var/last_round = pop(stored_ammo)
+		var/obj/item/ammo_casing/last_round = pop(stored_ammo)
 		qdel(src)
 		last_round.loc = old_loc
 		return 0
@@ -51,46 +51,47 @@
 	if (overlays.len == stored_ammo.len)
 		return
 	var/diff = stored_ammo.len - overlays.len
-	for (var/i = stored_ammo.len, i != (overlays.len + Sign(diff)), i = i - Sign(diff)) // Will either add or subtract depending on the sign of diff
-		if (diff < 0)
+	if (diff < 0)
+		while (stored_ammo.len != overlays.len)
 			overlays.len-- // delete our overlays one at a time
-			continue
-		var/obj/item/ammo_casing/ammo = stored_ammo[i]
-		var/ammo_path = ammo.type // or else we add new overlays depending on ammo types
-		var/icon/new_icon
-		if (ammo_path == /obj/item/ammo_casing/c38)
-			new_icon = image('icons/obj/ammo_stacks.dmi', icon_state = "casing", dir = pick(cardinal))
-		else if (ammo_path == /obj/item/ammo_casing/c38r)
-			new_icon = image('icons/obj/ammo_stacks.dmi', icon_state = "casing_r", dir = pick(cardinal))
-		else if (ammo_path == /obj/item/ammo_casing/shotgun/stunshell)
-			new_icon = image('icons/obj/ammo_stacks.dmi', icon_state = "shell_stun", dir = pick(cardinal))
-		else if (ammo_path == /obj/item/ammo_casing/shotgun/flash)
-			new_icon = image('icons/obj/ammo_stacks.dmi', icon_state = "shell_flash", dir = pick(cardinal))
-		else if (ammo_path == /obj/item/ammo_casing/shotgun/incendiary)
-			new_icon = image('icons/obj/ammo_stacks.dmi', icon_state = "shell_incend", dir = pick(cardinal))
-		else if (istype(ammo_path, /obj/item/ammo_casing/shotgun))
-			new_icon = image('icons/obj/ammo_stacks.dmi', icon_state = "shell", dir = pick(cardinal))
-			switch (ammo_path)
-				if (/obj/item/ammo_casing/shotgun) // shotgun slug is black
-					new_icon.SwapColor(SHELL_BASE_COLOR, rgb(50, 50, 50))
-					new_icon.SwapColor(SHELL_SEC_COLOR, rgb(87, 87, 87))
-				if (/obj/item/ammo_casing/shotgun/pellet) // shotgun pellet is red
-					new_icon.SwapColor(SHELL_BASE_COLOR, rgb(128, 0, 0))
-					new_icon.SwapColor(SHELL_SEC_COLOR, rgb(153, 33, 33))
-				if (/obj/item/ammo_casing/shotgun/beanbag) // shotgun beanbag is green
-					new_icon.SwapColor(SHELL_BASE_COLOR, rgb(24, 123, 6))
-					new_icon.SwapColor(SHELL_SEC_COLOR, rgb(30, 105, 3))
-				if (/obj/item/projectile/bullet/shotgun/practice) // shotgun practice is white/red
-					new_icon.SwapColor(SHELL_SEC_COLOR, rgb(153, 33, 33))
-		if (prob(50))
-			new_icon.Flip(pick(cardinal))
-		overlays += new_icon.Shift(pick(alldirs), rand(0, 8))
+	else
+		for (var/i in overlays.len to stored_ammo.len)
+			var/obj/item/ammo_casing/ammo = stored_ammo[i+1]
+			var/ammo_path = ammo.type // or else we add new overlays depending on ammo types
+			var/icon/new_icon
+			if (ammo_path == /obj/item/ammo_casing/c38)
+				new_icon = icon('icons/obj/ammo_stacks.dmi', icon_state = "casing", dir = pick(cardinal))
+			else if (ammo_path == /obj/item/ammo_casing/c38r)
+				new_icon = icon('icons/obj/ammo_stacks.dmi', icon_state = "casing_r", dir = pick(cardinal))
+			else if (ammo_path == /obj/item/ammo_casing/shotgun/stunshell)
+				new_icon = icon('icons/obj/ammo_stacks.dmi', icon_state = "shell_stun", dir = pick(cardinal))
+			else if (ammo_path == /obj/item/ammo_casing/shotgun/flash)
+				new_icon = icon('icons/obj/ammo_stacks.dmi', icon_state = "shell_flash", dir = pick(cardinal))
+			else if (ammo_path == /obj/item/ammo_casing/shotgun/incendiary)
+				new_icon = icon('icons/obj/ammo_stacks.dmi', icon_state = "shell_incend", dir = pick(cardinal))
+			else if (istype(ammo_path, /obj/item/ammo_casing/shotgun))
+				new_icon = icon('icons/obj/ammo_stacks.dmi', icon_state = "shell", dir = pick(cardinal))
+				switch (ammo_path)
+					if (/obj/item/ammo_casing/shotgun) // shotgun slug is black
+						new_icon.SwapColor(SHELL_BASE_COLOR, rgb(50, 50, 50))
+						new_icon.SwapColor(SHELL_SEC_COLOR, rgb(87, 87, 87))
+					if (/obj/item/ammo_casing/shotgun/pellet) // shotgun pellet is red
+						new_icon.SwapColor(SHELL_BASE_COLOR, rgb(128, 0, 0))
+						new_icon.SwapColor(SHELL_SEC_COLOR, rgb(153, 33, 33))
+					if (/obj/item/ammo_casing/shotgun/beanbag) // shotgun beanbag is green
+						new_icon.SwapColor(SHELL_BASE_COLOR, rgb(24, 123, 6))
+						new_icon.SwapColor(SHELL_SEC_COLOR, rgb(30, 105, 3))
+					if (/obj/item/projectile/bullet/shotgun/practice) // shotgun practice is white/red
+						new_icon.SwapColor(SHELL_SEC_COLOR, rgb(153, 33, 33))
+			if (prob(50))
+				new_icon.Flip(pick(cardinal))
+			overlays += new_icon.Shift(pick(alldirs), rand(0, 8))
 
 /obj/item/stack/ammunition/attackby(obj/item/I as obj, mob/user as mob)
 	if (istype(I, /obj/item/ammo_casing))
 		var/obj/item/ammo_casing/C = I
 		if (C.caliber == src.get_ammo_caliber())
-			stored_ammo.Add(C)
+			stored_ammo.Insert(1, C)
 			update_stack_data()
 			if (src.loc == user)
 				user << "<span class='notice'>You add \the [C.caliber] [C.stack_singular_name] to the pile.</span>"
@@ -106,9 +107,9 @@
 			overlays.Cut()
 			update_stack_data()
 			if (src.loc == user)
-				user << "<span class='notice'>You add \the [S.caliber] [S.stack_plural_name] to the pile.</span>"
+				user << "<span class='notice'>You add \the [S.get_ammo_caliber()] ammo to the pile.</span>"
 			else
-				user.visible_message("<span class='notice'>[user] adds \the [S.caliber] [S.stack_plural_name] a pile of [name].",
-					                 "<span class='notice'>You add \the [S.caliber] [S.stack_plural_name] to the pile.</span>")
+				user.visible_message("<span class='notice'>[user] adds \the [S.get_ammo_caliber()] ammo to a pile of [name].",
+					                 "<span class='notice'>You add \the [S.get_ammo_caliber()] ammo to the pile.</span>")
 		else
 			user << "<span class='warning'>You shouldn't mix different ammo caliber types!</span>"

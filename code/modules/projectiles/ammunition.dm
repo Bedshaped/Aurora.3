@@ -31,8 +31,8 @@
 	set_dir(pick(cardinal)) //spin spent casings
 	update_icon()
 
-/obj/item/ammo_casing/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(istype(W, /obj/item/weapon/screwdriver))
+/obj/item/ammo_casing/attackby(obj/item/I as obj, mob/user as mob)
+	if(istype(I, /obj/item/weapon/screwdriver))
 		if(!BB)
 			user << "\blue There is no bullet in the casing to inscribe anything into."
 			return
@@ -48,7 +48,19 @@
 			user << "\blue You inscribe \"[label_text]\" into \the [initial(BB.name)]."
 			BB.name = "[initial(BB.name)] (\"[label_text]\")"
 
-	..()
+	else if (istype(I, /obj/item/ammo_casing))
+		var/obj/item/ammo_casing/C = I
+		if (caliber == C.caliber)
+			var/obj/item/stack/ammunition/S = new(src)
+			S.stored_ammo.Insert(1, C)
+			S.stored_ammo.Insert(1, src)
+			qdel(C)
+			qdel(src)
+			S.update_stack_data()
+		else
+			user << "<span class='warning'>You shouldn't mix different ammo caliber types!</span>"
+	else
+		..()
 
 /obj/item/ammo_casing/update_icon()
 	if(spent_icon && !BB)
