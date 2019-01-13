@@ -14,6 +14,8 @@
 #define OUTDATED_MEMO 2
 #define OUTDATED_NOTE 4
 
+#define JS_SANITIZE(msg) list2params(list(json_encode(msg)))
+
 /datum/server_greeting
 	// Hashes to figure out if we need to display the greeting message.
 	// These correspond to motd_hash and memo_hash on /datum/preferences for each client.
@@ -21,23 +23,18 @@
 	var/memo_hash = ""
 
 	// The stored strings of general subcomponents.
-	var/motd = ""
-	var/memo_list[] = list()
-	var/memo = ""
+	var/motd = "<center>No new announcements to showcase.</center>"
 
-	var/raw_data_user = ""
-	var/raw_data_staff = ""
-	// The near-final string to be displayed.
-	// Only one placeholder remains: <!--notifications-->.
-	var/user_data = ""
-	var/staff_data = ""
+	var/memo_list[] = list()
+	var/memo = "<center>No memos have been posted.</center>"
+
+	// Cached outdated information.
+	var/list/client_cache = list()
 
 /datum/server_greeting/New()
 	..()
 
 	load_from_file()
-
-	prepare_data()
 
 /*
  * Populates variables from save file, and loads the raw HTML data.
@@ -49,53 +46,50 @@
 		if (F["motd"])
 			F["motd"] >> motd
 
-		if (F["memo"])
-			F["memo"] >> memo_list
+		if (!config.use_discord_pins)
+			if (F["memo"])
+				F["memo"] >> memo_list
 
-	raw_data_staff = file2text('html/templates/welcome_screen.html')
-
-	// This is a lazy way, but it disables the user from being able to see the memo button.
-	var/staff_button = "<li role=\"presentation\" id=\"memo-tab\"><a href=\"#memo\" aria-controls=\"memo\" role=\"tab\" data-toggle=\"tab\">Staff Memos</a></li>"
-	raw_data_user = replacetextEx(raw_data_staff, staff_button, "")
+	update_data()
 
 /*
- * Generates hashes, placeholders, and reparses var/memo.
- * Then updates staff_data and user_data with the new contents.
- * To be called after load_from_file or update_value.
+ * A helper to regenerate the hashes for all data fields.
+ * As well as to reparse the staff memo list.
+ * Separated for the sake of avoiding the duplication of code.
  */
-/datum/server_greeting/proc/prepare_data()
-	if (!motd)
-		motd = "<center>No new announcements to showcase.</center>"
-		motd_hash = ""
-	else
+/datum/server_greeting/proc/update_data()
+	if (motd)
 		motd_hash = md5(motd)
-
-	memo = ""
-
-	if (memo_list.len)
-		for (var/ckey in memo_list)
-			var/data = {"
-			<p><b>[ckey]</b> wrote on [memo_list[ckey]["date"]]:<br>
-			[memo_list[ckey]["content"]]</p>
-			"}
-
-			memo += data
-
-		memo_hash = md5(memo)
 	else
-		memo = "<center>No memos have been posted.</center>"
-		memo_hash = ""
+		motd = initial(motd)
+		motd_hash = ""
 
-	var/html_one = raw_data_staff
-	html_one = replacetextEx(html_one, "<!--motd-->", motd)
-	html_one = replacetextEx(html_one, "<!--memo-->", memo)
-	staff_data = html_one
+	if (!config.use_discord_pins)
+	// The initialization of memos in case use_discord_pins == 1 is done in discord_bot.dm
+	// Primary reason is to avoid null references when the bot isn't created yet.
+		if (memo_list.len)
+			memo = ""
+			for (var/ckey in memo_list)
+				var/data = {"<p><b>[ckey]</b> wrote on [memo_list[ckey]["date"]]:<br>
+				[memo_list[ckey]["content"]]</p>"}
 
-	var/html_two = raw_data_user
-	html_two = replacetextEx(html_two, "<!--motd-->", motd)
-	user_data = html_two
+				memo += data
 
-	return
+			memo_hash = md5(memo)
+		else
+			memo = initial(memo)
+			memo_hash = ""
+
+/datum/server_greeting/proc/update_pins()
+	var/list/temp_list = discord_bot.retreive_pins()
+
+	// A is a number in a string form
+	// temp_list[A] is a list of lists.
+	for (var/A in temp_list)
+		var/list/memos = temp_list[A]
+		var/flag = text2num(A)
+
+		memo_list += new /datum/memo_datum(memos, flag)
 
 /*
  * Helper to update the MoTD or memo contents.
@@ -113,12 +107,17 @@
 	switch (change)
 		if ("motd")
 			motd = new_value
-			motd_hash = md5(new_value)
 
 		if ("memo_write")
+			if (config.use_discord_pins)
+				return 0
+
 			memo_list[new_value[1]] = list("date" = time2text(world.realtime, "DD-MMM-YYYY"), "content" = new_value[2])
 
 		if ("memo_delete")
+			if (config.use_discord_pins)
+				return 0
+
 			if (memo_list[new_value])
 				memo_list -= new_value
 			else
@@ -131,7 +130,7 @@
 	F["motd"] << motd
 	F["memo"] << memo_list
 
-	prepare_data()
+	update_data()
 
 	return 1
 
@@ -142,70 +141,212 @@
  * Returns:
  * - int
  */
-/datum/server_greeting/proc/find_outdated_info(var/client/user)
+/datum/server_greeting/proc/find_outdated_info(var/client/user, var/force_eval = 0)
 	if (!user || !user.prefs)
 		return 0
+
+	if (!force_eval && !isnull(client_cache[user]))
+		return client_cache[user]
 
 	var/outdated_info = 0
 
 	if (motd_hash && user.prefs.motd_hash != motd_hash)
 		outdated_info |= OUTDATED_MOTD
 
-	if (user.holder && memo_hash && user.prefs.memo_hash != memo_hash)
+	if (user.holder && user.prefs.memo_hash != get_memo_hash(user))
 		outdated_info |= OUTDATED_MEMO
 
 	if (user.prefs.notifications.len)
 		outdated_info |= OUTDATED_NOTE
 
+	client_cache[user] = outdated_info
+
 	return outdated_info
 
 /*
- * Composes the final message and displays it to the user.
- * Also clears the user's notifications, should he have any.
+ * A proc used to open the server greeting window for a user.
+ * Args:
+ * - var/user client
+ * - var/outdated_info int
  */
-/datum/server_greeting/proc/display_to_client(var/client/user, var/outdated_info = 0)
+/datum/server_greeting/proc/display_to_client(var/client/user)
 	if (!user)
 		return
 
-	var/notifications = "<div class=\"row\"><div class=\"alert alert-info\">You do not have any notifications to show.</div></div>"
-	var/list/outdated_tabs = list()
-	var/save_prefs = 0
+	user.info_sent = 0
+
+	// Make sure the user has the welcome screen assets.
+	var/datum/asset/welcome = get_asset_datum(/datum/asset/simple/misc)
+	welcome.send(user)
+
+	user << browse('html/templates/welcome_screen.html', "window=greeting;size=800x500")
+
+/*
+ * A proc used to close the server greeting window for a user.
+ * Args:
+ * - var/user client
+ * - var/reason text
+ */
+/datum/server_greeting/proc/close_window(var/client/user, var/reason)
+	if (!user)
+		return
+
+	if (reason)
+		user << span("notice", reason)
+
+	user << browse(null, "window=greeting")
+
+/*
+ * Sends data to the JS controllers used in the server greeting.
+ * Also updates the user's preferences, if any of the hashes were out of date.
+ * Args:
+ * - var/user client
+ * - var/outdated_info int
+ */
+/datum/server_greeting/proc/send_to_javascript(var/client/user)
+	if (!user)
+		return
+
+	// This is fine now, because it uses cached information.
+	var/outdated_info = server_greeting.find_outdated_info(user)
+
+	var/list/data = list("div" = "", "content" = "", "update" = 1, "changeHash" = null)
 
 	if (outdated_info & OUTDATED_NOTE)
-		outdated_tabs += "#note-tab"
+		user << output("#note-placeholder", "greeting.browser:RemoveElement")
 
-		notifications = ""
+		data["div"] = "#note"
+		data["update"] = 1
+
 		for (var/datum/client_notification/a in user.prefs.notifications)
-			notifications += a.get_html()
+			data["content"] = a.get_html()
+			user << output(JS_SANITIZE(data), "greeting.browser:AddContent")
 
-	if (outdated_info & OUTDATED_MEMO)
-		outdated_tabs += "#memo-tab"
-		user.prefs.memo_hash = memo_hash
-		save_prefs = 1
+	if (!user.holder)
+		user << output("#memo-tab", "greeting.browser:RemoveElement")
+	else
+		if (outdated_info & OUTDATED_MEMO)
+			data["update"] = 1
+			data["changeHash"] = get_memo_hash(user)
+		else
+			data["update"] = 0
+			data["changeHash"] = null
+
+		data["div"] = "#memo"
+		data["content"] = get_memo_content(user)
+		user << output(JS_SANITIZE(data), "greeting.browser:AddContent")
 
 	if (outdated_info & OUTDATED_MOTD)
-		outdated_tabs += "#motd-tab"
-		user.prefs.motd_hash = motd_hash
-		save_prefs = 1
+		data["update"] = 1
+		data["changeHash"] = motd_hash
+	else
+		data["update"] = 0
+		data["changeHash"] = null
 
-	var/data = user_data
+	data["div"] = "#motd"
+	data["content"] = motd
+	user << output(JS_SANITIZE(data), "greeting.browser:AddContent")
 
-	if (user.holder)
-		data = staff_data
+	data["div"] = "#testmerges"
+	data["content"] = revdata.greeting_info
 
-	data = replacetextEx(data, "<!--note-->", notifications)
+	if (revdata.test_merges.len)
+		data["update"] = 1
+	else
+		data["update"] = 0
+	data["changeHash"] = null
+	user << output(JS_SANITIZE(data), "greeting.browser:AddContent")
 
-	if (outdated_tabs.len)
-		var/tab_string = json_encode(outdated_tabs)
-		data = replacetextEx(data, "var updated_tabs = \[\]", "var updated_tabs = [tab_string]")
+/*
+ * Basically the Topic proc for the greeting datum.
+ */
+/datum/server_greeting/proc/handle_call(var/href_list, var/client/C)
+	if (!href_list || !href_list["command"] || !C)
+		return
 
-	user << browse(data, "window=welcome_screen;size=640x500")
+	switch (href_list["command"])
+		if ("request_data")
+			send_to_javascript(C)
 
-	if (save_prefs)
-		user.prefs.handle_preferences_save(user)
+/*
+ * Gets the appropriate memo hash for the memo system in use.
+ * Args:
+ * - var/C client
+ * Returns:
+ * - string
+ */
+/datum/server_greeting/proc/get_memo_hash(var/client/C)
+	if (!C || !C.holder)
+		return ""
+
+	if (!config.use_discord_pins)
+		return memo_hash
+
+	var/joint_checksum = ""
+	for (var/A in memo_list)
+		var/datum/memo_datum/memo = A
+		if (C.holder.rights & memo.flag)
+			joint_checksum += memo.hash
+
+	return md5(joint_checksum)
+
+/*
+ * Gets the appropriate memo content for the memo system in use.
+ * Args:
+ * - var/C client
+ * Returns:
+ * - string if old memo system is used (config.use_discord_pins = 0)
+ * - list of strings if new memo system is used
+ */
+/datum/server_greeting/proc/get_memo_content(var/client/C)
+	if (!C || !C.holder)
+		return ""
+
+	if (!config.use_discord_pins)
+		return memo
+
+	var/list/content = list()
+	for (var/A in memo_list)
+		var/datum/memo_datum/memo = A
+		if (C.holder.rights & memo.flag)
+			content += memo.contents
+
+	return content
+
+/datum/memo_datum
+	var/contents
+	var/hash
+	var/flag
+
+/datum/memo_datum/New(var/list/input = list(), var/_flag)
+	flag = _flag
+
+	// Yes. This is an unfortunately acceptable way of doing it.
+	// Why? Because you cannot use numbers as indexes in an assoc list without fucking DM.
+	var/static/list/flags_to_divs = list("[R_ADMIN]" = "danger",
+										"[R_MOD]" = "warning",
+										"[(R_MOD|R_ADMIN)]" = "warning",
+										"[R_CCIAA]" = "info",
+										"[R_DEV]" = "info")
+
+	if (input.len)
+		contents = "<div class='alert alert-[flags_to_divs["[flag]"]]'>"
+		for (var/i = 1, i <= input.len, i++)
+			contents += "<b>[input[i]["author"]]</b> wrote:<br>[nl2br(input[i]["content"])]"
+
+			if (i < input.len)
+				contents += "<hr></hr>"
+
+		contents += "</div>"
+	else
+		contents = ""
+
+	hash = md5(contents)
 
 #undef OUTDATED_NOTE
 #undef OUTDATED_MEMO
 #undef OUTDATED_MOTD
 
 #undef MEMOFILE
+
+#undef JS_SANITIZE

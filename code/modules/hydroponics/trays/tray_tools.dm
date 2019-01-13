@@ -32,8 +32,7 @@
 		user << "There is no scan data to print."
 		return
 	var/obj/item/weapon/paper/P = new /obj/item/weapon/paper(get_turf(src))
-	P.name = "paper - [form_title]"
-	P.info = "[last_data]"
+	P.set_content_unsafe("paper - [form_title]", "[last_data]")
 	if(istype(user,/mob/living/carbon/human) && !(user.l_hand && user.r_hand))
 		user.put_in_hands(P)
 	user.visible_message("\The [src] spits out a piece of paper.")
@@ -53,13 +52,13 @@
 	else if(istype(target,/obj/item/weapon/reagent_containers/food/snacks/grown))
 
 		var/obj/item/weapon/reagent_containers/food/snacks/grown/G = target
-		grown_seed = plant_controller.seeds[G.plantname]
+		grown_seed = SSplants.seeds[G.plantname]
 		grown_reagents = G.reagents
 
 	else if(istype(target,/obj/item/weapon/grown))
 
 		var/obj/item/weapon/grown/G = target
-		grown_seed = plant_controller.seeds[G.plantname]
+		grown_seed = SSplants.seeds[G.plantname]
 		grown_reagents = G.reagents
 
 	else if(istype(target,/obj/item/seeds))
@@ -197,6 +196,12 @@
 
 	if(grown_seed.get_trait(TRAIT_TELEPORTING))
 		dat += "<br>The fruit is temporal/spatially unstable."
+
+	if(grown_seed.get_trait(TRAIT_EXUDE_GASSES))
+		dat += "<br>It will release gas into the environment."
+
+	if(grown_seed.get_trait(TRAIT_CONSUME_GASSES))
+		dat += "<br>It will remove gas from the environment."
 
 	if(dat)
 		last_data = dat

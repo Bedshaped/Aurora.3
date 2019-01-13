@@ -2,7 +2,7 @@
 	name = "gas mask"
 	desc = "A face-covering mask that can be connected to an air supply. Filters harmful gases from the air."
 	icon_state = "gas_alt"
-	flags = MASKCOVERSMOUTH | MASKCOVERSEYES | BLOCK_GAS_SMOKE_EFFECT | AIRTIGHT
+	item_flags = BLOCK_GAS_SMOKE_EFFECT | AIRTIGHT
 	flags_inv = HIDEEARS|HIDEEYES|HIDEFACE
 	body_parts_covered = FACE|EYES
 	w_class = 3.0
@@ -27,6 +27,18 @@
 
 	return filtered
 
+/obj/item/clothing/mask/gas/alt
+	desc = "A face-covering mask that can be connected to an air supply. Filters harmful gases from the air. Doesn't seem to mask the face as much as older designs."
+	flags_inv = HIDEEARS
+	item_state = "gas_alt_alt"
+	icon_state = "gas_alt_alt"
+
+/obj/item/clothing/mask/gas/old
+	desc = "A face-covering mask that can be connected to an air supply. Seems to be an old, outdated design."
+	filtered_gases = list("sleeping_agent")
+	item_state = "gas_mask"
+	icon_state = "gas_mask"
+
 //Plague Dr suit can be found in clothing/suits/bio.dm
 /obj/item/clothing/mask/gas/plaguedoctor
 	name = "plague doctor mask"
@@ -34,7 +46,7 @@
 	icon_state = "plaguedoctor"
 	item_state = "gas_mask"
 	armor = list(melee = 0, bullet = 0, laser = 2,energy = 2, bomb = 0, bio = 90, rad = 0)
-	body_parts_covered = HEAD|FACE
+	body_parts_covered = HEAD|FACE|EYES
 
 /obj/item/clothing/mask/gas/swat
 	name = "\improper SWAT mask"
@@ -46,7 +58,7 @@
 /obj/item/clothing/mask/gas/swat/vox
 	name = "\improper alien mask"
 	desc = "Clearly not designed for a human face."
-	body_parts_covered = 0 //Hack to allow vox to eat while wearing this mask. 
+	body_parts_covered = 0 //Hack to allow vox to eat while wearing this mask.
 	species_restricted = list("Vox")
 
 /obj/item/clothing/mask/gas/syndicate
@@ -86,12 +98,6 @@
 	icon_state = "sexymime"
 	item_state = "sexymime"
 
-/obj/item/clothing/mask/gas/death_commando
-	name = "Death Commando Mask"
-	icon_state = "death_commando_mask"
-	item_state = "death_commando_mask"
-	siemens_coefficient = 0.2
-
 /obj/item/clothing/mask/gas/cyborg
 	name = "cyborg visor"
 	desc = "Beep boop"
@@ -101,3 +107,12 @@
 	name = "owl mask"
 	desc = "Twoooo!"
 	icon_state = "owl"
+	body_parts_covered = HEAD|FACE|EYES
+
+/obj/item/clothing/mask/gas/tactical
+	name = "tactical mask"
+	desc = "A compact carbon-fiber respirator covering the mouth and nose to protect against the inhalation of smoke and other harmful gasses. "
+	icon_state = "fullgas"
+	item_state = "fullgas"
+	w_class = 2.0
+	armor = list(melee = 25, bullet = 10, laser = 25, energy = 25, bomb = 0, bio = 50, rad = 15)

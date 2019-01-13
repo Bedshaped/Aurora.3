@@ -41,11 +41,11 @@ In short:
 
 // Apply changes when entering state
 /datum/universal_state/hell/OnEnter()
-	set background = 1
-	garbage_collector.garbage_collect = 0
+	SSgarbage.disable()	// Yeah, fuck it. No point hard-deleting stuff now.
 
 	escape_list = get_area_turfs(locate(/area/hallway/secondary/exit))
 
+	convert_all_parallax()
 	//Separated into separate procs for profiling
 	AreaSet()
 	MiscSet()
@@ -55,41 +55,70 @@ In short:
 
 	runedec += 9000	//basically removing the rune cap
 
-
 /datum/universal_state/hell/proc/AreaSet()
 	for(var/area/A in all_areas)
 		if(!istype(A,/area) || istype(A, /area/space))
 			continue
 
-		A.updateicon()
+		A.queue_icon_update()
+		CHECK_TICK
 
 /datum/universal_state/hell/OverlayAndAmbientSet()
-	spawn(0)
-		for(var/atom/movable/lighting_overlay/L in world)
-			L.update_lumcount(1, 0, 0)
+	set waitfor = FALSE
+	for(var/thing in turfs)	// Expensive, but CHECK_TICK should prevent lag.
+		var/turf/T = thing
+		if(istype(T, /turf/space))
+			T.add_overlay("hell01")
+		else
+			var/static/image/I = image('icons/turf/space.dmi', "hell01")
+			T.underlays += I
 
-		for(var/turf/space/T in turfs)
-			OnTurfChange(T)
-
-/datum/universal_state/hell/proc/MiscSet()
-	for(var/turf/simulated/floor/T in turfs)
-		if(!T.holy && prob(1))
+		if (istype(T, /turf/simulated/floor) && !T.holy && prob(1))
 			new /obj/effect/gateway/active/cult(T)
 
-	for (var/obj/machinery/firealarm/alm in machines)
+		CHECK_TICK
+
+	for(var/datum/lighting_corner/C in SSlighting.lighting_corners)
+		if (!C.active)
+			continue
+
+		C.update_lumcount(0.5, 0, 0)
+		CHECK_TICK
+
+/datum/universal_state/hell/proc/MiscSet()
+	for (var/obj/machinery/firealarm/alm in SSmachinery.processing_machines)
 		if (!(alm.stat & BROKEN))
 			alm.ex_act(2)
+		CHECK_TICK
 
 /datum/universal_state/hell/proc/APCSet()
-	for (var/obj/machinery/power/apc/APC in machines)
+	for (var/obj/machinery/power/apc/APC in SSmachinery.processing_machines)
 		if (!(APC.stat & BROKEN) && !APC.is_critical)
 			APC.chargemode = 0
 			if(APC.cell)
 				APC.cell.charge = 0
 			APC.emagged = 1
 			APC.queue_icon_update()
+		CHECK_TICK
 
 /datum/universal_state/hell/proc/KillMobs()
 	for(var/mob/living/simple_animal/M in mob_list)
 		if(M && !M.client)
 			M.stat = DEAD
+		CHECK_TICK
+
+// Parallax.
+
+/datum/universal_state/hell/convert_parallax(obj/screen/plane_master/parallax_spacemaster/PS)
+	PS.color = list(
+	0,0,0,0,
+	0,0,0,0,
+	0,0,0,0,
+	1,0,0,1)
+
+/datum/universal_state/hell/proc/convert_all_parallax()
+	for(var/client/C in clients)
+		var/obj/screen/plane_master/parallax_spacemaster/PS = locate() in C.screen
+		if(PS)
+			convert_parallax(PS)
+		CHECK_TICK

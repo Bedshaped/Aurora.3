@@ -2,6 +2,7 @@
 #define FARMBOT_WATER 2
 #define FARMBOT_UPROOT 3
 #define FARMBOT_NUTRIMENT 4
+#define FARMBOT_PESTKILL 5
 
 /mob/living/bot/farmbot
 	name = "Farmbot"
@@ -10,7 +11,7 @@
 	icon_state = "farmbot0"
 	health = 50
 	maxHealth = 50
-	req_access = list(access_hydroponics)
+	req_one_access = list(access_hydroponics, access_robotics)
 
 	var/action = "" // Used to update icon
 	var/waters_trays = 1
@@ -19,6 +20,7 @@
 	var/replaces_nutriment = 0
 	var/collects_produce = 0
 	var/removes_dead = 0
+	var/eliminates_pests = 0
 
 	var/obj/structure/reagent_dispensers/watertank/tank
 
@@ -27,19 +29,27 @@
 	var/atom/target
 	var/frustration = 0
 
-/mob/living/bot/farmbot/New()
-	..()
-	spawn(5)
-		tank = locate() in contents
-		if(!tank)
-			tank = new /obj/structure/reagent_dispensers/watertank(src)
+/mob/living/bot/farmbot/Initialize()
+	. = ..()
+	tank = locate() in contents
+	if(!tank)
+		tank = new /obj/structure/reagent_dispensers/watertank(src)
+
+/mob/living/bot/farmbot/Destroy()
+	QDEL_NULL(tank)
+	return ..()
 
 /mob/living/bot/farmbot/attack_hand(var/mob/user as mob)
 	. = ..()
 	if(.)
 		return
+
+	if (!has_ui_access(user))
+		user << "<span class='warning'>The unit's interface refuses to unlock!</span>"
+		return
+
 	var/dat = ""
-	dat += "<TT><B>Automatic Hyrdoponic Assisting Unit v1.0</B></TT><BR><BR>"
+	dat += "<TT><B>Automatic Hyrdoponic Assisting Unit v1.1</B></TT><BR><BR>"
 	dat += "Status: <A href='?src=\ref[src];power=1'>[on ? "On" : "Off"]</A><BR>"
 	dat += "Water Tank: "
 	if (tank)
@@ -47,12 +57,13 @@
 	else
 		dat += "Error: Watertank not found"
 	dat += "<br>Behaviour controls are [locked ? "locked" : "unlocked"]<hr>"
-	if(!locked)
+	if(!locked || issilicon(usr))
 		dat += "<TT>Watering controls:<br>"
 		dat += "Water plants : <A href='?src=\ref[src];water=1'>[waters_trays ? "Yes" : "No"]</A><BR>"
 		dat += "Refill watertank : <A href='?src=\ref[src];refill=1'>[refills_water ? "Yes" : "No"]</A><BR>"
-		dat += "<br>Weeding controls:<br>"
+		dat += "<br>Preventive measures:<br>"
 		dat += "Weed plants: <A href='?src=\ref[src];weed=1'>[uproots_weeds ? "Yes" : "No"]</A><BR>"
+		dat += "Eradicate pests: <A href='?src=\ref[src];eradicatespests=1'>[removes_dead ? "Yes" : "No"]</A><BR>"
 		dat += "<br>Nutriment controls:<br>"
 		dat += "Replace fertilizer: <A href='?src=\ref[src];replacenutri=1'>[replaces_nutriment ? "Yes" : "No"]</A><BR>"
 		dat += "<br>Plant controls:<br>"
@@ -60,30 +71,37 @@
 		dat += "Remove dead plants: <A href='?src=\ref[src];removedead=1'>[removes_dead ? "Yes" : "No"]</A><BR>"
 		dat += "</TT>"
 
-	user << browse("<HEAD><TITLE>Farmbot v1.0 controls</TITLE></HEAD>[dat]", "window=autofarm")
+	user << browse("<HEAD><TITLE>Farmbot v1.1 controls</TITLE></HEAD>[dat]", "window=autofarm")
 	onclose(user, "autofarm")
 	return
 
-/mob/living/bot/farmbot/Emag(var/mob/user)
-	..()
-	if(user)
-		user << "<span class='notice'>You short out [src]'s plant identifier circuits.</span>"
-	spawn(rand(30, 50))
-		visible_message("<span class='warning'>[src] buzzes oddly.</span>")
-		emagged = 1
+/mob/living/bot/farmbot/emag_act(var/remaining_charges, var/mob/user)
+	. = ..()
+	if(!emagged)
+		if(user)
+			user << "<span class='notice'>You short out [src]'s plant identifier circuits.</span>"
+		spawn(rand(30, 50))
+			visible_message("<span class='warning'>[src] buzzes oddly.</span>")
+			emagged = 1
+		return 1
 
 /mob/living/bot/farmbot/Topic(href, href_list)
 	if(..())
 		return
 	usr.machine = src
 	add_fingerprint(usr)
-	if((href_list["power"]) && (access_scanner.allowed(usr)))
+
+	if (!has_ui_access(usr))
+		usr << "<span class='warning'>Insufficient permissions.</span>"
+		return
+
+	if(href_list["power"])
 		if(on)
 			turn_off()
 		else
 			turn_on()
 
-	if(locked)
+	if(locked && !issilicon(usr))
 		return
 
 	if(href_list["water"])
@@ -98,6 +116,8 @@
 		collects_produce = !collects_produce
 	else if(href_list["removedead"])
 		removes_dead = !removes_dead
+	else if(href_list["eradicatespests"])
+		eliminates_pests = !eliminates_pests
 
 	attack_hand(usr)
 	return
@@ -110,27 +130,30 @@
 
 /mob/living/bot/farmbot/Life()
 	..()
-	if(!on)
-		return
 	if(emagged && prob(1))
 		flick("farmbot_broke", src)
-	if(client)
+
+/mob/living/bot/farmbot/think()
+	..()
+	if(!on)
 		return
 
 	if(target)
 		if(Adjacent(target))
-			UnarmedAttack(target)
+			INVOKE_ASYNC(src, .proc/UnarmedAttack, target)
 			path = list()
 			target = null
 		else
 			if(path.len && frustration < 5)
 				if(path[1] == loc)
 					path -= path[1]
-				var/t = step_towards(src, path[1])
-				if(t)
-					path -= path[1]
-				else
-					++frustration
+
+				if (path.len)
+					var/t = step_towards(src, path[1])
+					if(t)
+						path -= path[1]
+					else
+						++frustration
 			else
 				path = list()
 				target = null
@@ -145,7 +168,7 @@
 					target = tray
 					frustration = 0
 					break
-			if(!target && refills_water && tank && tank.reagents.total_volume < tank.reagents.maximum_volume)
+			if(check_tank())
 				for(var/obj/structure/sink/source in view(7, src))
 					target = source
 					frustration = 0
@@ -169,7 +192,7 @@
 			if(0)
 				return
 			if(FARMBOT_COLLECT)
-				action = "water" // Needs a better one
+				action = "collect"
 				update_icons()
 				visible_message("<span class='notice'>[src] starts [T.dead? "removing the plant from" : "harvesting"] \the [A].</span>")
 				attacking = 1
@@ -193,6 +216,17 @@
 				if(do_after(src, 30))
 					visible_message("<span class='notice'>[src] uproots the weeds in \the [A].</span>")
 					T.weedlevel = 0
+					T.update_icon()
+			if(FARMBOT_PESTKILL)
+				action = "hoe"
+				update_icons()
+				visible_message("<span class='notice'>[src] starts eliminating the pests in \the [A].</span>")
+				attacking = 1
+				if(do_after(src, 30))
+					visible_message("<span class='notice'>[src] decimates the pests in \the [A].</span>")
+					T.pestlevel = 0
+					T.reagents.add_reagent("nutriment", 0.5)
+					T.update_icon()
 			if(FARMBOT_NUTRIMENT)
 				action = "fertile"
 				update_icons()
@@ -248,14 +282,12 @@
 	new /obj/item/device/analyzer/plant_analyzer(Tsec)
 
 	if(tank)
-		tank.loc = Tsec
+		tank.forceMove(Tsec)
 
 	if(prob(50))
 		new /obj/item/robot_parts/l_arm(Tsec)
 
-	var/datum/effect/effect/system/spark_spread/s = new /datum/effect/effect/system/spark_spread
-	s.set_up(3, 1, src)
-	s.start()
+	spark(src, 3, alldirs)
 	qdel(src)
 	return
 
@@ -269,18 +301,26 @@
 	if(tray.dead && removes_dead || tray.harvest && collects_produce)
 		return FARMBOT_COLLECT
 
-	else if(refills_water && tray.waterlevel < 40 && !tray.reagents.has_reagent("water"))
+	else if(waters_trays && tray.waterlevel < 10 && !tray.reagents.has_reagent("water"))
 		return FARMBOT_WATER
 
-	else if(uproots_weeds && tray.weedlevel > 3)
+	else if(uproots_weeds && tray.weedlevel >= 5)
 		return FARMBOT_UPROOT
 
-	else if(replaces_nutriment && tray.nutrilevel < 1 && tray.reagents.total_volume < 1)
+	else if(eliminates_pests && tray.pestlevel >= 3)
+		return FARMBOT_PESTKILL
+
+	else if(replaces_nutriment && tray.nutrilevel < 2 && tray.reagents.total_volume < 1)
 		return FARMBOT_NUTRIMENT
 
 	return 0
 
 // Assembly
+
+/mob/living/bot/farmbot/proc/check_tank()
+    if(!tank)
+        return FALSE
+    return ((!target && refills_water && tank.reagents.total_volume < tank.reagents.maximum_volume) || ((tank.reagents.total_volume ) / reagents.maximum_volume) <= 0.3)
 
 /obj/item/weapon/farmbot_arm_assembly
 	name = "water tank/robot arm assembly"
@@ -291,14 +331,6 @@
 	var/created_name = "Farmbot"
 	w_class = 3.0
 
-	New()
-		..()
-		spawn(4) // If an admin spawned it, it won't have a watertank it, so lets make one for em!
-			var tank = locate(/obj/structure/reagent_dispensers/watertank) in contents
-			if(!tank)
-				new /obj/structure/reagent_dispensers/watertank(src)
-
-
 /obj/structure/reagent_dispensers/watertank/attackby(var/obj/item/robot_parts/S, mob/user as mob)
 	if ((!istype(S, /obj/item/robot_parts/l_arm)) && (!istype(S, /obj/item/robot_parts/r_arm)))
 		..()
@@ -308,7 +340,6 @@
 
 	user << "You add the robot arm to [src]."
 	loc = A //Place the water tank into the assembly, it will be needed for the finished bot
-	user.drop_from_inventory(S)
 	qdel(S)
 
 /obj/item/weapon/farmbot_arm_assembly/attackby(obj/item/weapon/W as obj, mob/user as mob)
@@ -317,7 +348,6 @@
 		build_step++
 		user << "You add the plant analyzer to [src]."
 		name = "farmbot assembly"
-		user.remove_from_mob(W)
 		qdel(W)
 		return 1
 
@@ -325,7 +355,6 @@
 		build_step++
 		user << "You add a bucket to [src]."
 		name = "farmbot assembly with bucket"
-		user.remove_from_mob(W)
 		qdel(W)
 		return 1//Prevents the object's afterattack from executing and causing runtime errors
 
@@ -342,7 +371,8 @@
 		user << "You complete the Farmbot! Beep boop."
 		var/mob/living/bot/farmbot/S = new /mob/living/bot/farmbot(get_turf(src))
 		for(var/obj/structure/reagent_dispensers/watertank/wTank in contents)
-			wTank.loc = S
+			qdel(S.tank)
+			wTank.forceMove(S)
 			S.tank = wTank
 		S.name = created_name
 		user.remove_from_mob(W)

@@ -15,6 +15,7 @@
 	speed = 4
 	maxHealth = 20
 	health = 20
+	mob_size = 2.5
 
 	harm_intent_damage = 8
 	melee_damage_lower = 10
@@ -36,15 +37,20 @@
 	environment_smash = 1
 
 	faction = "scarybat"
+	flying = TRUE
 	var/mob/living/owner
 
-/mob/living/simple_animal/hostile/scarybat/New(loc, mob/living/L as mob)
-	..()
+/mob/living/simple_animal/hostile/scarybat/Initialize(mapload, mob/living/L as mob)
+	. = ..()
 	if(istype(L))
 		owner = L
 
-/mob/living/simple_animal/hostile/scarybat/Process_Spacemove(var/check_drift = 0)
+/mob/living/simple_animal/hostile/scarybat/Allow_Spacemove(var/check_drift = 0)
 	return ..()	//No drifting in space for space carp!	//original comments do not steal
+
+/mob/living/simple_animal/hostile/scarybat/Destroy()
+	owner = null
+	return ..()
 
 /mob/living/simple_animal/hostile/scarybat/FindTarget()
 	. = ..()
@@ -67,6 +73,8 @@
 /mob/living/simple_animal/hostile/scarybat/cult
 	faction = "cult"
 	supernatural = 1
+	tameable = FALSE
+	appearance_flags = NO_CLIENT_COLOR
 
 /mob/living/simple_animal/hostile/scarybat/cult/cultify()
 	return
@@ -74,3 +82,4 @@
 /mob/living/simple_animal/hostile/scarybat/cult/Life()
 	..()
 	check_horde()
+

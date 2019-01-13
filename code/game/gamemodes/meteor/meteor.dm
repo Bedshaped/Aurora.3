@@ -7,15 +7,12 @@
 	config_tag = "meteor"
 	required_players = 0
 	votable = 0
-	uplink_welcome = "EVIL METEOR Uplink Console:"
 	deny_respawn = 1
-
-/datum/game_mode/meteor/post_setup()
-	defer_powernet_rebuild = 2//Might help with the lag
-	..()
+	var/next_wave = METEOR_DELAY
 
 /datum/game_mode/meteor/process()
-	if(world.time >= METEOR_DELAY)
+	if(world.time >= next_wave)
+		next_wave = world.time + meteor_wave_delay
 		spawn() spawn_meteors(6)
 
 /datum/game_mode/meteor/declare_completion()
@@ -35,9 +32,9 @@
 			survivors++
 
 	if(survivors)
-		world << "<span class='notice'><B>The following survived the meteor storm</B></span>:[text]"
+		to_world("<span class='notice'><B>The following survived the meteor storm</B></span>:[text]")
 	else
-		world << "<span class='notice'><B>Nobody survived the meteor storm!</B></span>"
+		to_world("<span class='notice'><B>Nobody survived the meteor storm!</B></span>")
 
 	feedback_set_details("round_end_result","end - evacuation")
 	feedback_set("round_end_result",survivors)

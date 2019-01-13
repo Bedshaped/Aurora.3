@@ -5,11 +5,11 @@
 	icon_state = "dispenser"
 	density = 1
 	anchored = 1.0
+	w_class = 5
 	var/oxygentanks = 10
 	var/phorontanks = 10
 	var/list/oxytanks = list()	//sorry for the similar var names
 	var/list/platanks = list()
-
 
 /obj/structure/dispenser/oxygen
 	phorontanks = 0
@@ -17,19 +17,22 @@
 /obj/structure/dispenser/phoron
 	oxygentanks = 0
 
-
-/obj/structure/dispenser/New()
+/obj/structure/dispenser/Initialize()
+	. = ..()
 	update_icon()
 
-
 /obj/structure/dispenser/update_icon()
-	overlays.Cut()
+	cut_overlays()
 	switch(oxygentanks)
-		if(1 to 3)	overlays += "oxygen-[oxygentanks]"
-		if(4 to INFINITY) overlays += "oxygen-4"
+		if(1 to 3)
+			add_overlay("oxygen-[oxygentanks]")
+		if(4 to INFINITY)
+			add_overlay("oxygen-4")
 	switch(phorontanks)
-		if(1 to 4)	overlays += "phoron-[phorontanks]"
-		if(5 to INFINITY) overlays += "phoron-5"
+		if(1 to 4)
+			add_overlay("phoron-[phorontanks]")
+		if(5 to INFINITY)
+			add_overlay("phoron-5")
 
 /obj/structure/dispenser/attack_ai(mob/user as mob)
 	if(user.Adjacent(src))
@@ -49,8 +52,7 @@
 /obj/structure/dispenser/attackby(obj/item/I as obj, mob/user as mob)
 	if(istype(I, /obj/item/weapon/tank/oxygen) || istype(I, /obj/item/weapon/tank/air) || istype(I, /obj/item/weapon/tank/anesthetic))
 		if(oxygentanks < 10)
-			user.drop_item()
-			I.loc = src
+			user.drop_from_inventory(I,src)
 			oxytanks.Add(I)
 			oxygentanks++
 			user << "<span class='notice'>You put [I] in [src].</span>"
@@ -62,8 +64,7 @@
 		return
 	if(istype(I, /obj/item/weapon/tank/phoron))
 		if(phorontanks < 10)
-			user.drop_item()
-			I.loc = src
+			user.drop_from_inventory(I,src)
 			platanks.Add(I)
 			phorontanks++
 			user << "<span class='notice'>You put [I] in [src].</span>"
@@ -73,7 +74,7 @@
 			user << "<span class='notice'>[src] is full.</span>"
 		updateUsrDialog()
 		return
-	if(istype(I, /obj/item/weapon/wrench))
+	if(iswrench(I))
 		if(anchored)
 			user << "<span class='notice'>You lean down and unwrench [src].</span>"
 			anchored = 0
@@ -95,7 +96,7 @@
 					oxytanks.Remove(O)
 				else
 					O = new /obj/item/weapon/tank/oxygen(loc)
-				O.loc = loc
+				O.forceMove(loc)
 				usr << "<span class='notice'>You take [O] out of [src].</span>"
 				oxygentanks--
 				update_icon()
@@ -107,7 +108,7 @@
 					platanks.Remove(P)
 				else
 					P = new /obj/item/weapon/tank/phoron(loc)
-				P.loc = loc
+				P.forceMove(loc)
 				usr << "<span class='notice'>You take [P] out of [src].</span>"
 				phorontanks--
 				update_icon()

@@ -5,13 +5,13 @@
 
 /proc/register_radio(source, old_frequency, new_frequency, radio_filter)
 	if(old_frequency)
-		radio_controller.remove_object(source, old_frequency)
+		SSradio.remove_object(source, old_frequency)
 	if(new_frequency)
-		return radio_controller.add_object(source, new_frequency, radio_filter)
+		return SSradio.add_object(source, new_frequency, radio_filter)
 
 /proc/unregister_radio(source, frequency)
-	if(radio_controller)
-		radio_controller.remove_object(source, frequency)
+	if(SSradio)
+		SSradio.remove_object(source, frequency)
 
 /proc/get_frequency_name(var/display_freq)
 	var/freq_text
@@ -75,19 +75,3 @@
 	reception.message = signal && signal.data["compression"] > 0 ? Gibberish(message, signal.data["compression"] + 50) : message
 
 	return reception
-
-/proc/get_receptions(var/atom/sender, var/list/atom/receivers, var/do_sleep = 1)
-	var/datum/receptions/receptions = new
-	receptions.message_server = get_message_server()
-
-	var/datum/signal/signal
-	if(sender)
-		signal = sender.telecomms_process(do_sleep)
-		receptions.sender_reception = get_sender_reception(sender, signal)
-
-	for(var/atom/receiver in receivers)
-		if(!signal)
-			signal = receiver.telecomms_process()
-		receptions.receiver_reception[receiver] = get_receiver_reception(receiver, signal)
-
-	return receptions

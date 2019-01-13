@@ -2,7 +2,8 @@
 	icon_state = "girder"
 	anchored = 1
 	density = 1
-	layer = 2
+	layer = ABOVE_CABLE_LAYER
+	w_class = 5
 	var/state = 0
 	var/health = 200
 	var/cover = 50 //how much cover the girder provides against projectiles.
@@ -28,11 +29,10 @@
 	if(Proj.original != src && !prob(cover))
 		return PROJECTILE_CONTINUE //pass through
 
-	//Tasers and the like should not damage girders.
-	if(!(Proj.damage_type == BRUTE || Proj.damage_type == BURN))
+	var/damage = Proj.get_structure_damage()
+	if(!damage)
 		return
 
-	var/damage = Proj.damage
 	if(!istype(Proj, /obj/item/projectile/beam))
 		damage *= 0.4 //non beams do reduced damage
 
@@ -54,7 +54,7 @@
 		reinforce_girder()
 
 /obj/structure/girder/attackby(obj/item/W as obj, mob/user as mob)
-	if(istype(W, /obj/item/weapon/wrench) && state == 0)
+	if(iswrench(W) && state == 0)
 		if(anchored && !reinf_material)
 			playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
 			user << "<span class='notice'>Now disassembling the girder...</span>"
@@ -65,11 +65,11 @@
 		else if(!anchored)
 			playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
 			user << "<span class='notice'>Now securing the girder...</span>"
-			if(get_turf(user, 40))
+			if(do_after(user, 40))
 				user << "<span class='notice'>You secured the girder!</span>"
 				reset_girder()
 
-	else if(istype(W, /obj/item/weapon/pickaxe/plasmacutter))
+	else if(istype(W, /obj/item/weapon/gun/energy/plasmacutter))
 		user << "<span class='notice'>Now slicing apart the girder...</span>"
 		if(do_after(user,30))
 			if(!src) return
@@ -87,14 +87,14 @@
 		else
 			user << "<span class='notice'>You need to activate the weapon to do that!</span>"
 			return
-			
+
 	else if(istype(W, /obj/item/weapon/melee/energy/blade))
 		user << "<span class='notice'>Now slicing apart the girder...</span>"
 		if(do_after(user,30))
 			if(!src) return
 			user << "<span class='notice'>You slice apart the girder!</span>"
 			dismantle()
-			
+
 	else if(istype(W, /obj/item/weapon/melee/chainsword))
 		var/obj/item/weapon/melee/chainsword/WT = W
 		if(WT.active)
@@ -111,7 +111,7 @@
 		user << "<span class='notice'>You drill through the girder!</span>"
 		dismantle()
 
-	else if(istype(W, /obj/item/weapon/screwdriver))
+	else if(isscrewdriver(W))
 		if(state == 2)
 			playsound(src.loc, 'sound/items/Screwdriver.ogg', 100, 1)
 			user << "<span class='notice'>Now unsecuring support struts...</span>"
@@ -124,7 +124,7 @@
 			reinforcing = !reinforcing
 			user << "<span class='notice'>\The [src] can now be [reinforcing? "reinforced" : "constructed"]!</span>"
 
-	else if(istype(W, /obj/item/weapon/wirecutters) && state == 1)
+	else if(iswirecutter(W) && state == 1)
 		playsound(src.loc, 'sound/items/Wirecutter.ogg', 100, 1)
 		user << "<span class='notice'>Now removing support struts...</span>"
 		if(do_after(user,40))
@@ -134,7 +134,7 @@
 			reinf_material = null
 			reset_girder()
 
-	else if(istype(W, /obj/item/weapon/crowbar) && state == 0 && anchored)
+	else if(iscrowbar(W) && state == 0 && anchored)
 		playsound(src.loc, 'sound/items/Crowbar.ogg', 100, 1)
 		user << "<span class='notice'>Now dislodging the girder...</span>"
 		if(do_after(user, 40))
@@ -225,6 +225,7 @@
 
 /obj/structure/girder/proc/dismantle()
 	new /obj/item/stack/material/steel(get_turf(src))
+	new /obj/item/stack/material/steel(get_turf(src))
 	qdel(src)
 
 /obj/structure/girder/attack_hand(mob/user as mob)
@@ -233,10 +234,6 @@
 		dismantle()
 		return
 	return ..()
-
-/obj/structure/girder/blob_act()
-	if(prob(40))
-		qdel(src)
 
 
 /obj/structure/girder/ex_act(severity)
@@ -247,12 +244,20 @@
 		if(2.0)
 			if (prob(30))
 				dismantle()
-			return
+				return
+			else
+				health -= rand(60,180)
+
 		if(3.0)
 			if (prob(5))
 				dismantle()
-			return
+				return
+			else
+				health -= rand(40,80)
 		else
+
+	if(health <= 0)
+		dismantle()
 	return
 
 /obj/structure/girder/cult
@@ -260,20 +265,21 @@
 	icon_state= "cultgirder"
 	health = 250
 	cover = 70
+	appearance_flags = NO_CLIENT_COLOR
 
 /obj/structure/girder/cult/dismantle()
 	new /obj/effect/decal/remains/human(get_turf(src))
 	qdel(src)
 
 /obj/structure/girder/cult/attackby(obj/item/W as obj, mob/user as mob)
-	if(istype(W, /obj/item/weapon/wrench))
+	if(iswrench(W))
 		playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
 		user << "<span class='notice'>Now disassembling the girder...</span>"
 		if(do_after(user,40))
 			user << "<span class='notice'>You dissasembled the girder!</span>"
 			dismantle()
 
-	else if(istype(W, /obj/item/weapon/pickaxe/plasmacutter))
+	else if(istype(W, /obj/item/weapon/gun/energy/plasmacutter))
 		user << "<span class='notice'>Now slicing apart the girder...</span>"
 		if(do_after(user,30))
 			user << "<span class='notice'>You slice apart the girder!</span>"
@@ -286,7 +292,7 @@
 
 	else if(istype(W, /obj/item/weapon/melee/energy))
 		var/obj/item/weapon/melee/energy/WT = W
-		if(WT.active)	
+		if(WT.active)
 			user << "<span class='notice'>Now slicing apart the girder...</span>"
 			if(do_after(user,30))
 				user << "<span class='notice'>You slice apart the girder!</span>"
@@ -294,13 +300,13 @@
 		else
 			user << "<span class='notice'>You need to activate the weapon to do that!</span>"
 			return
-		
+
 	else if(istype(W, /obj/item/weapon/melee/energy/blade))
 		user << "<span class='notice'>Now slicing apart the girder...</span>"
 		if(do_after(user,30))
 			user << "<span class='notice'>You slice apart the girder!</span>"
 		dismantle()
-			
+
 	else if(istype(W, /obj/item/weapon/melee/chainsword))
 		var/obj/item/weapon/melee/chainsword/WT = W
 		if(WT.active)
@@ -311,3 +317,17 @@
 		else
 			user << "<span class='notice'>You need to activate the weapon to do that!</span>"
 			return
+
+
+/obj/structure/girder/CanPass(atom/movable/mover, turf/target, height=0, air_group=0)
+	if (!mover)
+		return 1
+	if(istype(mover,/obj/item/projectile) && density)
+		if (prob(50))
+			return 1
+		else
+			return 0
+	else if(mover.checkpass(PASSTABLE))
+//Animals can run under them, lots of empty space
+		return 1
+	return ..()

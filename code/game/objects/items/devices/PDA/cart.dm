@@ -33,6 +33,10 @@
 	var/message2
 	var/list/stored_data = list()
 
+/obj/item/weapon/cartridge/Destroy()
+	QDEL_NULL(radio)
+	return ..()
+
 /obj/item/weapon/cartridge/engineering
 	name = "\improper Power-ON cartridge"
 	icon_state = "cart-e"
@@ -58,9 +62,9 @@
 	icon_state = "cart-s"
 	access_security = 1
 
-/obj/item/weapon/cartridge/security/initialize()
+/obj/item/weapon/cartridge/security/Initialize()
+	. = ..()
 	radio = new /obj/item/radio/integrated/beepsky(src)
-	..()
 
 /obj/item/weapon/cartridge/detective
 	name = "\improper D.E.T.E.C.T. cartridge"
@@ -101,7 +105,6 @@
 /obj/item/weapon/cartridge/signal
 	name = "generic signaler cartridge"
 	desc = "A data cartridge with an integrated radio signaler module."
-	var/qdeled = 0
 
 /obj/item/weapon/cartridge/signal/science
 	name = "\improper Signal Ace 2 cartridge"
@@ -110,13 +113,9 @@
 	access_reagent_scanner = 1
 	access_atmos = 1
 
-/obj/item/weapon/cartridge/signal/initialize()
+/obj/item/weapon/cartridge/signal/Initialize()
+    . = ..()
     radio = new /obj/item/radio/integrated/signal(src)
-    ..()
-
-/obj/item/weapon/cartridge/signal/Destroy()
-	qdel(radio)
-	..()
 
 /obj/item/weapon/cartridge/quartermaster
 	name = "\improper Space Parts & Space Vendors cartridge"
@@ -124,9 +123,9 @@
 	icon_state = "cart-q"
 	access_quartermaster = 1
 
-/obj/item/weapon/cartridge/quartermaster/initialize()
+/obj/item/weapon/cartridge/quartermaster/Initialize()
+	. = ..()
 	radio = new /obj/item/radio/integrated/mule(src)
-	..()
 
 /obj/item/weapon/cartridge/head
 	name = "\improper Easy-Record DELUXE"
@@ -141,7 +140,8 @@
 	access_janitor = 1
 	access_security = 1
 
-/obj/item/weapon/cartridge/hop/initialize()
+/obj/item/weapon/cartridge/hop/Initialize()
+	. = ..()
 	radio = new /obj/item/radio/integrated/mule(src)
 
 /obj/item/weapon/cartridge/hos
@@ -150,9 +150,9 @@
 	access_status_display = 1
 	access_security = 1
 
-/obj/item/weapon/cartridge/hos/initialize()
+/obj/item/weapon/cartridge/hos/Initialize()
+	. = ..()
 	radio = new /obj/item/radio/integrated/beepsky(src)
-	..()
 
 /obj/item/weapon/cartridge/ce
 	name = "\improper Power-On DELUXE"
@@ -175,9 +175,9 @@
 	access_reagent_scanner = 1
 	access_atmos = 1
 
-/obj/item/weapon/cartridge/rd/initialize()
+/obj/item/weapon/cartridge/rd/Initialize()
+	. = ..()
 	radio = new /obj/item/radio/integrated/signal(src)
-	..()
 
 /obj/item/weapon/cartridge/captain
 	name = "\improper Value-PAK cartridge"
@@ -202,7 +202,7 @@
 
 /obj/item/weapon/cartridge/proc/post_status(var/command, var/data1, var/data2)
 
-	var/datum/radio_frequency/frequency = radio_controller.return_frequency(1435)
+	var/datum/radio_frequency/frequency = SSradio.return_frequency(1435)
 	if(!frequency) return
 
 	var/datum/signal/status_signal = new
@@ -259,11 +259,11 @@
 
 	/*		Power Monitor (Mode: 43 / 433)			*/
 
-	if(mode==43 || mode==433)
+	if(mode == 43 || mode == 433)
 		var/list/sensors = list()
 		var/obj/machinery/power/sensor/MS = null
 
-		for(var/obj/machinery/power/sensor/S in machines)
+		for(var/obj/machinery/power/sensor/S in SSpower.all_sensors)
 			sensors.Add(list(list("name_tag" = S.name_tag)))
 			if(S.name_tag == selected_sensor)
 				MS = S
@@ -392,35 +392,18 @@
 
 	if(mode==47)
 		var/supplyData[0]
-		var/datum/shuttle/ferry/supply/shuttle = supply_controller.shuttle
+		var/datum/shuttle/ferry/supply/shuttle = SScargo.shuttle
 		if (shuttle)
 			supplyData["shuttle_moving"] = shuttle.has_arrive_time()
 			supplyData["shuttle_eta"] = shuttle.eta_minutes()
 			supplyData["shuttle_loc"] = shuttle.at_station() ? "Station" : "Dock"
-		var/supplyOrderCount = 0
-		var/supplyOrderData[0]
-		for(var/S in supply_controller.shoppinglist)
-			var/datum/supply_order/SO = S
+		var/list/approved_orders = SScargo.get_orders_by_status("approved",1)
+		supplyData["approved"] = approved_orders
+		supplyData["approved_count"] = approved_orders.len
 
-			supplyOrderData[++supplyOrderData.len] = list("Number" = SO.ordernum, "Name" = html_encode(SO.object.name), "ApprovedBy" = SO.orderedby, "Comment" = html_encode(SO.comment))
-		if(!supplyOrderData.len)
-			supplyOrderData[++supplyOrderData.len] = list("Number" = null, "Name" = null, "OrderedBy"=null)
-
-		supplyData["approved"] = supplyOrderData
-		supplyData["approved_count"] = supplyOrderCount
-
-		var/requestCount = 0
-		var/requestData[0]
-		for(var/S in supply_controller.requestlist)
-			var/datum/supply_order/SO = S
-			requestCount++
-			requestData[++requestData.len] = list("Number" = SO.ordernum, "Name" = html_encode(SO.object.name), "OrderedBy" = SO.orderedby, "Comment" = html_encode(SO.comment))
-		if(!requestData.len)
-			requestData[++requestData.len] = list("Number" = null, "Name" = null, "orderedBy" = null, "Comment" = null)
-
-		supplyData["requests"] = requestData
-		supplyData["requests_count"] = requestCount
-
+		var/list/requested_orders = SScargo.get_orders_by_status("submitted",1)
+		supplyData["requests"] = requested_orders
+		supplyData["requests_count"] = requested_orders.len
 
 		values["supply"] = supplyData
 
@@ -436,7 +419,7 @@
 		else
 			JaniData["user_loc"] = list("x" = 0, "y" = 0)
 		var/MopData[0]
-		for(var/obj/item/weapon/mop/M in world)
+		for(var/obj/item/weapon/mop/M in global.janitorial_supplies)
 			var/turf/ml = get_turf(M)
 			if(ml)
 				if(ml.z != cl.z)
@@ -447,9 +430,8 @@
 		if(!MopData.len)
 			MopData[++MopData.len] = list("x" = 0, "y" = 0, dir=null, status = null)
 
-
 		var/BucketData[0]
-		for(var/obj/structure/mopbucket/B in world)
+		for(var/obj/structure/mopbucket/B in global.janitorial_supplies)
 			var/turf/bl = get_turf(B)
 			if(bl)
 				if(bl.z != cl.z)
@@ -461,7 +443,7 @@
 			BucketData[++BucketData.len] = list("x" = 0, "y" = 0, dir=null, status = null)
 
 		var/CbotData[0]
-		for(var/mob/living/bot/cleanbot/B in world)
+		for(var/mob/living/bot/cleanbot/B in global.janitorial_supplies)
 			var/turf/bl = get_turf(B)
 			if(bl)
 				if(bl.z != cl.z)
@@ -469,22 +451,18 @@
 				var/direction = get_dir(src,B)
 				CbotData[++CbotData.len] = list("x" = bl.x, "y" = bl.y, "dir" = uppertext(dir2text(direction)), "status" = B.on ? "Online" : "Offline")
 
-
 		if(!CbotData.len)
 			CbotData[++CbotData.len] = list("x" = 0, "y" = 0, dir=null, status = null)
 		var/CartData[0]
-		for(var/obj/structure/janitorialcart/B in world)
+		for(var/obj/structure/janitorialcart/B in global.janitorial_supplies)
 			var/turf/bl = get_turf(B)
 			if(bl)
 				if(bl.z != cl.z)
 					continue
 				var/direction = get_dir(src,B)
-				CartData[++CartData.len] = list("x" = bl.x, "y" = bl.y, "dir" = uppertext(dir2text(direction)), "status" = B.reagents.total_volume/100)
+				CartData[++CartData.len] = list("x" = bl.x, "y" = bl.y, "dir" = uppertext(dir2text(direction)), "status" = B.get_short_status())
 		if(!CartData.len)
 			CartData[++CartData.len] = list("x" = 0, "y" = 0, dir=null, status = null)
-
-
-
 
 		JaniData["mops"] = MopData
 		JaniData["buckets"] = BucketData
@@ -493,9 +471,6 @@
 		values["janitor"] = JaniData
 
 	return values
-
-
-
 
 
 /obj/item/weapon/cartridge/Topic(href, href_list)

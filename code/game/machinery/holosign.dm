@@ -12,6 +12,18 @@
 	var/lit = 0
 	var/id = null
 	var/on_icon = "sign_on"
+	var/_wifi_id
+	var/datum/wifi/receiver/button/holosign/wifi_receiver
+
+/obj/machinery/holosign/Initialize()
+	. = ..()
+	if(_wifi_id)
+		wifi_receiver = new(_wifi_id, src)
+
+/obj/machinery/holosign/Destroy()
+	qdel(wifi_receiver)
+	wifi_receiver = null
+	return ..()
 
 /obj/machinery/holosign/proc/toggle()
 	if (stat & (BROKEN|NOPOWER))
@@ -54,10 +66,8 @@
 	active = !active
 	icon_state = "light[active]"
 
-	for(var/obj/machinery/holosign/M in machines)
+	for(var/obj/machinery/holosign/M in SSmachinery.all_machines)
 		if (M.id == src.id)
-			spawn( 0 )
-				M.toggle()
-				return
+			INVOKE_ASYNC(M, /obj/machinery/holosign/proc/toggle)
 
 	return

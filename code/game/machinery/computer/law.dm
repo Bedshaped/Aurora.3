@@ -3,88 +3,95 @@
 /obj/machinery/computer/aiupload
 	name = "\improper AI upload console"
 	desc = "Used to upload laws to the AI."
-	icon_state = "command"
-	circuit = "/obj/item/weapon/circuitboard/aiupload"
+	light_color = LIGHT_COLOR_GREEN
+
+	icon_screen = "command"
+	circuit = /obj/item/weapon/circuitboard/aiupload
 	var/mob/living/silicon/ai/current = null
 	var/opened = 0
 
 
-	verb/AccessInternals()
-		set category = "Object"
-		set name = "Access Computer's Internals"
-		set src in oview(1)
-		if(get_dist(src, usr) > 1 || usr.restrained() || usr.lying || usr.stat || istype(usr, /mob/living/silicon))
-			return
-
-		opened = !opened
-		if(opened)
-			usr << "\blue The access panel is now open."
-		else
-			usr << "\blue The access panel is now closed."
+/obj/machinery/computer/aiupload/verb/AccessInternals()
+	set category = "Object"
+	set name = "Access Computer's Internals"
+	set src in oview(1)
+	if(get_dist(src, usr) > 1 || usr.restrained() || usr.lying || usr.stat || istype(usr, /mob/living/silicon))
 		return
 
-
-	attackby(obj/item/weapon/O as obj, mob/user as mob)
-		if (user.z > 6)
-			user << "\red <b>Unable to establish a connection</b>: \black You're too far away from the station!"
-			return
-		if(istype(O, /obj/item/weapon/aiModule))
-			var/obj/item/weapon/aiModule/M = O
-			M.install(src)
-		else
-			..()
+	opened = !opened
+	if(opened)
+		usr << "<span class='notice'>The access panel is now open.</span>"
+	else
+		usr << "<span class='notice'>The access panel is now closed.</span>"
+	return
 
 
-	attack_hand(var/mob/user as mob)
-		if(src.stat & NOPOWER)
-			usr << "The upload computer has no power!"
-			return
-		if(src.stat & BROKEN)
-			usr << "The upload computer is broken!"
-			return
-
-		src.current = select_active_ai(user)
-
-		if (!src.current)
-			usr << "No active AIs detected."
-		else
-			usr << "[src.current.name] selected for law changes."
+/obj/machinery/computer/aiupload/attackby(obj/item/weapon/O as obj, mob/user as mob)
+	if (!src.z in current_map.station_levels)
+		user << "<span class='danger'>Unable to establish a connection:</span>"
 		return
-	
-	attack_ghost(user as mob)
-		return 1
+	if(istype(O, /obj/item/weapon/aiModule))
+		var/obj/item/weapon/aiModule/M = O
+		M.install(src)
+	else
+		..()
+
+
+/obj/machinery/computer/aiupload/attack_hand(var/mob/user as mob)
+	if(src.stat & NOPOWER)
+		user << "The upload computer has no power!"
+		return
+	if(src.stat & BROKEN)
+		user << "The upload computer is broken!"
+		return
+
+	src.current = select_active_ai(user)
+
+	if (!src.current)
+		user << "No active AIs detected."
+	else
+		user << "[src.current.name] selected for law changes."
+	return
+
+/obj/machinery/computer/aiupload/attack_ghost(user as mob)
+	return 1
 
 
 /obj/machinery/computer/borgupload
 	name = "cyborg upload console"
 	desc = "Used to upload laws to Cyborgs."
-	icon_state = "command"
-	circuit = "/obj/item/weapon/circuitboard/borgupload"
+	light_color = LIGHT_COLOR_GREEN
+
+	icon_screen = "command"
+	circuit = /obj/item/weapon/circuitboard/borgupload
 	var/mob/living/silicon/robot/current = null
 
 
-	attackby(obj/item/weapon/aiModule/module as obj, mob/user as mob)
-		if(istype(module, /obj/item/weapon/aiModule))
-			module.install(src)
-		else
-			return ..()
+/obj/machinery/computer/borgupload/attackby(obj/item/weapon/aiModule/module as obj, mob/user as mob)
+	if (!src.z in current_map.station_levels)
+		user << "<span class='danger'>Unable to establish a connection:</span>"
+		return
+	if(istype(module, /obj/item/weapon/aiModule))
+		module.install(src)
+	else
+		return ..()
 
 
-	attack_hand(var/mob/user as mob)
-		if(src.stat & NOPOWER)
-			usr << "The upload computer has no power!"
-			return
-		if(src.stat & BROKEN)
-			usr << "The upload computer is broken!"
-			return
-
-		src.current = freeborg()
-
-		if (!src.current)
-			usr << "No free cyborgs detected."
-		else
-			usr << "[src.current.name] selected for law changes."
+/obj/machinery/computer/borgupload/attack_hand(var/mob/user as mob)
+	if(src.stat & NOPOWER)
+		user << "The upload computer has no power!"
+		return
+	if(src.stat & BROKEN)
+		user << "The upload computer is broken!"
 		return
 
-	attack_ghost(user as mob)
-		return 1
+	src.current = freeborg()
+
+	if (!src.current)
+		user << "No free cyborgs detected."
+	else
+		user << "[src.current.name] selected for law changes."
+	return
+
+/obj/machinery/computer/borgupload/attack_ghost(user as mob)
+	return 1

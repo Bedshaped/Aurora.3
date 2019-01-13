@@ -1,6 +1,6 @@
 /obj/item/clothing/under/pj/red
-	name = "red pj's"
-	desc = "Sleepwear."
+	name = "red pyjamas"
+	desc = "Slightly old-fashioned sleepwear."
 	icon_state = "red_pyjamas"
 	worn_state = "red_pyjamas"
 	item_state = "w_suit"
@@ -11,10 +11,14 @@
 	icon_state = "harness"
 	worn_state = "harness"
 	item_state = "w_suit"
+	species_restricted = null
+	sprite_sheets = list(
+		"Vaurca Breeder" = 'icons/mob/species/breeder/suit.dmi'
+		)
 
 /obj/item/clothing/under/pj/blue
-	name = "blue pj's"
-	desc = "Sleepwear."
+	name = "blue pyjamas"
+	desc = "Slightly old-fashioned sleepwear."
 	icon_state = "blue_pyjamas"
 	worn_state = "blue_pyjamas"
 	item_state = "w_suit"
@@ -72,23 +76,23 @@
 //This set of uniforms looks fairly fancy and is generally used for high-ranking NT personnel from what I've seen, so lets give them appropriate ranks.
 /obj/item/clothing/under/rank/centcom
 	desc = "Gold trim on space-black cloth, this uniform displays the rank of \"Captain.\""
-	name = "\improper NanoTrasen Officer's Dress Uniform"
+	name = "officer's dress uniform"
 	icon_state = "officer"
 	item_state = "lawyer_black"
 	worn_state = "officer"
 	displays_id = 0
 
 /obj/item/clothing/under/rank/centcom_officer
+	name = "officer's dress uniform"
 	desc = "Gold trim on space-black cloth, this uniform displays the rank of \"Admiral.\""
-	name = "\improper NanoTrasen Officer's Dress Uniform"
 	icon_state = "officer"
 	item_state = "lawyer_black"
 	worn_state = "officer"
 	displays_id = 0
 
 /obj/item/clothing/under/rank/centcom_captain
+	name = "officer's dress uniform"
 	desc = "Gold trim on space-black cloth, this uniform displays the rank of \"Admiral-Executive.\""
-	name = "\improper NanoTrasen Officer's Dress Uniform"
 	icon_state = "centcom"
 	item_state = "lawyer_black"
 	worn_state = "centcom"
@@ -100,6 +104,21 @@
 	icon_state = "ert_uniform"
 	item_state = "bl_suit"
 	worn_state = "ert_uniform"
+	siemens_coefficient = 0.7
+
+/obj/item/clothing/under/ccpolice
+	name = "ERT civil protection uniform"
+	desc = "A sturdy navy uniform, carefully ironed and folded. Worn by specialist troopers on civil protection duties."
+	icon_state = "officerdnavyclothes"
+	item_state = "scratch"
+	worn_state = "officerdnavyclothes"
+
+/obj/item/clothing/under/rank/centcom_commander
+	desc = "Gold trim on space-black cloth, this uniform displays the rank of \"Commander.\ It has a patch denoting a Pheonix on the sleeves."
+	name = "\improper ERT commander's dress uniform"
+	icon_state = "centcom"
+	item_state = "lawyer_black"
+	worn_state = "centcom"
 
 /obj/item/clothing/under/space
 	name = "\improper NASA jumpsuit"
@@ -148,12 +167,6 @@
 	icon_state = "rainbow"
 	item_state = "rainbow"
 	worn_state = "rainbow"
-
-/obj/item/clothing/under/cloud
-	name = "cloud"
-	desc = "cloud"
-	icon_state = "cloud"
-	worn_state = "cloud"
 
 /obj/item/clothing/under/psysuit
 	name = "dark undersuit"
@@ -211,14 +224,6 @@
 	icon_state = "red_suit"
 	item_state = "r_suit"
 	worn_state = "red_suit"
-
-/obj/item/clothing/under/blackskirt
-	name = "black skirt"
-	desc = "A black skirt, very fancy!"
-	icon_state = "blackskirt"
-	item_state = "bl_suit"
-	worn_state = "blackskirt"
-	body_parts_covered = UPPER_TORSO|LOWER_TORSO|ARMS
 
 /obj/item/clothing/under/schoolgirl
 	name = "schoolgirl uniform"
@@ -327,6 +332,11 @@
 	item_state = "p_suit"
 	worn_state = "dress_saloon"
 
+/obj/item/clothing/under/dress/dress_evening
+	name = "evening gown"
+	desc = "A silky gown, leaves much to the imagination"
+	icon_state = "red_evening_gown"
+	item_state = "red_evening_gown"
 
 /obj/item/clothing/under/dress/dress_cap
 	name = "captain's dress uniform"
@@ -351,26 +361,6 @@
 	item_state = "y_suit"
 	worn_state = "huresource"
 	body_parts_covered = UPPER_TORSO|LOWER_TORSO|ARMS
-
-/obj/item/clothing/under/dress/plaid_blue
-	name = "blue plaid skirt"
-	desc = "A preppy blue skirt with a white blouse."
-	icon_state = "plaid_blue"
-	worn_state = "plaid_blue"
-
-/obj/item/clothing/under/dress/plaid_red
-	name = "red plaid skirt"
-	desc = "A preppy red skirt with a white blouse."
-	icon_state = "plaid_red"
-	item_state = "kilt"
-	worn_state = "plaid_red"
-
-/obj/item/clothing/under/dress/plaid_purple
-	name = "blue purple skirt"
-	desc = "A preppy purple skirt with a white blouse."
-	icon_state = "plaid_purple"
-	item_state = "kilt"
-	worn_state = "plaid_purple"
 
 //wedding stuff
 /obj/item/clothing/under/wedding/
@@ -433,12 +423,39 @@
 	worn_state = "sundress_white"
 	body_parts_covered = UPPER_TORSO|LOWER_TORSO
 
-/obj/item/clothing/under/blackjumpskirt
-	name = "black jumpskirt"
-	desc = "A black jumpskirt, Sol size 0."
-	icon_state = "blackjumpskirt"
-	item_state = "bl_suit"
-	worn_state = "blackjumpskirt"
+/obj/item/clothing/under/dress/stripeddress
+	name = "striped dress"
+	desc = "Fashion in space."
+	icon_state = "striped_dress"
+
+/obj/item/clothing/under/dress/sailordress
+	name = "sailor dress"
+	desc = "Formal wear for a leading lady."
+	icon_state = "sailor_dress"
+
+/obj/item/clothing/under/dress/white
+	name = "white dress"
+	desc = "A fancy white dress with a blue underdress."
+	icon_state = "whitedress"
+	flags_inv = HIDESHOES
+
+/obj/item/clothing/under/dress/red_swept_dress
+	name = "red swept dress"
+	desc = "A red dress that sweeps to the side."
+	icon_state = "red_swept_dress"
+
+/obj/item/clothing/under/dress/westernbustle
+	name = "western bustle"
+	desc = "A western bustle dress from somewhere in the ancient history of Earth."
+	icon_state = "westernbustle"
+
+/obj/item/clothing/under/dress/blacktango
+	name = "black tango dress"
+	desc = "An earthen black tango dress."
+	icon_state = "black_tango"
+
+/obj/item/clothing/under/dress/blacktango/alt
+	icon_state = "black_tango_alt"
 
 /obj/item/clothing/under/captainformal
 	name = "captain's formal uniform"
@@ -510,13 +527,48 @@
 	item_state = "lb_suit"
 	worn_state = "mechanic"
 
+/obj/item/clothing/under/sweater
+	desc = "A warm looking sweater and a pair of dark blue slacks."
+	name = "sweater"
+	icon_state = "turtleneck"
+	worn_state = "turtleneck"
+
 /obj/item/clothing/under/cheongsam
 	name = "white cheongsam"
-	desc = "It is a white cheongsam dress."
-	icon_state = "mai_yang"
-	item_state = "mai_yang"
-	worn_state = "mai_yang"
+	desc = "A Chinese dress that hugs the body. This one is white, embroidered with a bright golden dragon."
+	icon = 'icons/obj/clothing/cheongsams.dmi'
+	icon_state = "cheongsamwhite"
+	item_state = "cheongsamwhite"
+	worn_state = "cheongsamwhite"
 	body_parts_covered = UPPER_TORSO|LOWER_TORSO|LEGS
+	contained_sprite = 1
+
+/obj/item/clothing/under/cheongsam/red
+	name = "red cheongsam"
+	desc = "A Chinese dress that hugs the body. This one is red, with a golden leaf trim that climbs up the garment."
+	icon_state = "cheongsamred"
+	item_state = "cheongsamred"
+	worn_state = "cheongsamred"
+
+/obj/item/clothing/under/cheongsam/blue
+	name = "blue cheongsam"
+	desc = "A Chinese dress that hugs the body. This one is blue, the fabric styled with flowering tree branches."
+	icon_state = "cheongsamblue"
+	item_state = "cheongsamblue"
+	worn_state = "cheongsamblue"
+
+/obj/item/clothing/under/cheongsam/green
+	name = "green cheongsam"
+	desc = "A Chinese dress that hugs the body. This one is green, patterned with overlapping jade fans."
+	icon_state = "cheongsamgreen"
+	item_state = "cheongsamgreen"
+	worn_state = "cheongsamgreen"
+
+/obj/item/clothing/under/cheongsam/purple
+	name = "purple cheongsam"
+	desc = "A Chinese dress that hugs the body. This one is purple, embroidered with plum blossoms."
+	icon_state = "cheongsampurple"
+	item_state = "cheongsampurple"
 
 /obj/item/clothing/under/blazer
 	name = "blue blazer"
@@ -524,3 +576,132 @@
 	icon_state = "blue_blazer"
 	item_state = "blue_blazer"
 	worn_state = "blue_blazer"
+
+/obj/item/clothing/under/dominia
+	name = "dominia suit"
+	desc = "This is a suit in the style of Dominia nobility. It's the latest fashion across Dominian space."
+	icon_state = "domsuit"
+
+/obj/item/clothing/under/dominia/black
+	icon_state = "domsuit2"
+
+/obj/item/clothing/under/dom_thermal
+	name = "lyodsuit"
+	desc = "An imitation Lyodsuit from Dominia. Though it is not able to protect against extreme cold like a true lyodsuit it's lightweight and high quality fabric make it extremely comfortable to wear. \
+	Fashionable amongst the middle and lower classes of Dominia"
+	icon_state = "dom_thermal"
+
+//stripper
+/obj/item/clothing/under/stripper
+	body_parts_covered = 0
+
+/obj/item/clothing/under/stripper/stripper_pink
+	name = "pink swimsuit"
+	desc = "A rather skimpy pink swimsuit."
+	icon_state = "stripper_p_under"
+	siemens_coefficient = 1
+
+/obj/item/clothing/under/stripper/stripper_green
+	name = "green swimsuit"
+	desc = "A rather skimpy green swimsuit."
+	icon_state = "stripper_g_under"
+	siemens_coefficient = 1
+
+/obj/item/clothing/suit/stripper/stripper_pink
+	name = "pink skimpy dress"
+	desc = "A rather skimpy pink dress."
+	icon_state = "stripper_p_over"
+	siemens_coefficient = 1
+
+/obj/item/clothing/suit/stripper/stripper_green
+	name = "green skimpy dress"
+	desc = "A rather skimpy green dress."
+	icon_state = "stripper_g_over"
+	item_state = "stripper_g"
+	siemens_coefficient = 1
+
+/obj/item/clothing/under/stripper/mankini
+	name = "mankini"
+	desc = "No honest man would wear this abomination"
+	icon_state = "mankini"
+	siemens_coefficient = 1
+
+//swimsuit
+/obj/item/clothing/under/swimsuit/
+	siemens_coefficient = 1
+	body_parts_covered = 0
+
+/obj/item/clothing/under/swimsuit/black
+	name = "black swimsuit"
+	desc = "An oldfashioned black swimsuit."
+	icon_state = "swim_black"
+	siemens_coefficient = 1
+
+/obj/item/clothing/under/swimsuit/blue
+	name = "blue swimsuit"
+	desc = "An oldfashioned blue swimsuit."
+	icon_state = "swim_blue"
+	siemens_coefficient = 1
+
+/obj/item/clothing/under/swimsuit/purple
+	name = "purple swimsuit"
+	desc = "An oldfashioned purple swimsuit."
+	icon_state = "swim_purp"
+	siemens_coefficient = 1
+
+/obj/item/clothing/under/swimsuit/green
+	name = "green swimsuit"
+	desc = "An oldfashioned green swimsuit."
+	icon_state = "swim_green"
+	siemens_coefficient = 1
+
+/obj/item/clothing/under/swimsuit/red
+	name = "red swimsuit"
+	desc = "An oldfashioned red swimsuit."
+	icon_state = "swim_red"
+	siemens_coefficient = 1
+
+/obj/item/clothing/under/kimono
+	name = "kimono"
+	desc = "A traditional Japanese kimono."
+	icon_state = "kimono"
+	item_state = "kimono"
+
+/obj/item/clothing/under/kimono/ronin
+	name = "ronin kimono"
+	desc = "A non-traditional Japanese kimono, it appears to be very gothic. Like, totally gothic."
+	icon_state = "ronin_kimono"
+	item_state = "ronin_kimono"
+
+/obj/item/clothing/under/kimono/fancy
+	name = "fancy kimono"
+	desc = "A Japanese kimono, this one is very luxurious. It brings to mine iced tea cans."
+	icon_state = "fancy_kimono"
+	item_state = "fancy_kimono"
+
+/obj/item/clothing/under/gov
+	name = "green formal uniform"
+	desc = "A neat proper uniform of someone on offical business. Plain, professional attire. The collar is <i>immaculately</i> starched."
+	icon_state = "greensuit"
+	item_state = "greensuit"
+	worn_state = "greensuit"
+
+/obj/item/clothing/under/medical_gown
+	name = "medical gown"
+	desc = "A loose pieces of clothing, commonly worn by medical patients."
+	icon_state = "medicalgown"
+	item_state = "medicalgown"
+	has_sensor = 2
+	sensor_mode = 3
+
+/obj/item/clothing/under/medical_gown/white
+	icon_state = "whitemedicalgown"
+	worn_state = "whitemedicalgown"
+
+/obj/item/clothing/under/legion
+	name = "Tau Ceti Foreign Legion uniform"
+	desc = "A blue field uniform used by the force of the Tau Ceti Foreign Legion forces."
+	icon_state = "taucetilegion"
+	item_state = "bl_suit"
+	worn_state = "taucetilegion"
+	siemens_coefficient = 0.7

@@ -6,33 +6,37 @@
 
 	if(density)
 		can_open = WALL_OPENING
-		set_wall_state("[material.icon_base]fwall_open")
 		//flick("[material.icon_base]fwall_opening", src)
 		sleep(15)
 		density = 0
-		opacity = 0
+		set_opacity(0)
+		update_icon()
 		set_light(0)
 	else
 		can_open = WALL_OPENING
 		//flick("[material.icon_base]fwall_closing", src)
-		set_wall_state("[material.icon_base]0")
 		density = 1
-		opacity = 1
+		set_opacity(1)
+		update_icon()
 		sleep(15)
 		set_light(1)
 
 	can_open = WALL_CAN_OPEN
 	update_icon()
 
-/turf/simulated/wall/proc/fail_smash(var/mob/user)
+/turf/simulated/wall/proc/fail_smash(var/mob/user, var/multiplier = 1)
+	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN*2.5)
 	user << "<span class='danger'>You smash against the wall!</span>"
-	take_damage(rand(25,75))
+	user.do_attack_animation(src)
+	take_damage(rand(60,135)*multiplier)
+	return 1
 
 /turf/simulated/wall/proc/success_smash(var/mob/user)
 	user << "<span class='danger'>You smash through the wall!</span>"
 	user.do_attack_animation(src)
 	spawn(1)
 		dismantle_wall(1)
+	return 1
 
 /turf/simulated/wall/proc/try_touch(var/mob/user, var/rotting)
 
@@ -58,13 +62,24 @@
 
 	radiate()
 	add_fingerprint(user)
+	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 	var/rotting = (locate(/obj/effect/overlay/wallrot) in src)
 	if (HULK in user.mutations)
 		if (rotting || !prob(material.hardness))
 			success_smash(user)
 		else
-			fail_smash(user)
+			fail_smash(user, 2)
 			return 1
+
+	if(ishuman(user) && user.a_intent == I_GRAB)
+		var/mob/living/carbon/human/H = user
+		var/turf/destination = GetAbove(H)
+
+		if(destination)
+			var/turf/start = get_turf(H)
+			if(start.CanZPass(H, UP) && destination.CanZPass(H, UP))
+				H.climb(UP, src)
+				return
 
 	try_touch(user, rotting)
 
@@ -76,18 +91,20 @@
 		try_touch(user, rotting)
 		return
 
+
 	if(rotting)
 		return success_smash(user)
 
 	if(reinf_material)
-		if((wallbreaker == 2) || (damage >= max(material.hardness,reinf_material.hardness)))
+		if((wallbreaker == 2) && (damage >= max(material.hardness,reinf_material.hardness)))
 			return success_smash(user)
 	else if(damage >= material.hardness)
 		return success_smash(user)
-	return fail_smash(user)
+	return fail_smash(user, wallbreaker)
 
 /turf/simulated/wall/attackby(obj/item/weapon/W as obj, mob/user as mob)
 
+	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 	if (!user.)
 		user << "<span class='warning'>You don't have the dexterity to do this!</span>"
 		return
@@ -101,7 +118,7 @@
 			burn(is_hot(W))
 
 	if(locate(/obj/effect/overlay/wallrot) in src)
-		if(istype(W, /obj/item/weapon/weldingtool) )
+		if(iswelder(W) )
 			var/obj/item/weapon/weldingtool/WT = W
 			if( WT.remove_fuel(0,user) )
 				user << "<span class='notice'>You burn away the fungi with \the [WT].</span>"
@@ -116,20 +133,20 @@
 
 	//THERMITE related stuff. Calls src.thermitemelt() which handles melting simulated walls and the relevant effects
 	if(thermite)
-		if( istype(W, /obj/item/weapon/weldingtool) )
+		if( iswelder(W) )
 			var/obj/item/weapon/weldingtool/WT = W
 			if( WT.remove_fuel(0,user) )
 				thermitemelt(user)
 				return
 
-		else if(istype(W, /obj/item/weapon/pickaxe/plasmacutter))
+		else if(istype(W, /obj/item/weapon/gun/energy/plasmacutter))
 			thermitemelt(user)
 			return
 
 		else if( istype(W, /obj/item/weapon/melee/energy/blade) )
 			var/obj/item/weapon/melee/energy/blade/EB = W
 
-			EB.spark_system.start()
+			spark(EB, 5)
 			user << "<span class='notice'>You slash \the [src] with \the [EB]; the thermite ignites!</span>"
 			playsound(src, "sparks", 50, 1)
 			playsound(src, 'sound/weapons/blade1.ogg', 50, 1)
@@ -139,7 +156,7 @@
 
 	var/turf/T = user.loc	//get user's location for delay checks
 
-	if(damage && istype(W, /obj/item/weapon/weldingtool))
+	if(damage && iswelder(W))
 
 		var/obj/item/weapon/weldingtool/WT = W
 
@@ -164,7 +181,7 @@
 		var/dismantle_verb
 		var/dismantle_sound
 
-		if(istype(W,/obj/item/weapon/weldingtool))
+		if(iswelder(W))
 			var/obj/item/weapon/weldingtool/WT = W
 			if(!WT.isOn())
 				return
@@ -228,21 +245,21 @@
 	else
 		switch(construction_stage)
 			if(6)
-				if (istype(W, /obj/item/weapon/wirecutters))
+				if (iswirecutter(W))
 					playsound(src, 'sound/items/Wirecutter.ogg', 100, 1)
 					construction_stage = 5
 					new /obj/item/stack/rods( src )
 					user << "<span class='notice'>You cut the outer grille.</span>"
-					set_wall_state()
+					update_icon()
 					return
 			if(5)
-				if (istype(W, /obj/item/weapon/screwdriver))
+				if (isscrewdriver(W))
 					user << "<span class='notice'>You begin removing the support lines.</span>"
 					playsound(src, 'sound/items/Screwdriver.ogg', 100, 1)
 					if(!do_after(user,40) || !istype(src, /turf/simulated/wall) || construction_stage != 5)
 						return
 					construction_stage = 4
-					set_wall_state()
+					update_icon()
 					user << "<span class='notice'>You remove the support lines.</span>"
 					return
 				else if( istype(W, /obj/item/stack/rods) )
@@ -250,12 +267,12 @@
 					if(O.get_amount()>0)
 						O.use(1)
 						construction_stage = 6
-						set_wall_state()
+						update_icon()
 						user << "<span class='notice'>You replace the outer grille.</span>"
 						return
 			if(4)
 				var/cut_cover
-				if(istype(W,/obj/item/weapon/weldingtool))
+				if(iswelder(W))
 					var/obj/item/weapon/weldingtool/WT = W
 					if(!WT.isOn())
 						return
@@ -264,7 +281,7 @@
 					else
 						user << "<span class='notice'>You need more welding fuel to complete this task.</span>"
 						return
-				else if (istype(W, /obj/item/weapon/pickaxe/plasmacutter))
+				else if (istype(W, /obj/item/weapon/gun/energy/plasmacutter))
 					cut_cover = 1
 				if(cut_cover)
 					user << "<span class='notice'>You begin slicing through the metal cover.</span>"
@@ -272,39 +289,39 @@
 					if(!do_after(user, 60) || !istype(src, /turf/simulated/wall) || construction_stage != 4)
 						return
 					construction_stage = 3
-					set_wall_state()
+					update_icon()
 					user << "<span class='notice'>You press firmly on the cover, dislodging it.</span>"
 					return
 			if(3)
-				if (istype(W, /obj/item/weapon/crowbar))
+				if (iscrowbar(W))
 					user << "<span class='notice'>You struggle to pry off the cover.</span>"
 					playsound(src, 'sound/items/Crowbar.ogg', 100, 1)
 					if(!do_after(user,100) || !istype(src, /turf/simulated/wall) || construction_stage != 3)
 						return
 					construction_stage = 2
-					set_wall_state()
+					update_icon()
 					user << "<span class='notice'>You pry off the cover.</span>"
 					return
 			if(2)
-				if (istype(W, /obj/item/weapon/wrench))
+				if (iswrench(W))
 					user << "<span class='notice'>You start loosening the anchoring bolts which secure the support rods to their frame.</span>"
 					playsound(src, 'sound/items/Ratchet.ogg', 100, 1)
 					if(!do_after(user,40) || !istype(src, /turf/simulated/wall) || construction_stage != 2)
 						return
 					construction_stage = 1
-					set_wall_state()
+					update_icon()
 					user << "<span class='notice'>You remove the bolts anchoring the support rods.</span>"
 					return
 			if(1)
 				var/cut_cover
-				if(istype(W, /obj/item/weapon/weldingtool))
+				if(iswelder(W))
 					var/obj/item/weapon/weldingtool/WT = W
 					if( WT.remove_fuel(0,user) )
 						cut_cover=1
 					else
 						user << "<span class='notice'>You need more welding fuel to complete this task.</span>"
 						return
-				else if(istype(W, /obj/item/weapon/pickaxe/plasmacutter))
+				else if(istype(W, /obj/item/weapon/gun/energy/plasmacutter))
 					cut_cover = 1
 				if(cut_cover)
 					user << "<span class='notice'>You begin slicing through the support rods.</span>"
@@ -312,12 +329,12 @@
 					if(!do_after(user,70) || !istype(src, /turf/simulated/wall) || construction_stage != 1)
 						return
 					construction_stage = 0
-					set_wall_state()
+					update_icon()
 					new /obj/item/stack/rods(src)
 					user << "<span class='notice'>The support rods drop out as you cut them loose from the frame.</span>"
 					return
 			if(0)
-				if(istype(W, /obj/item/weapon/crowbar))
+				if(iscrowbar(W))
 					user << "<span class='notice'>You struggle to pry off the outer sheath.</span>"
 					playsound(src, 'sound/items/Crowbar.ogg', 100, 1)
 					sleep(100)

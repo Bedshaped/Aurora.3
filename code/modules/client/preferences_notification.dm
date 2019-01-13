@@ -31,8 +31,8 @@
 	note_wrapper = new_wrapper
 	note_text = new_text
 
-	note_text = replacetextEx(note_text, ":src_ref", "\ref[src]")
-	note_wrapper[1] = replacetextEx(note_wrapper[1], ":src_ref", "\ref[src]")
+	note_text = replacetextEx(note_text, ":src_ref", SOFTREF(src))
+	note_wrapper[1] = replacetextEx(note_wrapper[1], ":src_ref", SOFTREF(src))
 
 	if (new_persistence)
 		persistent = new_persistence
@@ -42,7 +42,7 @@
 		owner.notifications -= src
 		owner = null
 
-	..()
+	return ..()
 
 /*
  * Associates a callback to be executed whenever a notification is dismissed.
@@ -61,13 +61,13 @@
  * Returns the HTML required to display this alert.
  */
 /datum/client_notification/proc/get_html()
-	var/html = "<div class=\"row\">[note_wrapper[1]]\n"
+	var/html = "<div class=\"row\">[note_wrapper[1]]"
 
 	if (!persistent)
-		html += "<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>\n"
+		html += "<a href=\"#\" class=\"close\" data-dismiss=\"alert\" aria-label=\"close\">&times;</a>"
 
 	html += note_text
-	html += "\n[note_wrapper[2]]</div>"
+	html += "[note_wrapper[2]]</div>"
 
 	return html
 
@@ -153,9 +153,62 @@
 		var/cciaa_actions = count_ccia_actions(user)
 		if (cciaa_actions)
 			new_notification("info", cciaa_actions)
+		
+		add_active_notifications(user)
+
+/datum/preferences/proc/add_active_notifications(var/client/user)
+	if(!user)
+		return null
+
+	if (!establish_db_connection(dbcon))
+		error("Error initiatlizing database connection while getting notifications.")
+		return null
+
+	var/DBQuery/query = dbcon.NewQuery({"SELECT
+		message, type, id
+		FROM ss13_player_notifications
+		WHERE acked_at IS NULL AND ckey = :ckey:
+	"})
+	query.Execute(list("ckey" = user.ckey))
+
+	var/chat_notification=0
+	var/panel_notification=0
+	var/notification_count=0
+
+	while(query.NextRow())
+		var/autoack=0
+		//Lets loop through the results
+		switch(query.item[2])
+			if("player_greeting")
+				panel_notification=1
+				notification_count++
+			if("player_greeting_chat")
+				chat_notification=1
+				panel_notification=1
+				notification_count++
+			if("admin")
+				discord_bot.send_to_admins("Server Notification for [user.ckey]: [query.item[1]]")
+				post_webhook_event(WEBHOOK_ADMIN, list("title"="Server Notification for: [user.ckey]", "message"="Server Notification Triggered for [user.ckey]: [query.item[1]]"))
+				//Immediately ack the notification
+				autoack=1
+			if("ccia")
+				discord_bot.send_to_cciaa("Server Notification for [user.ckey]: [query.item[1]]")
+				post_webhook_event(WEBHOOK_CCIAA_EMERGENCY_MESSAGE, list("title"="Server Notification for: [user.ckey]", "message"="Server Notification Triggered for [user.ckey]: [query.item[1]]"))
+				//Immeidately ack the notification
+				autoack=1
+		if(autoack)
+			var/DBQuery/ackquery = dbcon.NewQuery({"UPDATE ss13_player_notifications
+				SET acked_by = 'autoack-server', acked_at = NOW()
+				WHERE id = :id:
+			"})
+			ackquery.Execute(list("id" = query.item[3]))
+	if(panel_notification)
+		new_notification("warning","You have <b>[notification_count] unread notifications!</b> Click <a href='?JSlink=warnings;notification=:src_ref'>here</a> to review and acknowledge them!")
+	if(chat_notification)
+		to_chat(user,"<font color='red'><BIG><B>You have unacknowledged notifications.</B></BIG><br>Click <a href='?JSlink=warnings;notification=:src_ref'>here</a> to review and acknowledge them!</font>")
 
 /*
- * Helper proc for getting a count of active CCIA actions against the player's character.
+ * Helper proc for getting a count of active CCIA actions against the player's characters.
  */
 /datum/preferences/proc/count_ccia_actions(var/client/user)
 	if (!user)
@@ -165,8 +218,8 @@
 		error("Error initiatlizing database connection while counting CCIA actions.")
 		return null
 
-	var/DBQuery/prep_query = dbcon.NewQuery("SELECT id FROM ss13_characters WHERE ckey = :ckey")
-	prep_query.Execute(list(":ckey" = user.ckey))
+	var/DBQuery/prep_query = dbcon.NewQuery("SELECT id FROM ss13_characters WHERE ckey = :ckey:")
+	prep_query.Execute(list("ckey" = user.ckey))
 	var/list/chars = list()
 
 	while (prep_query.NextRow())
@@ -181,10 +234,10 @@
 	JOIN ss13_characters chr ON act_chr.char_id = chr.id
 	JOIN ss13_ccia_actions act ON act_chr.action_id = act.id
 	WHERE
-		act_chr.char_id IN :char_id AND
+		act_chr.char_id IN :char_id: AND
 		(act.expires_at IS NULL OR act.expires_at >= CURRENT_DATE()) AND
 		act.deleted_at IS NULL;"})
-	query.Execute(list(":char_id" = chars))
+	query.Execute(list("char_id" = chars))
 
 	if (query.NextRow())
 		var/action_count = text2num(query.item[1])

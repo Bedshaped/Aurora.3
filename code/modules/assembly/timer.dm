@@ -2,8 +2,8 @@
 	name = "timer"
 	desc = "Used to time things. Works well with contraptions which has to count down. Tick tock."
 	icon_state = "timer"
+	origin_tech = list(TECH_MAGNET = 1)
 	matter = list(DEFAULT_WALL_MATERIAL = 500, "glass" = 50, "waste" = 10)
-	origin_tech = "magnets=1"
 
 	wires = WIRE_PULSE
 
@@ -28,10 +28,10 @@
 	toggle_secure()
 		secured = !secured
 		if(secured)
-			processing_objects.Add(src)
+			START_PROCESSING(SSprocessing, src)
 		else
 			timing = 0
-			processing_objects.Remove(src)
+			STOP_PROCESSING(SSprocessing, src)
 		update_icon()
 		return secured
 
@@ -42,8 +42,7 @@
 		if(!holder)
 			visible_message("\icon[src] *beep* *beep*", "*beep* *beep*")
 		cooldown = 2
-		spawn(10)
-			process_cooldown()
+		addtimer(CALLBACK(src, .proc/process_cooldown), 10)
 		return
 
 
@@ -58,10 +57,10 @@
 
 
 	update_icon()
-		overlays.Cut()
+		cut_overlays()
 		attached_overlays = list()
 		if(timing)
-			overlays += "timer_timing"
+			add_overlay("timer_timing")
 			attached_overlays += "timer_timing"
 		if(holder)
 			holder.update_icon()
@@ -70,7 +69,7 @@
 
 	interact(mob/user as mob)//TODO: Have this use the wires
 		if(!secured)
-			user.show_message("\red The [name] is unsecured!")
+			user.show_message("<span class='warning'>The [name] is unsecured!</span>")
 			return 0
 		var/second = time % 60
 		var/minute = (time - second) / 60

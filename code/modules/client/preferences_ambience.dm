@@ -1,7 +1,8 @@
 /var/global/asfx_togs = list(
 //	/client/proc/Toggle_asfx,
 //	/client/proc/Toggle_footsteps,
-	/client/proc/Toggle_asfx_vote
+	/client/proc/Toggle_asfx_vote,
+	/client/proc/toggle_vox_voice
 )
 
 /client/verb/asf_toggle()
@@ -18,7 +19,7 @@
 	set category = "Preferences"
 	set desc = "Toggles hearing ambient sound effects"
 	prefs.asfx_togs ^= ASFX_AMBIENCE
-	prefs.handle_preferences_save(src)
+	prefs.save_preferences()
 	if(prefs.asfx_togs & ASFX_AMBIENCE)
 		src << "You will now hear ambient sounds."
 	else
@@ -33,7 +34,7 @@
 	set desc = "Toggles hearing footstep sound effects"
 
 	prefs.asfx_togs ^= ASFX_FOOTSTEPS
-	prefs.handle_preferences_save(src)
+	prefs.save_preferences()
 	if(prefs.asfx_togs & ASFX_FOOTSTEPS)
 		src << "You will now hear footstep sounds."
 	else
@@ -45,9 +46,18 @@
 	set category = "SoundFx Prefs"
 	set desc = "Toggles hearing of the vote alarm"
 	prefs.asfx_togs ^= ASFX_VOTE
-	prefs.handle_preferences_save(src)
+	prefs.save_preferences()
 	if(prefs.asfx_togs & ASFX_VOTE)
 		src << "You will now hear the vote alarm."
 	else
 		src << "<font color='red'>You will no longer hear the vote alarm.</font>"
 	feedback_add_details("admin_verb","TSFXFV") //If you are copy-pasting this, ensure the 2nd parameter is unique to the new proc!
+
+/client/proc/toggle_vox_voice()
+	set name = "Toggle VOX Voice"
+	set category = "SoundFx Prefs"
+	set desc = "Toggles the announcement voice."
+
+	prefs.asfx_togs ^= ASFX_VOX
+	prefs.save_preferences()
+	src << "You will [(prefs.asfx_togs & ASFX_VOX) ? "now" : "no longer"] hear the VOX voice."

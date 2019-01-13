@@ -9,12 +9,11 @@
 
 	if(stat)
 		src << "You cannot leave your host in your current state."
-
-	if(docile)
-		src << "\blue You are feeling far too docile to do that."
 		return
 
-	if(!host || !src) return
+	if(docile)
+		src << "<span class='notice'>You are feeling far too docile to do that.</span>"
+		return
 
 	src << "You begin disconnecting from [host]'s synapses and prodding at their internal ear canal."
 
@@ -76,9 +75,14 @@
 		var/obj/item/organ/external/E = H.organs_by_name["head"]
 		if(!E || E.is_stump())
 			src << "\The [H] does not have a head!"
+			return
 
 		if(!H.species.has_organ["brain"])
 			src << "\The [H] does not seem to have an ear canal to breach."
+			return
+
+		if(H.isSynthetic())
+			src << "<span class='warning'>You can't affect synthetics.</span>"
 			return
 
 		if(H.check_head_coverage())
@@ -105,7 +109,7 @@
 
 		src.host = M
 		src.host.status_flags |= PASSEMOTES
-		src.loc = M
+		src.forceMove(M)
 
 		//Update their traitor status.
 		if(host.mind)
@@ -126,7 +130,6 @@
 		src << "They are no longer in range!"
 		return
 
-
 /mob/living/simple_animal/borer/verb/devour_brain()
 	set category = "Abilities"
 	set name = "Devour Brain"
@@ -136,17 +139,17 @@
 		src << "You are not inside a host body."
 		return
 
+	if(stat)
+		src << "You cannot do that in your current state."
+		return
+	
 	if(host.stat != 2)
 		src << "Your host is still alive."
 		return
 
-	if(stat)
-		src << "You cannot do that in your current state."
-
 	if(docile)
-		src << "\blue You are feeling far too docile to do that."
+		src << "<span class='notice'>You are feeling far too docile to do that.</span>"
 		return
-
 
 	src << "<span class = 'danger'>It only takes a few moments to render the dead host brain down into a nutrient-rich slurry...</span>"
 	replace_brain()
@@ -210,20 +213,22 @@
 
 	if(stat)
 		src << "You cannot secrete chemicals in your current state."
+		return
 
 	if(docile)
-		src << "\blue You are feeling far too docile to do that."
+		src << "<span class='notice'>You are feeling far too docile to do that.</span>"
 		return
 
 	if(chemicals < 50)
 		src << "You don't have enough chemicals!"
+		return
 
 	var/chem = input("Select a chemical to secrete.", "Chemicals") as null|anything in list("alkysine","bicaridine","hyperzine","tramadol")
 
-	if(!chem || chemicals < 50 || !host || controlling || !src || stat) //Sanity check.
+	if(!chem || docile || chemicals < 50 || !host || controlling || !src || stat) //Sanity check.
 		return
 
-	src << "\red <B>You squirt a measure of [chem] from your reservoirs into [host]'s bloodstream.</B>"
+	src << "<span class='danger'>You squirt a measure of [chem] from your reservoirs into [host]'s bloodstream.</span>"
 	host.reagents.add_reagent(chem, 10)
 	chemicals -= 50
 
@@ -257,12 +262,16 @@
 
 	if(!M || !src) return
 
+	if(M.isSynthetic())
+		src << "<span class='warning'>You can't affect synthetics.</span>"
+		return
+
 	if(M.has_brain_worms())
 		src << "You cannot infest someone who is already infested!"
 		return
 
-	src << "\red You focus your psychic lance on [M] and freeze their limbs with a wave of terrible dread."
-	M << "\red You feel a creeping, horrible sense of dread come over you, freezing your limbs and setting your heart racing."
+	src << "<span class='warning'>You focus your psychic lance on [M] and freeze their limbs with a wave of terrible dread.</span>"
+	M << "<span class='warning'>You feel a creeping, horrible sense of dread come over you, freezing your limbs and setting your heart racing.</span>"
 	M.Weaken(10)
 
 	used_dominate = world.time
@@ -281,19 +290,19 @@
 		return
 
 	if(docile)
-		src << "\blue You are feeling far too docile to do that."
+		src << "<span class='notice'>You are feeling far too docile to do that.</span>"
 		return
 
 	src << "You begin delicately adjusting your connection to the host brain..."
 
-	spawn(100+(host.brainloss*5))
+	spawn(100+(host.getBrainLoss()*5))
 
 		if(!host || !src || controlling)
 			return
 		else
 
-			src << "\red <B>You plunge your probosci deep into the cortex of the host brain, interfacing directly with their nervous system.</B>"
-			host << "\red <B>You feel a strange shifting sensation behind your eyes as an alien consciousness displaces yours.</B>"
+			src << "<span class='danger'>You plunge your probosci deep into the cortex of the host brain, interfacing directly with their nervous system.</span>"
+			host << "<span class='danger'>You feel a strange shifting sensation behind your eyes as an alien consciousness displaces yours.</span>"
 			host.add_language("Cortical Link")
 
 			// host -> brain

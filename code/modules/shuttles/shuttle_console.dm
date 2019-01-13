@@ -1,7 +1,9 @@
 /obj/machinery/computer/shuttle_control
 	name = "shuttle control console"
 	icon = 'icons/obj/computer.dmi'
-	icon_state = "shuttle"
+
+	light_color = LIGHT_COLOR_CYAN
+	icon_screen = "shuttle"
 	circuit = null
 
 	var/shuttle_tag  // Used to coordinate data in shuttle controller.
@@ -13,7 +15,7 @@
 		return
 	//src.add_fingerprint(user)	//shouldn't need fingerprints just for looking at it.
 	if(!allowed(user))
-		user << "\red Access Denied."
+		user << "<span class='warning'>Access Denied.</span>"
 		return 1
 
 	ui_interact(user)
@@ -40,7 +42,7 @@
 			else
 				shuttle_status = "Standing-by at offsite location."
 		if(WAIT_LAUNCH, FORCE_LAUNCH)
-			shuttle_status = "Shuttle has recieved command and will depart shortly."
+			shuttle_status = "Shuttle has received command and will depart shortly."
 		if(WAIT_ARRIVE)
 			shuttle_status = "Proceeding to destination."
 		if(WAIT_FINISH)
@@ -54,10 +56,10 @@
 		"docking_override" = shuttle.docking_controller? shuttle.docking_controller.override_enabled : null,
 		"can_launch" = shuttle.can_launch(),
 		"can_cancel" = shuttle.can_cancel(),
-		"can_force" = shuttle.can_force(),
+		"can_force" = shuttle.can_force()
 	)
 
-	ui = nanomanager.try_update_ui(user, src, ui_key, ui, data, force_open)
+	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data, force_open)
 
 	if (!ui)
 		ui = new(user, src, ui_key, "shuttle_control_console.tmpl", "[shuttle_tag] Shuttle Control", 470, 310)
@@ -83,20 +85,18 @@
 	else if(href_list["cancel"])
 		shuttle.cancel_launch(src)
 
-/obj/machinery/computer/shuttle_control/attackby(obj/item/weapon/W as obj, mob/user as mob)
-
-	if (istype(W, /obj/item/weapon/card/emag))
-		src.req_access = list()
-		src.req_one_access = list()
+/obj/machinery/computer/shuttle_control/emag_act(var/remaining_charges, var/mob/user)
+	if (!hacked)
+		req_access = list()
+		req_one_access = list()
 		hacked = 1
-		usr << "You short out the console's ID checking system. It's now available to everyone!"
-	else
-		..()
+		user << "You short out the console's ID checking system. It's now available to everyone!"
+		return 1
 
 /obj/machinery/computer/shuttle_control/bullet_act(var/obj/item/projectile/Proj)
 	visible_message("\The [Proj] ricochets off \the [src]!")
 
-/obj/machinery/computer/shuttle_control/ex_act()
+/obj/machinery/computer/shuttle_control/ex_act(var/severity = 2.0)
 	return
 
 /obj/machinery/computer/shuttle_control/emp_act()

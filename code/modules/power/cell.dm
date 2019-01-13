@@ -2,12 +2,14 @@
 // charge from 0 to 100%
 // fits in APC to provide backup power
 
-/obj/item/weapon/cell/New()
-	..()
+/obj/item/weapon/cell/Initialize()
+	. = ..()
 	charge = maxcharge
+	update_icon()
 
-/obj/item/weapon/cell/initialize()
-	..()
+/obj/item/weapon/cell/Created()
+	//Newly built cells spawn with no charge to prevent power exploits
+	charge = 0
 	update_icon()
 
 /obj/item/weapon/cell/drain_power(var/drain_check, var/surge, var/power = 0)
@@ -23,14 +25,14 @@
 	return use(cell_amt) / CELLRATE
 
 /obj/item/weapon/cell/update_icon()
-	overlays.Cut()
+	cut_overlays()
 
 	if(charge < 0.01)
 		return
 	else if(charge/maxcharge >=0.995)
-		overlays += image('icons/obj/power.dmi', "cell-o2")
+		add_overlay("cell-o2")
 	else
-		overlays += image('icons/obj/power.dmi', "cell-o1")
+		add_overlay("cell-o1")
 
 /obj/item/weapon/cell/proc/percent()		// return % charge of cell
 	return 100.0*charge/maxcharge
@@ -44,6 +46,9 @@
 
 // use power from a cell, returns the amount actually used
 /obj/item/weapon/cell/proc/use(var/amount)
+	if (QDELING(src))
+		return 0
+
 	if(rigged && amount > 0)
 		explode()
 		return 0
@@ -61,18 +66,15 @@
 
 // recharge the cell
 /obj/item/weapon/cell/proc/give(var/amount)
+	if (QDELING(src))
+		return 0
+
 	if(rigged && amount > 0)
 		explode()
 		return 0
 
 	if(maxcharge < amount)	return 0
 	var/amount_used = min(maxcharge-charge,amount)
-	if(crit_fail)	return 0
-	if(!prob(reliability))
-		minor_fault++
-		if(prob(minor_fault))
-			crit_fail = 1
-			return 0
 	charge += amount_used
 	return amount_used
 
@@ -85,8 +87,6 @@
 		user << "[desc]\nThe manufacturer's label states this cell has a power rating of [maxcharge], and that you should not swallow it.\nThe charge meter reads [round(src.percent() )]%."
 	else
 		user << "This power cell has an exciting chrome finish, as it is an uber-capacity cell type! It has a power rating of [maxcharge]!\nThe charge meter reads [round(src.percent() )]%."
-	if(crit_fail)
-		user << "\red This power cell seems to be faulty."
 
 /obj/item/weapon/cell/attackby(obj/item/W, mob/user)
 	..()
@@ -99,13 +99,14 @@
 
 			rigged = 1
 
-			log_admin("LOG: [user.name] ([user.ckey]) injected a power cell with phoron, rigging it to explode.")
-			message_admins("LOG: [user.name] ([user.ckey]) injected a power cell with phoron, rigging it to explode.")
+			log_admin("LOG: [user.name] ([user.ckey]) injected a power cell with phoron, rigging it to explode.",ckey=key_name(user))
+			message_admins("[key_name_admin(user)] injected a power cell with phoron, rigging it to explode.")
 
 		S.reagents.clear_reagents()
 	else if(istype(W, /obj/item/device/assembly_holder))
 		var/obj/item/device/assembly_holder/assembly = W
 		if (istype(assembly.a_left, /obj/item/device/assembly/signaler) && istype(assembly.a_right, /obj/item/device/assembly/signaler))
+			//TODO: Look into this bad code
 			user.drop_item()
 			user.drop_from_inventory(src)
 
@@ -155,8 +156,6 @@
 	charge -= maxcharge / severity
 	if (charge < 0)
 		charge = 0
-	if(reliability != 100 && prob(50/severity))
-		reliability -= 10 / severity
 	..()
 
 /obj/item/weapon/cell/ex_act(severity)
@@ -178,10 +177,6 @@
 			if (prob(25))
 				corrupt()
 	return
-
-/obj/item/weapon/cell/blob_act()
-	if(prob(75))
-		explode()
 
 /obj/item/weapon/cell/proc/get_electrocute_damage()
 	switch (charge)

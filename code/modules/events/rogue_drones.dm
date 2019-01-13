@@ -1,6 +1,7 @@
 /datum/event/rogue_drone
-	endWhen = 1000
+	endWhen = 1300
 	var/list/drones_list = list()
+	ic_name = "combat drones"
 
 /datum/event/rogue_drone/start()
 	//spawn them at the same place as carp
@@ -9,12 +10,7 @@
 		if(C.name == "carpspawn")
 			possible_spawns.Add(C)
 
-	//25% chance for this to be a false alarm
-	var/num
-	if(prob(25))
-		num = 0
-	else
-		num = rand(2,6)
+	var/num = rand(2,10)
 	for(var/i=0, i<num, i++)
 		var/mob/living/simple_animal/hostile/retaliate/malf_drone/D = new(get_turf(pick(possible_spawns)))
 		drones_list.Add(D)
@@ -29,15 +25,13 @@
 		msg = "Contact has been lost with a combat drone wing operating out of the NDV Icarus. If any are sighted in the area, approach with caution."
 	else
 		msg = "Unidentified hackers have targetted a combat drone wing deployed from the NDV Icarus. If any are sighted in the area, approach with caution."
-	command_announcement.Announce(msg, "Rogue drone alert")
+	command_announcement.Announce(msg, "Rogue drone alert", new_sound = 'sound/AI/combatdrones.ogg')
 
 /datum/event/rogue_drone/end()
 	var/num_recovered = 0
 	for(var/mob/living/simple_animal/hostile/retaliate/malf_drone/D in drones_list)
-		var/datum/effect/effect/system/spark_spread/sparks = new /datum/effect/effect/system/spark_spread()
-		sparks.set_up(3, 0, D.loc)
-		sparks.start()
-		D.z = config.admin_levels[1]
+		spark(D.loc, 3)
+		D.z = current_map.admin_levels[1]
 		D.has_loot = 0
 
 		qdel(D)

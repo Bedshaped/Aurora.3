@@ -5,6 +5,7 @@ var/global/send_emergency_team = 0 // Used for automagic response teams
                                    // 'admin_emergency_team' for admin-spawned response teams
 var/ert_base_chance = 10 // Default base chance. Will be incremented by increment ERT chance.
 var/can_call_ert
+var/ert_type = "NanoTrasen Response Team" //what ert type will be deployed
 
 /client/proc/response_team()
 	set name = "Dispatch Emergency Response Team"
@@ -12,16 +13,13 @@ var/can_call_ert
 	set desc = "Send an emergency response team to the station"
 
 	if(!holder)
-		usr << "\red Only administrators may use this command."
+		usr << "<span class='danger'>Only administrators may use this command.</span>"
 		return
-	if(!ticker)
-		usr << "\red The game hasn't started yet!"
-		return
-	if(ticker.current_state == 1)
-		usr << "\red The round hasn't started yet!"
+	if(!ROUND_IS_STARTED)
+		usr << "<span class='danger'>The round hasn't started yet!</span>"
 		return
 	if(send_emergency_team)
-		usr << "\red Central Command has already dispatched an emergency response team!"
+		usr << "<span class='danger'>[current_map.boss_name] has already dispatched an emergency response team!</span>"
 		return
 	if(alert("Do you want to dispatch an Emergency Response Team?",,"Yes","No") != "Yes")
 		return
@@ -29,13 +27,19 @@ var/can_call_ert
 		switch(alert("The station is not in red alert. Do you still want to dispatch a response team?",,"Yes","No"))
 			if("No")
 				return
+
+	var/choice = input("Select the response team type","Response team selection") as null|anything in list("NanoTrasen Response Team", "Tau Ceti Foreign Legion")
+
+	if(choice)
+		ert_type = choice
+
 	if(send_emergency_team)
-		usr << "\red Looks like somebody beat you to it!"
+		usr << "<span class='danger'>Looks like somebody beat you to it!</span>"
 		return
 
 	message_admins("[key_name_admin(usr)] is dispatching an Emergency Response Team.", 1)
-	log_admin("[key_name(usr)] used Dispatch Response Team.")
-	trigger_armed_response_team(1)
+	log_admin("[key_name(usr)] used Dispatch Response Team.",admin_key=key_name(usr))
+	trigger_armed_response_team(1, TRUE)
 
 client/verb/JoinResponseTeam()
 
@@ -46,17 +50,31 @@ client/verb/JoinResponseTeam()
 		usr << "<span class='warning'>You cannot join the response team at this time.</span>"
 		return
 
-	if(istype(usr,/mob/dead/observer) || istype(usr,/mob/new_player))
+	if(istype(usr,/mob/abstract/observer) || istype(usr,/mob/abstract/new_player))
+
 		if(!send_emergency_team)
 			usr << "No emergency response team is currently being sent."
 			return
-		if(jobban_isbanned(usr, "Syndicate") || jobban_isbanned(usr, "Emergency Response Team") || jobban_isbanned(usr, "Security Officer"))
-			usr << "<font color=red><b>You are jobbanned from the emergency reponse team!"
+
+		if(jobban_isbanned(usr, "Antagonist") || jobban_isbanned(usr, "Emergency Response Team") || jobban_isbanned(usr, "Security Officer"))
+			usr << "<span class='danger'>You are jobbanned from the emergency reponse team!</span>"
 			return
-		if(ert.current_antagonists.len >= ert.hard_cap)
-			usr << "The emergency response team is already full!"
-			return
-		ert.create_default(usr)
+
+		switch(ert_type)
+
+			if("Tau Ceti Foreign Legion")
+				if(legion.current_antagonists.len >= legion.hard_cap)
+					usr << "The emergency response team is already full!"
+					return
+
+				legion.create_default(usr)
+
+			else
+				if(ert.current_antagonists.len >= ert.hard_cap)
+					usr << "The emergency response team is already full!"
+					return
+
+				ert.create_default(usr)
 	else
 		usr << "You need to be an observer or new player to use this."
 
@@ -99,7 +117,7 @@ proc/increment_ert_chance()
 		sleep(600 * 3) // Minute * Number of Minutes
 
 
-proc/trigger_armed_response_team(var/force = 0)
+proc/trigger_armed_response_team(var/force = 0, forced_choice = FALSE)
 	if(!can_call_ert && !force)
 		return
 	if(send_emergency_team)
@@ -114,14 +132,19 @@ proc/trigger_armed_response_team(var/force = 0)
 
 	// there's only a certain chance a team will be sent
 	if(!prob(send_team_chance))
-		command_announcement.Announce("It would appear that an emergency response team was requested for [station_name()]. Unfortunately, we were unable to send one at this time.", "Central Command")
+		command_announcement.Announce("It would appear that an emergency response team was requested for [station_name()]. Unfortunately, we were unable to send one at this time.", "[current_map.boss_name]")
 		can_call_ert = 0 // Only one call per round, ladies.
 		return
 
-	command_announcement.Announce("It would appear that an emergency response team was requested for [station_name()]. We will prepare and send one as soon as possible.", "Central Command")
+	command_announcement.Announce("It would appear that an emergency response team was requested for [station_name()]. We will prepare and send one as soon as possible.", "[current_map.boss_name]")
+
+	if(!forced_choice)
+		var/random_team = pick("NanoTrasen Response Team", "Tau Ceti Foreign Legion")
+		ert_type = random_team
 
 	can_call_ert = 0 // Only one call per round, gentleman.
 	send_emergency_team = 1
 
 	sleep(600 * 5)
 	send_emergency_team = 0 // Can no longer join the ERT.
+	ert_type = "NanoTrasen Response Team"

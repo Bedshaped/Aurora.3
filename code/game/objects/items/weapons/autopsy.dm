@@ -9,7 +9,7 @@
 	icon_state = ""
 	flags = CONDUCT
 	w_class = 2.0
-	origin_tech = "materials=1;biotech=1"
+	origin_tech = list(TECH_MATERIAL = 1, TECH_BIO = 1)
 	var/list/datum/autopsy_data_scanner/wdata = list()
 	var/list/datum/autopsy_data_scanner/chemtraces = list()
 	var/target_name = null
@@ -79,8 +79,8 @@
 	set category = "Object"
 	set src in view(usr, 1)
 	set name = "Print Data"
-	if(usr.stat || !(istype(usr,/mob/living/carbon/human)))
-		usr << "No."
+
+	if(use_check(usr))
 		return
 
 	var/scan_data = ""
@@ -150,7 +150,7 @@
 			scan_data += "<br>"
 
 	for(var/mob/O in viewers(usr))
-		O.show_message("\red \the [src] rattles and prints out a sheet of paper.", 1)
+		O.show_message("<span class='notice'>\The [src] rattles and prints out a sheet of paper.</span>", 1)
 
 	sleep(10)
 
@@ -159,21 +159,7 @@
 	P.info = "<tt>[scan_data]</tt>"
 	P.icon_state = "paper_words"
 
-	if(istype(usr,/mob/living/carbon))
-		// place the item in the usr's hand if possible
-		if(!usr.r_hand)
-			P.loc = usr
-			usr.r_hand = P
-			P.layer = 20
-		else if(!usr.l_hand)
-			P.loc = usr
-			usr.l_hand = P
-			P.layer = 20
-
-	if (ismob(src.loc))
-		var/mob/M = src.loc
-		M.update_inv_l_hand()
-		M.update_inv_r_hand()
+	usr.put_in_hands(P)
 
 /obj/item/weapon/autopsy_scanner/attack(mob/living/carbon/human/M as mob, mob/living/carbon/user as mob)
 	if(!istype(M))
@@ -187,19 +173,19 @@
 		src.wdata = list()
 		src.chemtraces = list()
 		src.timeofdeath = null
-		user << "\red A new patient has been registered.. Purging data for previous patient."
+		user << "<span class='notice'>A new patient has been registered.. Purging data for previous patient.</span>"
 
 	src.timeofdeath = M.timeofdeath
 
 	var/obj/item/organ/external/S = M.get_organ(user.zone_sel.selecting)
 	if(!S)
-		usr << "<b>You can't scan this body part.</b>"
+		usr << "<span class='warning'>You can't scan this body part.</span>"
 		return
 	if(!S.open)
-		usr << "<b>You have to cut the limb open first!</b>"
+		usr << "<span class='warning'>You have to cut the limb open first!</span>"
 		return
 	for(var/mob/O in viewers(M))
-		O.show_message("\red [user.name] scans the wounds on [M.name]'s [S.name] with \the [src.name]", 1)
+		O.show_message("<span class='notice'>\The [user] scans the wounds on [M.name]'s [S.name] with \the [src]</span>", 1)
 
 	src.add_data(S)
 

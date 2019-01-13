@@ -31,8 +31,6 @@
 	BITSET(hud_updateflag, STATUS_HUD)
 	BITSET(hud_updateflag, LIFE_HUD)
 
-	handle_hud_list()
-
 	//Handle species-specific deaths.
 	species.handle_death(src, gibbed)
 	animate_tail_stop()
@@ -41,32 +39,36 @@
 	var/obj/item/organ/external/head = get_organ("head")
 	var/mob/living/simple_animal/borer/B
 
-	for(var/I in head.implants)
-		if(istype(I,/mob/living/simple_animal/borer))
-			B = I
-	if(B)
-		if(!B.ckey && ckey && B.controlling)
-			B.ckey = ckey
-			B.controlling = 0
-		if(B.host_brain.ckey)
-			ckey = B.host_brain.ckey
-			B.host_brain.ckey = null
-			B.host_brain.name = "host brain"
-			B.host_brain.real_name = "host brain"
+	if (head)
+		for(var/I in head.implants)
+			if(istype(I,/mob/living/simple_animal/borer))
+				B = I
+		if(B)
+			if(!B.ckey && ckey && B.controlling)
+				B.ckey = ckey
+				B.controlling = 0
+			if(B.host_brain.ckey)
+				ckey = B.host_brain.ckey
+				B.host_brain.ckey = null
+				B.host_brain.name = "host brain"
+				B.host_brain.real_name = "host brain"
 
-		verbs -= /mob/living/carbon/proc/release_control
+			verbs -= /mob/living/carbon/proc/release_control
 
 	callHook("death", list(src, gibbed))
 
 	if(!gibbed && species.death_sound)
 		playsound(loc, species.death_sound, 80, 1, 1)
 
-
-	if(ticker && ticker.mode)
+	if(SSticker.mode)
 		sql_report_death(src)
-		ticker.mode.check_win()
+		SSticker.mode.check_win()
 
-	return ..(gibbed,species.death_message)
+	if(wearing_rig)
+		wearing_rig.notify_ai("<span class='danger'>Warning: user death event. Mobility control passed to integrated intelligence system.</span>")
+
+	. = ..(gibbed,species.death_message)
+	handle_hud_list()
 
 /mob/living/carbon/human/proc/ChangeToHusk()
 	if(HUSK in mutations)	return

@@ -8,7 +8,7 @@
 	active_power_usage = 10
 	layer = 5
 
-	var/list/network = list("Exodus")
+	var/list/network = list(NETWORK_STATION)
 	var/c_tag = null
 	var/c_tag_order = 999
 	var/status = 1
@@ -33,10 +33,13 @@
 
 	var/on_open_network = 0
 
-/obj/machinery/camera/New()
+	var/affected_by_emp_until = 0
+
+/obj/machinery/camera/Initialize()
 	wires = new(src)
 	assembly = new(src)
 	assembly.state = 4
+	SSmachinery.all_cameras += src
 
 	/* // Use this to look for cameras that have the same c_tag.
 	for(var/obj/machinery/camera/C in cameranet.cameras)
@@ -51,36 +54,43 @@
 			error("[src.name] in [get_area(src)]has errored. [src.network?"Empty network list":"Null network list"]")
 		ASSERT(src.network)
 		ASSERT(src.network.len > 0)
-	..()
+	return ..()
 
 /obj/machinery/camera/Destroy()
+	SSmachinery.all_cameras -= src
 	deactivate(null, 0) //kick anyone viewing out
 	if(assembly)
 		qdel(assembly)
 		assembly = null
 	qdel(wires)
-	..()
+	wires = null
+	return ..()
+
+/obj/machinery/camera/machinery_process()
+	if((stat & EMPED) && world.time >= affected_by_emp_until)
+		stat &= ~EMPED
+		cancelCameraAlarm()
+		update_icon()
+		update_coverage()
+	return internal_process()
+
+/obj/machinery/camera/proc/internal_process()
+	return
 
 /obj/machinery/camera/emp_act(severity)
-	if(!isEmpProof())
-		if(prob(100/severity))
+	if(!isEmpProof() && prob(100/severity))
+		if(!affected_by_emp_until || (world.time < affected_by_emp_until))
+			affected_by_emp_until = max(affected_by_emp_until, world.time + (90 SECONDS / severity))
+		else
 			stat |= EMPED
 			set_light(0)
+			triggerCameraAlarm()
 			kick_viewers()
-			triggerCameraAlarm(30 / severity)
 			update_icon()
 			update_coverage()
 
-			spawn(900)
-				stat &= ~EMPED
-				cancelCameraAlarm()
-				update_icon()
-				update_coverage()
-			..()
-
 /obj/machinery/camera/bullet_act(var/obj/item/projectile/P)
-	if(P.damage_type == BRUTE || P.damage_type == BURN)
-		take_damage(P.damage)
+	take_damage(P.get_structure_damage())
 
 /obj/machinery/camera/ex_act(severity)
 	if(src.invuln)
@@ -91,10 +101,6 @@
 		destroy()
 
 	..() //and give it the regular chance of being deleted outright
-
-
-/obj/machinery/camera/blob_act()
-	return
 
 /obj/machinery/camera/hitby(AM as mob|obj)
 	..()
@@ -109,16 +115,15 @@
 	cameranet.updateVisibility(src, 0)
 
 /obj/machinery/camera/attack_hand(mob/living/carbon/human/user as mob)
-
 	if(!istype(user))
 		return
 
 	if(user.species.can_shred(user))
+		user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 		set_status(0)
 		user.do_attack_animation(src)
 		visible_message("<span class='warning'>\The [user] slashes at [src]!</span>")
 		playsound(src.loc, 'sound/weapons/slash.ogg', 100, 1)
-		icon_state = "[initial(icon_state)]1"
 		add_hiddenprint(user)
 		destroy()
 
@@ -139,10 +144,10 @@
 	else if(iswelder(W) && (wires.CanDeconstruct() || (stat & BROKEN)))
 		if(weld(W, user))
 			if(assembly)
-				assembly.loc = src.loc
+				assembly.forceMove(src.loc)
 				assembly.anchored = 1
 				assembly.camera_name = c_tag
-				assembly.camera_network = english_list(network, "Exodus", ",", ",")
+				assembly.camera_network = english_list(network, "Station", ",", ",")
 				assembly.update_icon()
 				assembly.dir = src.dir
 				if(stat & BROKEN)
@@ -151,18 +156,18 @@
 				else
 					assembly.state = 1
 					user << "<span class='notice'>You cut \the [src] free from the wall.</span>"
-					new /obj/item/stack/cable_coil(src.loc, length=2)
+					new /obj/item/stack/cable_coil(loc, 2)
 				assembly = null //so qdel doesn't eat it.
 			qdel(src)
 
 	// OTHER
 	else if (can_use() && (istype(W, /obj/item/weapon/paper) || istype(W, /obj/item/device/pda)) && isliving(user))
+		var/info = null
 		var/mob/living/U = user
 		var/obj/item/weapon/paper/X = null
 		var/obj/item/device/pda/P = null
 
 		var/itemname = ""
-		var/info = ""
 		if(istype(W, /obj/item/weapon/paper))
 			X = W
 			itemname = X.name
@@ -173,32 +178,36 @@
 			info = P.notehtml
 		U << "You hold \a [itemname] up to the camera ..."
 		for(var/mob/living/silicon/ai/O in living_mob_list)
+			var/entry = O.addCameraRecord(itemname,info)
 			if(!O.client) continue
-			if(U.name == "Unknown") O << "<b>[U]</b> holds \a [itemname] up to one of your cameras ..."
-			else O << "<b><a href='byond://?src=\ref[O];track2=\ref[O];track=\ref[U];trackname=[U.name]'>[U]</a></b> holds \a [itemname] up to one of your cameras ..."
-			O << browse(text("<HTML><HEAD><TITLE>[]</TITLE></HEAD><BODY><TT>[]</TT></BODY></HTML>", itemname, info), text("window=[]", itemname))
+			if(U.name == "Unknown")
+				O << "<b>[U]</b> holds \a [itemname] up to one of your cameras ...<a href='?src=\ref[O];readcapturedpaper=\ref[entry]'>view message</a>"
+			else
+				O << "<b><a href='byond://?src=\ref[O];track2=\ref[O];track=\ref[U];trackname=[html_encode(U.name)]'>[U]</a></b> holds \a [itemname] up to one of your cameras ...<a href='?src=\ref[O];readcapturedpaper=[entry]'>view message</a>"
+
 		for(var/mob/O in player_list)
 			if (istype(O.machine, /obj/machinery/computer/security))
 				var/obj/machinery/computer/security/S = O.machine
-				if (S.current == src)
+				if (S.current_camera == src)
 					O << "[U] holds \a [itemname] up to one of the cameras ..."
-					O << browse(text("<HTML><HEAD><TITLE>[]</TITLE></HEAD><BODY><TT>[]</TT></BODY></HTML>", itemname, info), text("window=[]", itemname))
+					O << browse(text("<HTML><HEAD><TITLE>[]</TITLE></HEAD><BODY><TT>[]</TT></BODY></HTML>", itemname, info), text("window=[]", itemname)) //Force people watching to open the page so they can't see it again
 
 	else if (istype(W, /obj/item/weapon/camera_bug))
 		if (!src.can_use())
-			user << "\blue Camera non-functional"
+			user << "<span class='warning'>Camera non-functional.</span>"
 			return
 		if (src.bugged)
-			user << "\blue Camera bug removed."
+			user << "<span class='notice'>Camera bug removed.</span>"
 			src.bugged = 0
 		else
-			user << "\blue Camera bugged."
+			user << "<span class='notice'>Camera bugged.</span>"
 			src.bugged = 1
 
 	else if(W.damtype == BRUTE || W.damtype == BURN) //bashing cameras
+		user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 		if (W.force >= src.toughness)
 			user.do_attack_animation(src)
-			visible_message("<span class='warning'><b>[src] has been [pick(W.attack_verb)] with [W] by [user]!</b></span>")
+			user.visible_message("<span class='danger'>[user] has [LAZYPICK(W.attack_verb,"attacked")] [src] with [W]!</span>")
 			if (istype(W, /obj/item)) //is it even possible to get into attackby() with non-items?
 				var/obj/item/I = W
 				if (I.hitsound)
@@ -217,8 +226,7 @@
 		//legacy support, if choice is != 1 then just kick viewers without changing status
 		kick_viewers()
 	else
-		update_coverage()
-		set_status( !src.status )
+		set_status(!src.status)
 		if (!(src.status))
 			if(user)
 				visible_message("<span class='notice'> [user] has deactivated [src]!</span>")
@@ -252,15 +260,13 @@
 	update_coverage()
 
 	//sparks
-	var/datum/effect/effect/system/spark_spread/spark_system = new /datum/effect/effect/system/spark_spread()
-	spark_system.set_up(5, 0, loc)
-	spark_system.start()
+	spark(loc, 5)
 	playsound(loc, "sparks", 50, 1)
 
 /obj/machinery/camera/proc/set_status(var/newstatus)
 	if (status != newstatus)
 		status = newstatus
-		invalidateCameraCache()
+		update_coverage()
 		// now disconnect anyone using the camera
 		//Apparently, this will disconnect anyone even if the camera was re-activated.
 		//I guess that doesn't matter since they couldn't use it anyway?
@@ -276,7 +282,7 @@
 	for(var/mob/O in player_list)
 		if (istype(O.machine, /obj/machinery/computer/security))
 			var/obj/machinery/computer/security/S = O.machine
-			if (S.current == src)
+			if (S.current_camera == src)
 				O.unset_machine()
 				O.reset_view(null)
 				O << "The screen bursts into static."
@@ -311,6 +317,9 @@
 /obj/machinery/camera/proc/can_see()
 	var/list/see = null
 	var/turf/pos = get_turf(src)
+	if(!pos)
+		return list()
+
 	if(isXRay())
 		see = range(view_range, pos)
 	else
@@ -463,3 +472,4 @@
 	wires.MendAll()
 	update_icon()
 	update_coverage()
+

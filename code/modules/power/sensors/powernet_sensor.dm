@@ -12,7 +12,7 @@
 	desc = "Small machine which transmits data about specific powernet"
 	anchored = 1
 	density = 0
-	layer = 2.46 // Above cables, but should be below floors.
+	level = 1
 	icon = 'icons/obj/objects.dmi'
 	icon_state = "floor_beacon" // If anyone wants to make better sprite, feel free to do so without asking me.
 
@@ -22,9 +22,14 @@
 // Proc: New()
 // Parameters: None
 // Description: Automatically assigns name according to ID tag.
-/obj/machinery/power/sensor/New()
-	..()
+/obj/machinery/power/sensor/Initialize()
+	. = ..()
 	auto_set_name()
+	SSpower.all_sensors += src
+
+/obj/machinery/power/sensor/Destroy()
+	. = ..()
+	SSpower.all_sensors -= src
 
 // Proc: auto_set_name()
 // Parameters: None
@@ -41,12 +46,6 @@
 		if(powernet.problem)
 			return 1
 	return 0
-
-// Proc: process()
-// Parameters: None
-// Description: This has to be here because we need sensors to remain in Machines list.
-/obj/machinery/power/sensor/process()
-	return 1
 
 // Proc: reading_to_text()
 // Parameters: 1 (amount - Power in Watts to be converted to W, kW or MW)
@@ -167,7 +166,7 @@
 			APC_entry["total_load"] = reading_to_text(A.lastused_total)
 			// Hopefully removes those goddamn \improper s which are screwing up the UI
 			var/N = A.area.name
-			if(findtext(N, "ÿ"))
+			if(findtext(N, "ï¿½"))
 				N = copytext(N, 3)
 			APC_entry["name"] = N
 			// Add data into main list of APC data.

@@ -23,7 +23,7 @@
 		syringe = I
 		user << "<span class='notice'>You carefully insert [syringe] into [src].</span>"
 		user.remove_from_mob(syringe)
-		syringe.loc = src
+		syringe.forceMove(src)
 		sharp = 1
 		name = "syringe dart"
 		update_icon()
@@ -53,7 +53,7 @@
 			if(L.can_inject() && syringe.reagents)
 				var/reagent_log = syringe.reagents.get_reagents()
 				syringe.reagents.trans_to_mob(L, 15, CHEM_BLOOD)
-				admin_inject_log(thrower, L, src, reagent_log, 15, violent=1)
+				admin_inject_log(thrower, L, src, reagent_log, reagents.get_temperature(), 15, violent=1)
 
 		syringe.break_syringe(iscarbon(hit_atom)? hit_atom : null)
 		syringe.update_icon()
@@ -76,6 +76,8 @@
 	recoil = 0
 	release_force = 10
 	throw_distance = 10
+
+	needspin = FALSE
 
 	var/list/darts = list()
 	var/max_darts = 1
@@ -124,7 +126,7 @@
 			user << "<span class='warning'>[src] is full!</span>"
 			return
 		user.remove_from_mob(C)
-		C.loc = src
+		C.forceMove(src)
 		darts += C //add to the end
 		user.visible_message("[user] inserts \a [C] into [src].", "<span class='notice'>You insert \a [C] into [src].</span>")
 	else

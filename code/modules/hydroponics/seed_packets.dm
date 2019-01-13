@@ -11,16 +11,14 @@ var/global/list/plant_seed_sprites = list()
 	var/datum/seed/seed
 	var/modified = 0
 
-/obj/item/seeds/New()
-	while(!plant_controller)
-		sleep(30)
+/obj/item/seeds/Initialize()
 	update_seed()
-	..()
+	. = ..()
 
 //Grabs the appropriate seed datum from the global list.
 /obj/item/seeds/proc/update_seed()
-	if(!seed && seed_type && !isnull(plant_controller.seeds) && plant_controller.seeds[seed_type])
-		seed = plant_controller.seeds[seed_type]
+	if(!seed && seed_type && !isnull(SSplants.seeds) && SSplants.seeds[seed_type])
+		seed = SSplants.seeds[seed_type]
 	update_appearance()
 
 //Updates strings and icon appropriately based on seed datum.
@@ -28,7 +26,7 @@ var/global/list/plant_seed_sprites = list()
 	if(!seed) return
 
 	// Update icon.
-	overlays.Cut()
+	cut_overlays()
 	var/is_seeds = ((seed.seed_noun in list("seeds","pits","nodes")) ? 1 : 0)
 	var/image/seed_mask
 	var/seed_base_key = "base-[is_seeds ? seed.get_trait(TRAIT_PLANT_COLOUR) : "spores"]"
@@ -49,8 +47,8 @@ var/global/list/plant_seed_sprites = list()
 		seed_overlay.color = seed.get_trait(TRAIT_PRODUCT_COLOUR)
 		plant_seed_sprites[seed_overlay_key] = seed_overlay
 
-	overlays |= seed_mask
-	overlays |= seed_overlay
+	add_overlay(seed_mask)
+	add_overlay(seed_overlay)
 
 	if(is_seeds)
 		src.name = "packet of [seed.seed_name] [seed.seed_noun]"
@@ -75,10 +73,10 @@ var/global/list/plant_seed_sprites = list()
 /obj/item/seeds/random
 	seed_type = null
 
-/obj/item/seeds/random/New()
-	seed = plant_controller.create_random_seed()
+/obj/item/seeds/random/Initialize()
+	seed = SSplants.create_random_seed()
 	seed_type = seed.name
-	update_seed()
+	. = ..()
 
 /obj/item/seeds/replicapod
 	seed_type = "diona"
@@ -109,6 +107,9 @@ var/global/list/plant_seed_sprites = list()
 
 /obj/item/seeds/berryseed
 	seed_type = "berries"
+
+/obj/item/seeds/blueberryseed
+	seed_type = "blueberries"
 
 /obj/item/seeds/glowberryseed
 	seed_type = "glowberries"
@@ -163,6 +164,9 @@ var/global/list/plant_seed_sprites = list()
 
 /obj/item/seeds/amanitamycelium
 	seed_type = "amanita"
+
+/obj/item/seeds/panocelium
+	seed_type = "panocelium"
 
 /obj/item/seeds/angelmycelium
 	seed_type = "destroyingangel"
@@ -249,37 +253,40 @@ var/global/list/plant_seed_sprites = list()
 	seed_type = "grass"
 
 /obj/item/seeds/cocoapodseed
-	seed_type = "cocoa"
+	seed_type = "cacao"
 
 /obj/item/seeds/cherryseed
 	seed_type = "cherry"
 
-/obj/item/seeds/tobaccoseed
-	seed_type = "tobacco"
-
 /obj/item/seeds/kudzuseed
 	seed_type = "kudzu"
 
-/obj/item/seeds/jurlmah
-	seed_type = "jurlmah"
-
-/obj/item/seeds/amauri
-	seed_type = "amauri"
-
-/obj/item/seeds/gelthi
-	seed_type = "gelthi"
-
-/obj/item/seeds/vale
-	seed_type = "vale"
-
-/obj/item/seeds/surik
-	seed_type = "surik"
-
-/obj/item/seeds/telriis
-	seed_type = "telriis"
-
-/obj/item/seeds/thaadra
-	seed_type = "thaadra"
-
 /obj/item/seeds/koisspore
 	seed_type = "koisspore"
+
+/obj/item/seeds/blackkois
+	seed_type = "blackkois"
+
+/obj/item/seeds/earthenroot
+	seed_type = "earthenroot"
+
+/obj/item/seeds/nifberries
+	seed_type = "nifberries"
+
+/obj/item/seeds/tobaccoseed
+	seed_type = "tobacco"
+
+/obj/item/seeds/finetobacco
+	seed_type = "finetobacco"
+
+/obj/item/seeds/peppercornseed
+	seed_type = "peppercorn"
+
+/obj/item/seeds/garlicseed
+	seed_type = "garlic"
+
+/obj/item/seeds/onionseed
+	seed_type = "onion"
+
+/obj/item/seeds/ghostmushroomseed
+	seed_type = "ghostmushroom"

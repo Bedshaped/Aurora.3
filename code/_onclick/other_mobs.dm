@@ -17,7 +17,7 @@
 	// If the gloves do anything, have them return 1 to stop
 	// normal attack_hand() here.
 	var/obj/item/clothing/gloves/G = gloves // not typecast specifically enough in defines
-	if(istype(G) && G.Touch(A,1))
+	if(istype(G) && G.Touch(A,src,1))
 		return
 
 	A.attack_hand(src)
@@ -34,19 +34,10 @@
 	if((LASER in mutations) && a_intent == I_HURT)
 		LaserEyes(A) // moved into a proc below
 
-	else if(istype(G) && G.Touch(A,0)) // for magic gloves
+	else if(istype(G) && G.Touch(A,src,0)) // for magic gloves
 		return
 
 	else if(TK in mutations)
-		switch(get_dist(src,A))
-			if(1 to 5) // not adjacent may mean blocked by window
-				next_move += 2
-			if(5 to 7)
-				next_move += 5
-			if(8 to 15)
-				next_move += 10
-			if(16 to 128)
-				return
 		A.attack_tk(src)
 
 /mob/living/RestrainedClickOn(var/atom/A)
@@ -64,6 +55,7 @@
 	if(!..())
 		return 0
 
+	setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 	A.attack_generic(src,rand(5,6),"bitten")
 
 /*
@@ -85,6 +77,8 @@
 			Feedstop()
 		return
 
+	setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
+
 	var/mob/living/M = A
 	if (istype(M))
 
@@ -97,8 +91,6 @@
 				if (powerlevel > 0 && !istype(A, /mob/living/carbon/slime))
 					if(ishuman(M))
 						var/mob/living/carbon/human/H = M
-						if(H.species.flags & IS_SYNTHETIC)
-							return
 						stunprob *= H.species.siemens_coefficient
 
 
@@ -118,9 +110,7 @@
 					M.Stun(power)
 					M.stuttering = max(M.stuttering, power)
 
-					var/datum/effect/effect/system/spark_spread/s = new /datum/effect/effect/system/spark_spread
-					s.set_up(5, 1, M)
-					s.start()
+					spark(M, 5, alldirs)
 
 					if(prob(stunprob) && powerlevel >= 8)
 						M.adjustFireLoss(powerlevel * rand(6,10))
@@ -140,7 +130,7 @@
 	New Players:
 	Have no reason to click on anything at all.
 */
-/mob/new_player/ClickOn()
+/mob/abstract/new_player/ClickOn()
 	return
 
 /*
@@ -150,11 +140,13 @@
 
 	if(!..())
 		return
-
-	if(melee_damage_upper == 0 && istype(A,/mob/living))
-		custom_emote(1,"[friendly] [A]!")
-		return
-
+	if(istype(A,/mob/living))
+		if(melee_damage_upper == 0)
+			custom_emote(1,"[friendly] [A]!")
+			return
+		if(ckey)
+			add_logs(src, A, attacktext)
+	setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 	var/damage = rand(melee_damage_lower, melee_damage_upper)
 	if(A.attack_generic(src,damage,attacktext,environment_smash) && loc && attack_sound)
 		playsound(loc, attack_sound, 50, 1, 1)

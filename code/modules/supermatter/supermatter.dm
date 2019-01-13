@@ -30,19 +30,23 @@
 
 #define WARNING_DELAY 20			//seconds between warnings.
 
+#define LIGHT_POWER_CALC (max(power / 50, 1))
+
 /obj/machinery/power/supermatter
 	name = "Supermatter"
-	desc = "A strangely translucent and iridescent crystal. \red You get headaches just from looking at it."
+	desc = "A strangely translucent and iridescent crystal. <span class='warning'>You get headaches just from looking at it.</span>"
 	icon = 'icons/obj/engine.dmi'
 	icon_state = "darkmatter"
 	density = 1
 	anchored = 0
 	light_range = 4
+	light_power = 1
 
 	var/gasefficency = 0.25
 
 	var/base_icon_state = "darkmatter"
 
+	var/last_power
 	var/damage = 0
 	var/damage_archived = 0
 	var/safe_alert = "Crystaline hyperstructure returning to safe operating levels."
@@ -55,6 +59,7 @@
 	var/explosion_point = 1000
 
 	light_color = "#8A8A00"
+	uv_intensity = 255
 	var/warning_color = "#B8B800"
 	var/emergency_color = "#D9D900"
 
@@ -86,14 +91,15 @@
 	var/obj/item/device/radio/radio
 
 	var/debug = 0
+	var/last_message_time = -100 //for message
 
-/obj/machinery/power/supermatter/New()
+/obj/machinery/power/supermatter/Initialize()
 	. = ..()
 	radio = new /obj/item/device/radio{channels=list("Engineering")}(src)
 
 
 /obj/machinery/power/supermatter/Destroy()
-	qdel(radio)
+	QDEL_NULL(radio)
 	. = ..()
 
 /obj/machinery/power/supermatter/proc/explode()
@@ -118,13 +124,20 @@
 
 //Changes color and luminosity of the light to these values if they were not already set
 /obj/machinery/power/supermatter/proc/shift_light(var/lum, var/clr)
-	if(lum != light_range || clr != light_color)
-		set_light(lum, l_color = clr)
+	if(lum != light_range || abs(power - last_power) > 10 || clr != light_color)
+		set_light(lum, LIGHT_POWER_CALC, clr)
+		last_power = power
 
-/obj/machinery/power/supermatter/proc/announce_warning()
+
+/obj/machinery/power/supermatter/proc/get_integrity()
 	var/integrity = damage / explosion_point
 	integrity = round(100 - integrity * 100)
 	integrity = integrity < 0 ? 0 : integrity
+	return integrity
+
+
+/obj/machinery/power/supermatter/proc/announce_warning()
+	var/integrity = get_integrity()
 	var/alert_msg = " Integrity at [integrity]%"
 
 	if(damage > emergency_point)
@@ -146,12 +159,29 @@
 		if((damage > emergency_point) && !public_alert)
 			radio.autosay("WARNING: SUPERMATTER CRYSTAL DELAMINATION IMMINENT!", "Supermatter Monitor")
 			public_alert = 1
+			for(var/mob/M in player_list)
+				var/turf/T = get_turf(M)
+				if(T && !istype(M, /mob/abstract/new_player) && !isdeaf(M))
+					sound_to(M, 'sound/effects/nuclearsiren.ogg')
 		else if(safe_warned && public_alert)
 			radio.autosay(alert_msg, "Supermatter Monitor")
 			public_alert = 0
 
 
-/obj/machinery/power/supermatter/process()
+/obj/machinery/power/supermatter/get_transit_zlevel()
+	//don't send it back to the station -- most of the time
+	if(prob(99))
+		var/list/candidates = current_map.accessible_z_levels.Copy()
+		for(var/zlevel in current_map.station_levels)
+			candidates.Remove("[zlevel]")
+		candidates.Remove("[src.z]")
+
+		if(candidates.len)
+			return text2num(pickweight(candidates))
+
+	return ..()
+
+/obj/machinery/power/supermatter/machinery_process()
 
 	var/turf/L = loc
 
@@ -173,7 +203,7 @@
 		if(!istype(L, /turf/space) && (world.timeofday - lastwarning) >= WARNING_DELAY * 10)
 			announce_warning()
 	else
-		shift_light(4,initial(light_color))
+		shift_light(4, initial(light_color))
 	if(grav_pulling)
 		supermatter_pull()
 
@@ -238,8 +268,10 @@
 		env.merge(removed)
 
 	for(var/mob/living/carbon/human/l in view(src, min(7, round(sqrt(power/6))))) // If they can see it without mesons on.  Bad on them.
-		if(!istype(l.glasses, /obj/item/clothing/glasses/meson))
+		if(!istype(l.glasses, /obj/item/clothing/glasses/meson) && !l.is_diona() && !l.isSynthetic())
 			l.hallucination = max(0, min(200, l.hallucination + power * config_hallucination_power * sqrt( 1 / max(1,get_dist(l, src)) ) ) )
+			if(prob(15))
+				l.cure_all_traumas(cure_type = CURE_HYPNOSIS)
 
 	//adjusted range so that a power of 170 (pretty high) results in 9 tiles, roughly the distance from the core to the engine monitoring room.
 	//note that the rads given at the maximum range is a constant 0.2 - as power increases the maximum range merely increases.
@@ -250,7 +282,12 @@
 		var/rads = (power / 10) * ( 1 / (radius**2) )
 		if (!(l in oview(rad_range, src)) && !(l in range(src, round(rad_range * 2/3))))
 			continue
-		l.apply_effect(rads, IRRADIATE)
+		l.apply_effect(rads, IRRADIATE, blocked = l.getarmor(null, "rad"))
+		if(l.is_diona())
+			l.adjustToxLoss(-rads)
+			if(last_message_time + 800 < world.time) // Not to spam message
+				to_chat(l, "<span class='notice'>You can feel an extreme level of energy which flows throught your body and makes you regenerate very fast.</span>")
+	last_message_time = world.time
 
 	power -= (power/DECAY_FACTOR)**3		//energy losses due to radiation
 
@@ -264,21 +301,22 @@
 				// Then bring it inside to explode instantly upon landing on a valid turf.
 
 
+	var/proj_damage = Proj.get_structure_damage()
 	if(istype(Proj, /obj/item/projectile/beam))
-		power += Proj.damage * config_bullet_energy	* CHARGING_FACTOR / POWER_FACTOR
+		power += proj_damage * config_bullet_energy	* CHARGING_FACTOR / POWER_FACTOR
 	else
-		damage += Proj.damage * config_bullet_energy
+		damage += proj_damage * config_bullet_energy
 	return 0
 
 /obj/machinery/power/supermatter/attack_robot(mob/user as mob)
 	if(Adjacent(user))
 		return attack_hand(user)
 	else
-		user << "<span class = \"warning\">You attempt to interface with the control circuits but find they are not connected to your network.  Maybe in a future firmware update.</span>"
+		ui_interact(user)
 	return
 
 /obj/machinery/power/supermatter/attack_ai(mob/user as mob)
-	user << "<span class = \"warning\">You attempt to interface with the control circuits but find they are not connected to your network.  Maybe in a future firmware update.</span>"
+	ui_interact(user)
 
 /obj/machinery/power/supermatter/attack_hand(mob/user as mob)
 	user.visible_message("<span class=\"warning\">\The [user] reaches out and touches \the [src], inducing a resonance... \his body starts to glow and bursts into flames before flashing into ash.</span>",\
@@ -286,6 +324,31 @@
 		"<span class=\"warning\">You hear an uneartly ringing, then what sounds like a shrilling kettle as you are washed with a wave of heat.</span>")
 
 	Consume(user)
+
+// This is purely informational UI that may be accessed by AIs or robots
+/obj/machinery/power/supermatter/ui_interact(mob/user, ui_key = "main", var/datum/nanoui/ui = null, var/force_open = 1)
+	var/data[0]
+
+	data["integrity_percentage"] = round(get_integrity())
+	var/datum/gas_mixture/env = null
+	if(!istype(src.loc, /turf/space))
+		env = src.loc.return_air()
+
+	if(!env)
+		data["ambient_temp"] = 0
+		data["ambient_pressure"] = 0
+	else
+		data["ambient_temp"] = round(env.temperature)
+		data["ambient_pressure"] = round(env.return_pressure())
+	data["detonating"] = grav_pulling
+
+	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data, force_open)
+	if (!ui)
+		ui = new(user, src, ui_key, "supermatter_crystal.tmpl", "Supermatter Crystal", 500, 300)
+		ui.set_initial_data(data)
+		ui.open()
+		ui.set_auto_update(1)
+
 
 /*
 /obj/machinery/power/supermatter/proc/transfer_energy()
@@ -305,11 +368,15 @@
 	user.drop_from_inventory(W)
 	Consume(W)
 
-	user.apply_effect(150, IRRADIATE)
+	user.apply_effect(150, IRRADIATE, blocked = user.getarmor(null, "rad"))
 
 
-/obj/machinery/power/supermatter/Bumped(atom/AM as mob|obj)
+/obj/machinery/power/supermatter/CollidedWith(atom/AM as mob|obj)
+	if(!AM.simulated)
+		return
 	if(istype(AM, /obj/effect))
+		return
+	if(isprojectile(AM))
 		return
 	if(istype(AM, /mob/living))
 		AM.visible_message("<span class=\"warning\">\The [AM] slams into \the [src] inducing a resonance... \his body starts to glow and catch flame before flashing into ash.</span>",\
@@ -327,6 +394,11 @@
 		user.dust()
 		power += 200
 	else
+		if (istype(user, /obj/item/weapon/holder))
+			var/obj/item/weapon/holder/H = user
+			Consume(H.contained)//If its a holder, eat the thing inside
+			qdel(H)
+			return
 		qdel(user)
 
 	power += 200
@@ -339,19 +411,16 @@
 		else
 			l.show_message("<span class=\"warning\">You hear an uneartly ringing and notice your skin is covered in fresh radiation burns.</span>", 2)
 		var/rads = 500 * sqrt( 1 / (get_dist(l, src) + 1) )
-		l.apply_effect(rads, IRRADIATE)
+		l.apply_effect(rads, IRRADIATE, blocked = l.getarmor(null, "rad"))
 
 
 /obj/machinery/power/supermatter/proc/supermatter_pull()
 	//following is adapted from singulo code
-	if(defer_powernet_rebuild != 2)
-		defer_powernet_rebuild = 1
 	// Let's just make this one loop.
 	for(var/atom/X in orange(pull_radius,src))
 		X.singularity_pull(src, STAGE_FIVE)
+		CHECK_TICK
 
-	if(defer_powernet_rebuild != 2)
-		defer_powernet_rebuild = 0
 	return
 
 
@@ -363,7 +432,7 @@
 
 /obj/machinery/power/supermatter/shard //Small subtype, less efficient and more sensitive, but less boom.
 	name = "Supermatter Shard"
-	desc = "A strangely translucent and iridescent crystal that looks like it used to be part of a larger structure. \red You get headaches just from looking at it."
+	desc = "A strangely translucent and iridescent crystal that looks like it used to be part of a larger structure. <span class='warning'>You get headaches just from looking at it.</span>"
 	icon_state = "darkmatter_shard"
 	base_icon_state = "darkmatter_shard"
 
@@ -379,3 +448,5 @@
 
 /obj/machinery/power/supermatter/shard/announce_warning() //Shards don't get announcements
 	return
+
+#undef LIGHT_POWER_CALC

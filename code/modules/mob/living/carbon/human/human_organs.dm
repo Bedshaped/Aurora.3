@@ -1,5 +1,5 @@
 /mob/living/carbon/human/proc/update_eyes()
-	var/obj/item/organ/eyes/eyes = internal_organs_by_name["eyes"]
+	var/obj/item/organ/eyes/eyes = internal_organs_by_name[species.vision_organ || "eyes"]
 	if(eyes)
 		eyes.update_colour()
 		regenerate_icons()
@@ -25,6 +25,11 @@
 
 	//processing internal organs is pretty cheap, do that first.
 	for(var/obj/item/organ/I in internal_organs)
+		if (QDELETED(I))
+			log_debug("Organ [DEBUG_REF(src)] was not properly removed from its parent!")
+			internal_organs -= I
+			continue
+
 		I.process()
 
 	handle_stance()
@@ -34,7 +39,7 @@
 		return
 
 	for(var/obj/item/organ/external/E in bad_external_organs)
-		if(!E)
+		if(QDELETED(E))
 			continue
 		if(!E.need_process())
 			bad_external_organs -= E
@@ -43,7 +48,7 @@
 			E.process()
 			number_wounds += E.number_wounds
 
-			if (!lying && world.time - l_move_time < 15)
+			if (!lying && !buckled && world.time - l_move_time < 15)
 			//Moving around with fractured ribs won't do you any good
 				if (E.is_broken() && E.internal_organs && E.internal_organs.len && prob(15))
 					var/obj/item/organ/I = pick(E.internal_organs)
@@ -77,12 +82,7 @@
 			stance_damage += 2
 			if(prob(10))
 				visible_message("\The [src]'s [E.name] [pick("twitches", "shudders")] and sparks!")
-				var/datum/effect/effect/system/spark_spread/spark_system = new ()
-				spark_system.set_up(5, 0, src)
-				spark_system.attach(src)
-				spark_system.start()
-				spawn(10)
-					qdel(spark_system)
+				spark(src, 5)
 		else if (E.is_broken() || !E.is_usable())
 			stance_damage += 1
 		else if (E.is_dislocated())
@@ -160,12 +160,7 @@
 
 			emote("me", 1, "drops what they were holding, their [E.name] malfunctioning!")
 
-			var/datum/effect/effect/system/spark_spread/spark_system = new /datum/effect/effect/system/spark_spread()
-			spark_system.set_up(5, 0, src)
-			spark_system.attach(src)
-			spark_system.start()
-			spawn(10)
-				qdel(spark_system)
+			spark(src, 5)
 
 //Handles chem traces
 /mob/living/carbon/human/proc/handle_trace_chems()
@@ -173,3 +168,12 @@
 	for(var/datum/reagent/A in reagents.reagent_list)
 		var/obj/item/organ/O = pick(organs)
 		O.trace_chemicals[A.name] = 100
+
+/mob/living/carbon/human/proc/sync_organ_dna()
+	var/list/all_bits = internal_organs|organs
+	for(var/obj/item/organ/O in all_bits)
+		O.set_dna(dna)
+
+/mob/living/carbon/human/proc/get_blood_alcohol()
+	return round(intoxication/max(vessel.get_reagent_amount("blood"),1),0.01)
+

@@ -5,14 +5,14 @@
 	icon = 'icons/obj/hydroponics_products.dmi'
 	icon_state = "blank"
 	desc = "Nutritious! Probably."
+	slot_flags = SLOT_HOLSTER
 
 	var/plantname
 	var/datum/seed/seed
 	var/potency = -1
 
-/obj/item/weapon/reagent_containers/food/snacks/grown/New(newloc,planttype)
-
-	..()
+/obj/item/weapon/reagent_containers/food/snacks/grown/Initialize(loca, planttype)
+	. = ..()
 	if(!dried_type)
 		dried_type = type
 	src.pixel_x = rand(-5.0, 5)
@@ -25,14 +25,12 @@
 	if(!plantname)
 		return
 
-	if(!plant_controller)
-		sleep(250) // ugly hack, should mean roundstart plants are fine.
-	if(!plant_controller)
-		world << "<span class='danger'>Plant controller does not exist and [src] requires it. Aborting.</span>"
+	if(!SSplants)
+		to_world("<span class='danger'>Plant controller does not exist and [src] requires it. Aborting.</span>")
 		qdel(src)
 		return
 
-	seed = plant_controller.seeds[plantname]
+	seed = SSplants.seeds[plantname]
 
 	if(!seed)
 		return
@@ -51,9 +49,12 @@
 		var/list/reagent_data = seed.chems[rid]
 		if(reagent_data && reagent_data.len)
 			var/rtotal = reagent_data[1]
+			var/list/data = list()
 			if(reagent_data.len > 1 && potency > 0)
 				rtotal += round(potency/reagent_data[2])
-			reagents.add_reagent(rid,max(1,rtotal))
+			if(rid == "nutriment")
+				data[seed.seed_name] = max(1,rtotal)
+			reagents.add_reagent(rid,max(1,rtotal),data)
 	update_desc()
 	if(reagents.total_volume > 0)
 		bitesize = 1+round(reagents.total_volume / 2, 1)
@@ -62,15 +63,13 @@
 
 	if(!seed)
 		return
-	if(!plant_controller)
-		sleep(250) // ugly hack, should mean roundstart plants are fine.
-	if(!plant_controller)
-		world << "<span class='danger'>Plant controller does not exist and [src] requires it. Aborting.</span>"
+	if(!SSplants)
+		to_world("<span class='danger'>Plant controller does not exist and [src] requires it. Aborting.</span>")
 		qdel(src)
 		return
 
-	if(plant_controller.product_descs["[seed.uid]"])
-		desc = plant_controller.product_descs["[seed.uid]"]
+	if(SSplants.product_descs["[seed.uid]"])
+		desc = SSplants.product_descs["[seed.uid]"]
 	else
 		var/list/descriptors = list()
 		if(reagents.has_reagent("sugar") || reagents.has_reagent("cherryjelly") || reagents.has_reagent("honey") || reagents.has_reagent("berryjuice"))
@@ -99,7 +98,7 @@
 			descriptors |= "shiny"
 		if(reagents.has_reagent("lube"))
 			descriptors |= "slippery"
-		if(reagents.has_reagent("pacid") || reagents.has_reagent("sacid"))
+		if(reagents.has_reagent("pacid") || reagents.has_reagent("sacid") || reagents.has_reagent("hclacid"))
 			descriptors |= "acidic"
 		if(seed.get_trait(TRAIT_JUICY))
 			descriptors |= "juicy"
@@ -122,17 +121,17 @@
 			desc += " mushroom"
 		else
 			desc += " fruit"
-		plant_controller.product_descs["[seed.uid]"] = desc
+		SSplants.product_descs["[seed.uid]"] = desc
 	desc += ". Delicious! Probably."
 
 /obj/item/weapon/reagent_containers/food/snacks/grown/update_icon()
-	if(!seed || !plant_controller || !plant_controller.plant_icon_cache)
+	if(!seed || !SSplants || !SSplants.plant_icon_cache)
 		return
-	overlays.Cut()
+	cut_overlays()
 	var/image/plant_icon
 	var/icon_key = "fruit-[seed.get_trait(TRAIT_PRODUCT_ICON)]-[seed.get_trait(TRAIT_PRODUCT_COLOUR)]-[seed.get_trait(TRAIT_PLANT_COLOUR)]"
-	if(plant_controller.plant_icon_cache[icon_key])
-		plant_icon = plant_controller.plant_icon_cache[icon_key]
+	if(SSplants.plant_icon_cache[icon_key])
+		plant_icon = SSplants.plant_icon_cache[icon_key]
 	else
 		plant_icon = image('icons/obj/hydroponics_products.dmi',"blank")
 		var/image/fruit_base = image('icons/obj/hydroponics_products.dmi',"[seed.get_trait(TRAIT_PRODUCT_ICON)]-product")
@@ -142,8 +141,8 @@
 			var/image/fruit_leaves = image('icons/obj/hydroponics_products.dmi',"[seed.get_trait(TRAIT_PRODUCT_ICON)]-leaf")
 			fruit_leaves.color = "[seed.get_trait(TRAIT_PLANT_COLOUR)]"
 			plant_icon.overlays |= fruit_leaves
-		plant_controller.plant_icon_cache[icon_key] = plant_icon
-	overlays |= plant_icon
+		SSplants.plant_icon_cache[icon_key] = plant_icon
+	add_overlay(plant_icon)
 
 /obj/item/weapon/reagent_containers/food/snacks/grown/Crossed(var/mob/living/M)
 	if(seed && seed.get_trait(TRAIT_JUICY) == 2)
@@ -154,7 +153,7 @@
 
 			if(istype(M,/mob/living/carbon/human))
 				var/mob/living/carbon/human/H = M
-				if(H.shoes && H.shoes.flags & NOSLIP)
+				if(H.shoes && H.shoes.item_flags & NOSLIP)
 					return
 
 			M.stop_pulling()
@@ -174,7 +173,7 @@
 /obj/item/weapon/reagent_containers/food/snacks/grown/attackby(var/obj/item/weapon/W, var/mob/user)
 
 	if(seed)
-		if(seed.get_trait(TRAIT_PRODUCES_POWER) && istype(W, /obj/item/stack/cable_coil))
+		if(seed.get_trait(TRAIT_PRODUCES_POWER) && iscoil(W))
 			var/obj/item/stack/cable_coil/C = W
 			if(C.use(5))
 				//TODO: generalize this.
@@ -186,7 +185,7 @@
 				pocell.charge = pocell.maxcharge
 				qdel(src)
 				return
-		else if(W.sharp)
+		else if(W.sharp && !W.noslice)
 			if(seed.kitchen_tag == "pumpkin") // Ugggh these checks are awful.
 				user.show_message("<span class='notice'>You carve a face into [src]!</span>", 1)
 				new /obj/item/clothing/head/pumpkinhead (user.loc)
@@ -195,6 +194,7 @@
 			else if(seed.chems)
 				if(istype(W,/obj/item/weapon/material/hatchet) && !isnull(seed.chems["woodpulp"]))
 					user.show_message("<span class='notice'>You make planks out of \the [src]!</span>", 1)
+					playsound(loc, 'sound/effects/woodcutting.ogg', 50, 1)
 					var/flesh_colour = seed.get_trait(TRAIT_FLESH_COLOUR)
 					if(!flesh_colour) flesh_colour = seed.get_trait(TRAIT_PRODUCT_COLOUR)
 					for(var/i=0,i<2,i++)
@@ -225,76 +225,32 @@
 					qdel(src)
 					return
 				else if(seed.get_trait(TRAIT_FLESH_COLOUR))
-					user << "You slice up \the [src]."
-					var/slices = rand(3,5)
-					var/reagents_to_transfer = round(reagents.total_volume/slices)
-					for(var/i=i;i<=slices;i++)
-						var/obj/item/weapon/reagent_containers/food/snacks/fruit_slice/F = new(get_turf(src),seed)
-						if(reagents_to_transfer) reagents.trans_to_obj(F,reagents_to_transfer)
-					qdel(src)
-					return
+					if (reagents.total_volume)
+						user << "You slice up \the [src]."
+						var/slices = rand(3,5)
+						var/reagents_to_transfer = reagents.total_volume/slices
+						for(var/i=0;i<slices;i++)
+							var/obj/item/weapon/reagent_containers/food/snacks/fruit_slice/F = new(get_turf(src),seed)
+							reagents.trans_to_obj(F,reagents_to_transfer)
+						qdel(src)
+						return
 	..()
 
-/obj/item/weapon/reagent_containers/food/snacks/grown/attack(var/mob/living/carbon/M, var/mob/user, var/def_zone)
-	if(user == M)
-		return ..()
+/obj/item/weapon/reagent_containers/food/snacks/grown/apply_hit_effect(mob/living/target, mob/living/user, var/hit_zone)
+	. = ..()
 
-	if(user.a_intent == I_HURT)
-
-		// This is being copypasted here because reagent_containers (WHY DOES FOOD DESCEND FROM THAT) overrides it completely.
-		// TODO: refactor all food paths to be less horrible and difficult to work with in this respect. ~Z
-		if(!istype(M) || (can_operate(M) && do_surgery(M,user,src))) return 0
-
-		user.lastattacked = M
-		M.lastattacker = user
-		user.attack_log += "\[[time_stamp()]\]<font color='red'> Attacked [M.name] ([M.ckey]) with [name] (INTENT: [uppertext(user.a_intent)]) (DAMTYE: [uppertext(damtype)])</font>"
-		M.attack_log += "\[[time_stamp()]\]<font color='orange'> Attacked by [user.name] ([user.ckey]) with [name] (INTENT: [uppertext(user.a_intent)]) (DAMTYE: [uppertext(damtype)])</font>"
-		msg_admin_attack("[key_name(user)] attacked [key_name(M)] with [name] (INTENT: [uppertext(user.a_intent)]) (DAMTYE: [uppertext(damtype)]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[user.x];Y=[user.y];Z=[user.z]'>JMP</a>)")
-
-		if(istype(M, /mob/living/carbon/human))
-			var/mob/living/carbon/human/H = M
-			var/hit = H.attacked_by(src, user, def_zone)
-			if(hit && hitsound)
-				playsound(loc, hitsound, 50, 1, -1)
-			return hit
-		else
-			if(attack_verb.len)
-				user.visible_message("<span class='danger'>[M] has been [pick(attack_verb)] with [src] by [user]!</span>")
-			else
-				user.visible_message("<span class='danger'>[M] has been attacked with [src] by [user]!</span>")
-
-			if (hitsound)
-				playsound(loc, hitsound, 50, 1, -1)
-			switch(damtype)
-				if("brute")
-					M.take_organ_damage(force)
-					if(prob(33))
-						var/turf/simulated/location = get_turf(M)
-						if(istype(location)) location.add_blood_floor(M)
-				if("fire")
-					if (!(COLD_RESISTANCE in M.mutations))
-						M.take_organ_damage(0, force)
-			M.updatehealth()
-
-		if(seed && seed.get_trait(TRAIT_STINGS))
-			if(!reagents || reagents.total_volume <= 0)
-				return
-			reagents.remove_any(rand(1,3))
-			seed.thrown_at(src,M)
-			sleep(-1)
-			if(!src)
-				return
-			if(prob(35))
-				if(user)
-					user << "<span class='danger'>\The [src] has fallen to bits.</span>"
-					user.drop_from_inventory(src)
-				qdel(src)
-
-		add_fingerprint(user)
-		return 1
-
-	else
-		..()
+	if(seed && seed.get_trait(TRAIT_STINGS))
+		if(!reagents || reagents.total_volume <= 0)
+			return
+		reagents.remove_any(rand(1,3))
+		seed.thrown_at(src, target)
+		sleep(-1)
+		if(!src)
+			return
+		if(prob(35))
+			if(user)
+				user << "<span class='danger'>\The [src] has fallen to bits.</span>"
+			qdel(src)
 
 /obj/item/weapon/reagent_containers/food/snacks/grown/attack_self(mob/user as mob)
 
@@ -365,14 +321,6 @@
 		seed.do_thorns(H,src)
 		seed.do_sting(H,src,pick("r_hand","l_hand"))
 
-// Predefined types for placing on the map.
-
-/obj/item/weapon/reagent_containers/food/snacks/grown/mushroom/libertycap
-	plantname = "libertycap"
-
-/obj/item/weapon/reagent_containers/food/snacks/grown/ambrosiavulgaris
-	plantname = "ambrosia"
-
 /obj/item/weapon/reagent_containers/food/snacks/fruit_slice
 	name = "fruit slice"
 	desc = "A slice of some tasty fruit."
@@ -381,8 +329,8 @@
 
 var/list/fruit_icon_cache = list()
 
-/obj/item/weapon/reagent_containers/food/snacks/fruit_slice/New(var/newloc, var/datum/seed/S)
-	..(newloc)
+/obj/item/weapon/reagent_containers/food/snacks/fruit_slice/Initialize(mapload, datum/seed/S)
+	. = ..()
 	// Need to go through and make a general image caching controller. Todo.
 	if(!istype(S))
 		qdel(src)

@@ -16,7 +16,7 @@
 		var/obj/item/stack/M = O
 		if (src.metal_amount < 150000.0)
 			var/count = 0
-			src.overlays += "fab-load-metal"
+			add_overlay("fab-load-metal")
 			spawn(15)
 				if(M)
 					if(!M.get_amount())
@@ -27,7 +27,7 @@
 						count++
 
 					user << "You insert [count] metal sheet\s into the fabricator."
-					src.overlays -= "fab-load-metal"
+					cut_overlay("fab-load-metal")
 					updateDialog()
 		else
 			user << "The robot part maker is full. Please remove metal from the robot part maker in order to insert more."
@@ -71,47 +71,47 @@ Please wait until completion...</TT><BR>
 		if (!src.operating)
 			var/part_type = text2num(href_list["make"])
 
-			var/build_type = ""
+			var/build_type = null
 			var/build_time = 200
 			var/build_cost = 25000
 
 			switch (part_type)
 				if (1)
-					build_type = "/obj/item/robot_parts/l_arm"
+					build_type = /obj/item/robot_parts/l_arm
 					build_time = 200
 					build_cost = 25000
 
 				if (2)
-					build_type = "/obj/item/robot_parts/r_arm"
+					build_type = /obj/item/robot_parts/r_arm
 					build_time = 200
 					build_cost = 25000
 
 				if (3)
-					build_type = "/obj/item/robot_parts/l_leg"
+					build_type = /obj/item/robot_parts/l_leg
 					build_time = 200
 					build_cost = 25000
 
 				if (4)
-					build_type = "/obj/item/robot_parts/r_leg"
+					build_type = /obj/item/robot_parts/r_leg
 					build_time = 200
 					build_cost = 25000
 
 				if (5)
-					build_type = "/obj/item/robot_parts/chest"
+					build_type = /obj/item/robot_parts/chest
 					build_time = 350
 					build_cost = 50000
 
 				if (6)
-					build_type = "/obj/item/robot_parts/head"
+					build_type = /obj/item/robot_parts/head
 					build_time = 350
 					build_cost = 50000
 
 				if (7)
-					build_type = "/obj/item/robot_parts/robot_suit"
+					build_type = /obj/item/robot_parts/robot_suit
 					build_time = 600
 					build_cost = 75000
 
-			var/building = text2path(build_type)
+			var/building = build_type
 			if (!isnull(building))
 				if (src.metal_amount >= build_cost)
 					src.operating = 1
@@ -121,16 +121,16 @@ Please wait until completion...</TT><BR>
 
 					src.being_built = new building(src)
 
-					src.overlays += "fab-active"
+					add_overlay("fab-active")
 					src.updateUsrDialog()
 
 					spawn (build_time)
 						if (!isnull(src.being_built))
-							src.being_built.loc = get_turf(src)
+							src.being_built.forceMove(get_turf(src))
 							src.being_built = null
 						src.update_use_power(1)
 						src.operating = 0
-						src.overlays -= "fab-active"
+						cut_overlay("fab-active")
 		return
 
 	for (var/mob/M in viewers(1, src))

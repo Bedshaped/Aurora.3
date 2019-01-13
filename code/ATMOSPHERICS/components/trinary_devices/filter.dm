@@ -31,16 +31,16 @@
 	var/datum/radio_frequency/radio_connection
 
 /obj/machinery/atmospherics/trinary/filter/proc/set_frequency(new_frequency)
-	radio_controller.remove_object(src, frequency)
+	SSradio.remove_object(src, frequency)
 	frequency = new_frequency
 	if(frequency)
-		radio_connection = radio_controller.add_object(src, frequency, RADIO_ATMOSIA)
+		radio_connection = SSradio.add_object(src, frequency, RADIO_ATMOSIA)
 
-/obj/machinery/atmospherics/trinary/filter/New()
-	..()
+/obj/machinery/atmospherics/trinary/filter/Initialize()
+	. = ..()
 	switch(filter_type)
 		if(0) //removing hydrocarbons
-			filtered_out = list("phoron", "oxygen_agent_b")
+			filtered_out = list("phoron")
 		if(1) //removing O2
 			filtered_out = list("oxygen")
 		if(2) //removing N2
@@ -93,12 +93,12 @@
 	if(old_stat != stat)
 		update_icon()
 
-/obj/machinery/atmospherics/trinary/filter/process()
+/obj/machinery/atmospherics/trinary/filter/machinery_process()
 	..()
-	
+
 	last_power_draw = 0
 	last_flow_rate = 0
-	
+
 	if((stat & (NOPOWER|BROKEN)) || !use_power)
 		return
 
@@ -124,26 +124,26 @@
 
 	return 1
 
-/obj/machinery/atmospherics/trinary/filter/initialize()
+/obj/machinery/atmospherics/trinary/filter/atmos_init()
 	set_frequency(frequency)
 	..()
 
 /obj/machinery/atmospherics/trinary/filter/attackby(var/obj/item/weapon/W as obj, var/mob/user as mob)
-	if (!istype(W, /obj/item/weapon/wrench))
+	if (!iswrench(W))
 		return ..()
 	var/datum/gas_mixture/int_air = return_air()
 	var/datum/gas_mixture/env_air = loc.return_air()
 	if ((int_air.return_pressure()-env_air.return_pressure()) > 2*ONE_ATMOSPHERE)
-		user << "\red You cannot unwrench this [src], it too exerted due to internal pressure."
+		user << "<span class='warning'>You cannot unwrench \the [src], it too exerted due to internal pressure.</span>"
 		add_fingerprint(user)
 		return 1
 	playsound(src.loc, 'sound/items/Ratchet.ogg', 50, 1)
-	user << "\blue You begin to unfasten \the [src]..."
-	if (do_after(user, 40))
+	user << "<span class='notice'>You begin to unfasten \the [src]...</span>"
+	if (do_after(user, 40, act_target = src))
 		user.visible_message( \
-			"[user] unfastens \the [src].", \
-			"\blue You have unfastened \the [src].", \
-			"You hear ratchet.")
+			"<span class='notice'>\The [user] unfastens \the [src].</span>", \
+			"<span class='notice'>You have unfastened \the [src].</span>", \
+			"You hear a ratchet.")
 		new /obj/item/pipe(loc, make_from=src)
 		qdel(src)
 
@@ -153,7 +153,7 @@
 		return
 
 	if(!src.allowed(user))
-		user << "\red Access denied."
+		user << "<span class='warning'>Access denied.</span>"
 		return
 
 	var/dat
@@ -206,7 +206,6 @@
 		switch(filter_type)
 			if(0) //removing hydrocarbons
 				filtered_out += "phoron"
-				filtered_out += "oxygen_agent_b"
 			if(1) //removing O2
 				filtered_out += "oxygen"
 			if(2) //removing N2
@@ -238,8 +237,7 @@
 	dir = SOUTH
 	initialize_directions = SOUTH|NORTH|EAST
 
-obj/machinery/atmospherics/trinary/filter/m_filter/New()
-	..()
+obj/machinery/atmospherics/trinary/filter/m_filter/Initialize()
 	switch(dir)
 		if(NORTH)
 			initialize_directions = WEST|NORTH|SOUTH
@@ -249,8 +247,9 @@ obj/machinery/atmospherics/trinary/filter/m_filter/New()
 			initialize_directions = EAST|WEST|NORTH
 		if(WEST)
 			initialize_directions = WEST|SOUTH|EAST
+	. = ..()
 
-/obj/machinery/atmospherics/trinary/filter/m_filter/initialize()
+/obj/machinery/atmospherics/trinary/filter/m_filter/atmos_init()
 	set_frequency(frequency)
 
 	if(node1 && node2 && node3) return

@@ -1,3 +1,5 @@
+var/global/list/sparring_attack_cache = list()
+
 //Species unarmed attacks
 /datum/unarmed_attack
 	var/attack_verb = list("attack")	// Empty hand hurt intent verb.
@@ -8,9 +10,20 @@
 	var/shredding = 0 // Calls the old attack_alien() behavior on objects/mobs when on harm intent.
 	var/sharp = 0
 	var/edge = 0
-	
+
+	var/damage_type = BRUTE
+	var/sparring_variant_type = /datum/unarmed_attack/light_strike
+
 	var/eye_attack_text
 	var/eye_attack_text_victim
+
+	var/attack_name = "fist"
+
+/datum/unarmed_attack/proc/get_sparring_variant()
+	if(sparring_variant_type)
+		if(!sparring_attack_cache[sparring_variant_type])
+			sparring_attack_cache[sparring_variant_type] = new sparring_variant_type()
+		return sparring_attack_cache[sparring_variant_type]
 
 /datum/unarmed_attack/proc/is_usable(var/mob/living/carbon/human/user, var/mob/living/carbon/human/target, var/zone)
 	if(user.restrained())
@@ -37,7 +50,7 @@
 
 	var/stun_chance = rand(0, 100)
 
-	if(attack_damage >= 5 && armour < 2 && !(target == user) && stun_chance <= attack_damage * 5) // 25% standard chance
+	if(attack_damage >= 5 && armour < 100 && !(target == user) && stun_chance <= attack_damage * 5) // 25% standard chance
 		switch(zone) // strong punches can have effects depending on where they hit
 			if("head", "mouth", "eyes")
 				// Induce blurriness
@@ -72,7 +85,7 @@
 				if(!target.lying)
 					target.visible_message("<span class='warning'>[target] gives way slightly.</span>")
 					target.apply_effect(attack_damage*3, AGONY, armour)
-	else if(attack_damage >= 5 && !(target == user) && (stun_chance + attack_damage * 5 >= 100) && armour < 2) // Chance to get the usual throwdown as well (25% standard chance)
+	else if(attack_damage >= 5 && !(target == user) && (stun_chance + attack_damage * 5 >= 100) && armour < 100) // Chance to get the usual throwdown as well (25% standard chance)
 		if(!target.lying)
 			target.visible_message("<span class='danger'>[target] [pick("slumps", "falls", "drops")] down to the ground!</span>")
 		else
@@ -81,13 +94,17 @@
 
 /datum/unarmed_attack/proc/show_attack(var/mob/living/carbon/human/user, var/mob/living/carbon/human/target, var/zone, var/attack_damage)
 	var/obj/item/organ/external/affecting = target.get_organ(zone)
+
+	if(!affecting)
+		return
+
 	user.visible_message("<span class='warning'>[user] [pick(attack_verb)] [target] in the [affecting.name]!</span>")
 	playsound(user.loc, attack_sound, 25, 1, -1)
 
 /datum/unarmed_attack/proc/handle_eye_attack(var/mob/living/carbon/human/user, var/mob/living/carbon/human/target)
-	var/obj/item/organ/eyes/eyes = target.internal_organs_by_name["eyes"]
+	var/obj/item/organ/eyes/eyes = target.get_eyes()
 	eyes.take_damage(rand(3,4), 1)
-	
+
 	user.visible_message("<span class='danger'>[user] presses \his [eye_attack_text] into [target]'s [eyes.name]!</span>")
 	target << "<span class='danger'>You experience[(target.species.flags & NO_PAIN)? "" : " immense pain as you feel" ] [eye_attack_text_victim] being pressed into your [eyes.name][(target.species.flags & NO_PAIN)? "." : "!"]</span>"
 
@@ -98,6 +115,7 @@
 	damage = 0
 	sharp = 0
 	edge = 0
+	attack_name = "bite"
 
 /datum/unarmed_attack/bite/is_usable(var/mob/living/carbon/human/user, var/mob/living/carbon/human/target, var/zone)
 
@@ -113,9 +131,14 @@
 	eye_attack_text = "fingers"
 	eye_attack_text_victim = "digits"
 	damage = 0
+	attack_name = "punch"
 
 /datum/unarmed_attack/punch/show_attack(var/mob/living/carbon/human/user, var/mob/living/carbon/human/target, var/zone, var/attack_damage)
 	var/obj/item/organ/external/affecting = target.get_organ(zone)
+
+	if(!affecting)
+		return
+
 	var/organ = affecting.name
 
 	attack_damage = Clamp(attack_damage, 1, 5) // We expect damage input of 1 to 5 for this proc. But we leave this check juuust in case.
@@ -161,6 +184,7 @@
 	attack_noun = list("kick", "kick", "kick", "knee strike")
 	attack_sound = "swing_hit"
 	damage = 0
+	attack_name = "kick"
 
 /datum/unarmed_attack/kick/is_usable(var/mob/living/carbon/human/user, var/mob/living/carbon/human/target, var/zone)
 	if (user.legcuffed)
@@ -187,6 +211,10 @@
 
 /datum/unarmed_attack/kick/show_attack(var/mob/living/carbon/human/user, var/mob/living/carbon/human/target, var/zone, var/attack_damage)
 	var/obj/item/organ/external/affecting = target.get_organ(zone)
+
+	if(!affecting)
+		return
+
 	var/organ = affecting.name
 
 	attack_damage = Clamp(attack_damage, 1, 5)
@@ -201,6 +229,7 @@
 	attack_noun = list("stomp")
 	attack_sound = "swing_hit"
 	damage = 0
+	attack_name = "stomp"
 
 /datum/unarmed_attack/stomp/is_usable(var/mob/living/carbon/human/user, var/mob/living/carbon/human/target, var/zone)
 
@@ -229,7 +258,12 @@
 
 /datum/unarmed_attack/stomp/show_attack(var/mob/living/carbon/human/user, var/mob/living/carbon/human/target, var/zone, var/attack_damage)
 	var/obj/item/organ/external/affecting = target.get_organ(zone)
+
+	if(!affecting)
+		return
+
 	var/organ = affecting.name
+
 	var/obj/item/clothing/shoes = user.shoes
 
 	attack_damage = Clamp(attack_damage, 1, 5)
@@ -237,3 +271,14 @@
 	switch(attack_damage)
 		if(1 to 4)	user.visible_message("<span class='danger'>[pick("[user] stomped on", "[user] slammed \his [shoes ? copytext(shoes.name, 1, -1) : "foot"] down onto")] [target]'s [organ]!</span>")
 		if(5)		user.visible_message("<span class='danger'>[pick("[user] landed a powerful stomp on", "[user] stomped down hard on", "[user] slammed \his [shoes ? copytext(shoes.name, 1, -1) : "foot"] down hard onto")] [target]'s [organ]!</span>") //Devastated lol. No. We want to say that the stomp was powerful or forceful, not that it /wrought devastation/
+
+/datum/unarmed_attack/light_strike
+	damage_type = HALLOSS
+	attack_noun = list("tap","light strike")
+	attack_verb = list("tapped", "lightly struck")
+	damage = 2
+	shredding = 0
+	damage = 0
+	sharp = 0
+	edge = 0
+	attack_name = "light hit"

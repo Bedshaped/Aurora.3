@@ -9,12 +9,11 @@
 
 	var/datum/pipe_network/network
 
-	New()
-		..()
+	Initialize()
 		initialize_directions = dir
 		air_contents = new
-
 		air_contents.volume = 200
+		. = ..()
 
 // Housekeeping and pipe network stuff below
 	network_expand(datum/pipe_network/new_network, obj/machinery/atmospherics/pipe/reference)
@@ -29,17 +28,17 @@
 		return null
 
 	Destroy()
-		loc = null
+		QDEL_NULL(air_contents)
 
 		if(node)
 			node.disconnect(src)
-			qdel(network)
+			QDEL_NULL(network)
 
 		node = null
 
-		..()
+		return ..()
 
-	initialize()
+	atmos_init()
 		if(node) return
 
 		var/node_connect = dir
@@ -91,3 +90,13 @@
 		update_underlays()
 
 		return null
+
+/obj/machinery/atmospherics/unary/vent_pump/proc/is_welded() // TODO: refactor welding into unary
+	if (welded > 0)
+		return 1
+	return 0
+
+/obj/machinery/atmospherics/unary/vent_scrubber/proc/is_welded()
+	if (welded > 0)
+		return 1
+	return 0

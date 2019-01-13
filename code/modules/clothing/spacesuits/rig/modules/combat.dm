@@ -5,7 +5,16 @@
  * /obj/item/rig_module/mounted/taser
  * /obj/item/rig_module/shield
  * /obj/item/rig_module/fabricator
+ * /obj/item/rig_module/device/flash
  */
+
+/obj/item/rig_module/device/flash
+	name = "mounted flash"
+	desc = "You are the law."
+	icon_state = "flash"
+	interface_name = "mounted flash"
+	interface_desc = "Stuns your target by blinding them with a bright light."
+	device_type = /obj/item/device/flash
 
 /obj/item/rig_module/grenade_launcher
 
@@ -23,7 +32,7 @@
 	charges = list(
 		list("flashbang",   "flashbang",   /obj/item/weapon/grenade/flashbang,  3),
 		list("smoke bomb",  "smoke bomb",  /obj/item/weapon/grenade/smokebomb,  3),
-		list("EMP grenade", "EMP grenade", /obj/item/weapon/grenade/empgrenade, 3),
+		list("EMP grenade", "EMP grenade", /obj/item/weapon/grenade/empgrenade, 3)
 		)
 
 /obj/item/rig_module/grenade_launcher/accepts_item(var/obj/item/input_device, var/mob/living/user)
@@ -46,7 +55,6 @@
 		return 0
 
 	user << "<font color='blue'><b>You slot \the [input_device] into the suit module.</b></font>"
-	user.drop_from_inventory(input_device)
 	qdel(input_device)
 	accepted_item.charges++
 	return 1
@@ -76,9 +84,31 @@
 
 	charge.charges--
 	var/obj/item/weapon/grenade/new_grenade = new charge.product_type(get_turf(H))
-	H.visible_message("<span class='danger'>[H] launches \a [new_grenade]!")
+	H.visible_message("<span class='danger'>[H] launches \a [new_grenade]!</span>")
 	new_grenade.activate(H)
 	new_grenade.throw_at(target,fire_force,fire_distance)
+
+/obj/item/rig_module/grenade_launcher/frag
+
+	name = "mounted frag grenade launcher"
+	desc = "A shoulder-mounted fragmentation explosives dispenser."
+	selectable = 1
+	icon_state = "grenade"
+
+	interface_name = "integrated frag grenade launcher"
+	interface_desc = "Discharges loaded frag grenades against the wearer's location."
+
+	charges = list(
+		list("frag grenade",   "frag grenade",   /obj/item/weapon/grenade/frag,  3)
+		)
+
+/obj/item/rig_module/grenade_launcher/cleaner
+	name = "mounted cleaning grenade launcher"
+	desc = "A specialty shoulder-mounted micro-explosive dispenser."
+
+	charges = list(
+		list("cleaning grenade",   "cleaning grenade",   /obj/item/weapon/grenade/chem_grenade/cleaner,  9)
+		)
 
 /obj/item/rig_module/mounted
 
@@ -144,6 +174,73 @@
 
 	gun_type = /obj/item/weapon/gun/energy/taser/mounted
 
+/obj/item/rig_module/mounted/pulse
+
+	name = "mounted pulse rifle"
+	desc = "A shoulder-mounted battery-powered pulse rifle mount."
+	icon_state = "pulse"
+
+	interface_name = "mounted pulse rifle"
+	interface_desc = "A shoulder-mounted cell-powered pulse rifle."
+
+	gun_type = /obj/item/weapon/gun/energy/pulse/mounted
+
+/obj/item/rig_module/mounted/smg
+
+	name = "mounted submachine gun"
+	desc = "A forearm-mounted suit-powered ballistic submachine gun."
+	icon_state = "smg"
+
+	interface_name = "mounted submachine gun"
+	interface_desc = "A forearm-mounted suit-powered ballistic submachine gun."
+
+	gun_type = /obj/item/weapon/gun/energy/mountedsmg
+
+/obj/item/rig_module/mounted/xray
+
+	name = "mounted xray laser gun"
+	desc = "A forearm-mounted suit-powered xray laser gun."
+	icon_state = "xray"
+
+	interface_name = "mounted xray laser gun"
+	interface_desc = "A forearm-mounted suit-powered xray laser gun."
+
+	gun_type = /obj/item/weapon/gun/energy/xray/mounted
+
+/obj/item/rig_module/mounted/ion
+
+	name = "mounted ion rifle"
+	desc = "A shoulder-mounted battery-powered ion rifle mount."
+	icon_state = "ion"
+
+	interface_name = "mounted ion rifle"
+	interface_desc = "A shoulder-mounted cell-powered ion rifle."
+
+	gun_type = /obj/item/weapon/gun/energy/rifle/ionrifle/mounted
+
+/obj/item/rig_module/mounted/plasmacutter
+	name = "hardsuit plasma cutter"
+	desc = "A forearm mounted kinetic accelerator"
+	icon_state = "plasmacutter"
+	interface_name = "plasma cutter"
+	interface_desc = "A self-sustaining plasma arc capable of cutting through walls."
+	suit_overlay_active = "plasmacutter"
+	suit_overlay_inactive = "plasmacutter"
+	construction_cost = list("glass" = 5250, DEFAULT_WALL_MATERIAL = 30000, "silver" = 5250, "phoron" = 7250)
+	construction_time = 300
+
+	gun_type = /obj/item/weapon/gun/energy/plasmacutter/mounted
+
+/obj/item/rig_module/mounted/thermalldrill
+	name = "hardsuit thermal drill"
+	desc = "An incredibly lethal looking thermal drill."
+	icon_state = "thermaldrill"
+	interface_name = "thermal drill"
+	interface_desc = "A potent drill that can pierce rock walls over long distances."
+
+	gun_type = /obj/item/weapon/gun/energy/vaurca/mountedthermaldrill
+
+
 /obj/item/rig_module/mounted/energy_blade
 
 	name = "energy blade projector"
@@ -199,7 +296,6 @@
 		return
 
 	for(var/obj/item/weapon/melee/energy/blade/blade in M.contents)
-		M.drop_from_inventory(blade)
 		qdel(blade)
 
 /obj/item/rig_module/fabricator
@@ -208,15 +304,15 @@
 	desc = "A self-contained microfactory system for hardsuit integration."
 	selectable = 1
 	usable = 1
-	use_power_cost = 15
+	use_power_cost = 10
 	icon_state = "enet"
 
 	engage_string = "Fabricate Star"
 
 	interface_name = "death blossom launcher"
-	interface_desc = "An integrated microfactory that produces poisoned throwing stars from thin air and electricity."
+	interface_desc = "An integrated microfactory that produces steel throwing stars from thin air and electricity."
 
-	var/fabrication_type = /obj/item/weapon/material/star/ninja
+	var/fabrication_type = /obj/item/weapon/material/star
 	var/fire_force = 30
 	var/fire_distance = 10
 
@@ -234,7 +330,7 @@
 		firing.throw_at(target,fire_force,fire_distance)
 	else
 		if(H.l_hand && H.r_hand)
-			H << "<span class='danger'>Your hands are full."
+			H << "<span class='danger'>Your hands are full.</span>"
 		else
 			var/obj/item/new_weapon = new fabrication_type()
 			new_weapon.forceMove(H)
@@ -242,3 +338,12 @@
 			H.put_in_hands(new_weapon)
 
 	return 1
+
+/obj/item/rig_module/fabricator/sign
+	name = "wet floor sign fabricator"
+	engage_string = "Fabricate Sign"
+
+	interface_name = "wet floor sign launcher"
+	interface_desc = "An integrated microfactory that produces wet floor signs from thin air and electricity."
+
+	fabrication_type = /obj/item/weapon/caution

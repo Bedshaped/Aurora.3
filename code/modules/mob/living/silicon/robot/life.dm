@@ -1,8 +1,7 @@
 /mob/living/silicon/robot/Life()
-	set invisibility = 0
-	set background = 1
+	set background = BACKGROUND_ENABLED
 
-	if (src.monkeyizing)
+	if (src.transforming)
 		return
 
 	src.blinded = null
@@ -10,6 +9,7 @@
 	//Status updates, death etc.
 	clamp_values()
 	handle_regular_status_updates()
+	handle_actions()
 
 	if(client)
 		handle_regular_hud_updates()
@@ -33,8 +33,6 @@
 	adjustFireLoss(0)
 
 /mob/living/silicon/robot/proc/use_power()
-	// Debug only
-	// world << "DEBUG: life.dm line 35: cyborg use_power() called at tick [controller_iteration]"
 	used_power_this_tick = 0
 	for(var/V in components)
 		var/datum/robot_component/C = components[V]
@@ -49,18 +47,21 @@
 			cell_use_power(50)
 
 		if(lights_on)
-			cell_use_power(30) 	// 30W light. Normal lights would use ~15W, but increased for balance reasons.
+			if(intenselight)
+				cell_use_power(100)	// Upgraded light. Double intensity, much larger power usage.
+			else
+				cell_use_power(30) 	// 30W light. Normal lights would use ~15W, but increased for balance reasons.
 
 		src.has_power = 1
 	else
 		if (src.has_power)
-			src << "\red You are now running on emergency backup power."
+			src << "<span class='warning'>You are now running on emergency backup power.</span>"
 		src.has_power = 0
 		if(lights_on) // Light is on but there is no power!
 			lights_on = 0
 			set_light(0)
 
-/mob/living/silicon/robot/proc/handle_regular_status_updates()
+/mob/living/silicon/robot/handle_regular_status_updates()
 
 	if(src.camera && !scrambledcodes)
 		if(src.stat == 2 || wires.IsIndexCut(BORG_WIRE_CAMERA))
@@ -143,17 +144,15 @@
 
 	return 1
 
-/mob/living/silicon/robot/proc/handle_regular_hud_updates()
+/mob/living/silicon/robot/handle_regular_hud_updates()
+	..()
 
 	if (src.stat == 2 || (XRAY in mutations) || (src.sight_mode & BORGXRAY))
-		src.sight |= SEE_TURFS
-		src.sight |= SEE_MOBS
-		src.sight |= SEE_OBJS
+		sight |= (SEE_TURFS | SEE_MOBS | SEE_OBJS)
 		src.see_in_dark = 8
 		src.see_invisible = SEE_INVISIBLE_MINIMUM
 	else if ((src.sight_mode & BORGMESON) && (src.sight_mode & BORGTHERM))
-		src.sight |= SEE_TURFS
-		src.sight |= SEE_MOBS
+		sight |= (SEE_TURFS | SEE_MOBS)
 		src.see_in_dark = 8
 		see_invisible = SEE_INVISIBLE_MINIMUM
 	else if (src.sight_mode & BORGMESON)
@@ -169,14 +168,10 @@
 		src.see_in_dark = 8
 		src.see_invisible = SEE_INVISIBLE_LEVEL_TWO
 	else if (src.stat != 2)
-		src.sight &= ~SEE_MOBS
-		src.sight &= ~SEE_TURFS
-		src.sight &= ~SEE_OBJS
+		sight &= ~(SEE_TURFS | SEE_MOBS | SEE_OBJS)
 		src.see_in_dark = 8 			 // see_in_dark means you can FAINTLY see in the dark, humans have a range of 3 or so, tajaran have it at 8
 		src.see_invisible = SEE_INVISIBLE_LIVING // This is normal vision (25), setting it lower for normal vision means you don't "see" things like darkness since darkness
 							 // has a "invisible" value of 15
-
-	regular_hud_updates()
 
 	var/obj/item/borg/sight/hud/hud = (locate(/obj/item/borg/sight/hud) in src)
 	if(hud && hud.hud)
@@ -317,7 +312,7 @@
 		killswitch_time --
 		if(killswitch_time <= 0)
 			if(src.client)
-				src << "\red <B>Killswitch Activated"
+				src << "<span class='danger'>Killswitch Activated</span>"
 			killswitch = 0
 			spawn(5)
 				gib()
@@ -328,7 +323,7 @@
 		weaponlock_time --
 		if(weaponlock_time <= 0)
 			if(src.client)
-				src << "\red <B>Weapon Lock Timed Out!"
+				src << "<span class='danger'>Weapon Lock Timed Out!</span>"
 			weapon_lock = 0
 			weaponlock_time = 120
 
@@ -336,3 +331,12 @@
 	if(paralysis || stunned || weakened || buckled || lockcharge || !is_component_functioning("actuator")) canmove = 0
 	else canmove = 1
 	return canmove
+
+/mob/living/silicon/robot/update_fire()
+	cut_overlay(image("icon"='icons/mob/OnFire.dmi', "icon_state"="Standing"))
+	if(on_fire)
+		add_overlay(image("icon"='icons/mob/OnFire.dmi', "icon_state"="Standing"))
+
+/mob/living/silicon/robot/fire_act()
+	if(!on_fire) //Silicons don't gain stacks from hotspots, but hotspots can ignite them
+		IgniteMob()

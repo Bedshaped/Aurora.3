@@ -39,7 +39,7 @@
 	close_sound = 'sound/items/zip.ogg'
 	var/item_path = /obj/item/bodybag
 	density = 0
-	storage_capacity = (default_mob_size * 2) - 1
+	storage_capacity = 30
 	var/contains_body = 0
 
 /obj/structure/closet/body_bag/attackby(W as obj, mob/user as mob)
@@ -53,15 +53,15 @@
 		if (t)
 			src.name = "body bag - "
 			src.name += t
-			src.overlays += image(src.icon, "bodybag_label")
+			add_overlay("bodybag_label")
 		else
 			src.name = "body bag"
 	//..() //Doesn't need to run the parent. Since when can fucking bodybags be welded shut? -Agouri
 		return
-	else if(istype(W, /obj/item/weapon/wirecutters))
+	else if(iswirecutter(W))
 		user << "You cut the tag off the bodybag"
 		src.name = "body bag"
-		src.overlays.Cut()
+		cut_overlays()
 		return
 
 /obj/structure/closet/body_bag/store_mobs(var/stored_units)
@@ -131,5 +131,5 @@
 /obj/structure/closet/body_bag/cryobag/MouseDrop(over_object, src_location, over_location)
 	if((over_object == usr && (in_range(src, usr) || usr.contents.Find(src))))
 		if(!ishuman(usr))	return
-		usr << "\red You can't fold that up anymore.."
+		usr << "<span class='warning'>You can't fold that up anymore..</span>"
 	..()

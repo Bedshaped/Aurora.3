@@ -10,7 +10,7 @@
 	var/reverse = 0 //if resulting object faces opposite its dir (like light fixtures)
 
 /obj/item/frame/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if (istype(W, /obj/item/weapon/wrench))
+	if (iswrench(W))
 		new refund_type( get_turf(src.loc), refund_amt)
 		qdel(src)
 		return
@@ -55,10 +55,12 @@
 	name = "fire alarm frame"
 	desc = "Used for building fire alarms."
 	build_machine_type = /obj/machinery/firealarm
+	reverse = 1
 
 /obj/item/frame/air_alarm
 	name = "air alarm frame"
 	desc = "Used for building air alarms."
+	icon_state = "alarm_bitem"
 	build_machine_type = /obj/machinery/alarm
 
 /obj/item/frame/light

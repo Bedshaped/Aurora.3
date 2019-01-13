@@ -48,20 +48,6 @@
 	toxicity = 8
 	pest_kill_str = 7
 
-/obj/item/weapon/material/minihoe // -- Numbers
-	name = "mini hoe"
-	desc = "It's used for removing weeds or scratching your back."
-	icon = 'icons/obj/weapons.dmi'
-	icon_state = "hoe"
-	item_state = "hoe"
-	flags = CONDUCT | NOBLUDGEON
-	force = 5.0
-	throwforce = 7.0
-	w_class = 2.0
-	matter = list(DEFAULT_WALL_MATERIAL = 50)
-	attack_verb = list("slashed", "sliced", "cut", "clawed")
-
-
 // *************************************
 // Weedkiller defines for hydroponics
 // *************************************
@@ -113,8 +99,8 @@
 	amount_per_transfer_from_this = 10
 	volume = 60
 
-/obj/item/weapon/reagent_containers/glass/fertilizer/New()
-	..()
+/obj/item/weapon/reagent_containers/glass/fertilizer/Initialize()
+	. = ..()
 
 	src.pixel_x = rand(-5.0, 5)
 	src.pixel_y = rand(-5.0, 5)

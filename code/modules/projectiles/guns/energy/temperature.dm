@@ -1,25 +1,30 @@
 /obj/item/weapon/gun/energy/temperature
 	name = "freeze ray"
 	icon_state = "freezegun"
+	item_state = "freezegun"
 	fire_sound = 'sound/weapons/pulse3.ogg'
-	desc = "For when somebody won't let it go."
-	//var/temperature = T20C
-	//var/current_temperature = T20C
-	charge_cost = 25 //20 shots, exact replica of old code (WAS 100)
-	origin_tech = "combat=3;materials=4;powerstorage=3;magnets=2"
+	desc = "A gun that changes temperatures. It has a small label on the side, 'More extreme temperatures will cost more charge!'"
+	var/temperature = T20C
+	var/current_temperature = T20C
+	charge_cost = 100
+	accuracy = 1
+	origin_tech = list(TECH_COMBAT = 3, TECH_MATERIAL = 4, TECH_POWER = 3, TECH_MAGNET = 2)
 	slot_flags = SLOT_BELT|SLOT_BACK
 
 	projectile_type = /obj/item/projectile/temp
+	can_turret = 1
+	turret_sprite_set = "temperature"
+
 	cell_type = /obj/item/weapon/cell/crap //WAS High, but brought down to match energy use
 
 /*
 /obj/item/weapon/gun/energy/temperature/New()
 	..()
-	processing_objects.Add(src)
+	START_PROCESSING(SSprocessing, src)
 
 
 /obj/item/weapon/gun/energy/temperature/Destroy()
-	processing_objects.Remove(src)
+	STOP_PROCESSING(SSprocessing, src)
 	..()
 
 

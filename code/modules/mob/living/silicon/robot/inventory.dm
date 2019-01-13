@@ -21,6 +21,7 @@
 /mob/living/silicon/robot/proc/uneq_active()
 	if(isnull(module_active))
 		return
+
 	if(module_state_1 == module_active)
 		if(istype(module_state_1,/obj/item/borg/sight))
 			sight_mode &= ~module_state_1:sight_mode
@@ -246,6 +247,67 @@
 	else
 		src << "<span class='notice'>You need to disable a module first!</span>"
 
-/mob/living/silicon/robot/put_in_hands(var/obj/item/W) // No hands.
-	W.loc = get_turf(src)
-	return 1
+/mob/living/silicon/robot/put_in_hands(var/obj/item/W) // Maybe hands.
+	var/obj/item/weapon/gripper/G = null
+	if (istype(module_state_1, /obj/item/weapon/gripper))
+
+		G = module_state_1
+		if (!G.wrapped && G.grip_item(W, src, 1))
+			return 1
+	else if (istype(module_state_2, /obj/item/weapon/gripper))
+		G = module_state_2
+		if (!G.wrapped && G.grip_item(W, src, 0))
+			return 1
+	else if (istype(module_state_3, /obj/item/weapon/gripper))
+		G = module_state_3
+		if (!G.wrapped && G.grip_item(W, src, 0))
+			return 1
+
+
+	W.forceMove(get_turf(src))
+	return 0
+
+
+//If our active module is a gripper, drop the thing in it.
+//Otherwise do nothing. We don't drop our modules
+/mob/living/silicon/robot/drop_item(var/atom/target)
+	if (istype(module_active, /obj/item/weapon/gripper))
+		var/obj/item/weapon/gripper/G = module_active
+		G.drop(target)
+
+
+
+/mob/living/silicon/robot/drop_from_inventory(var/obj/item/W, var/atom/target = null)
+	if(W)
+		if(!target)
+			target = loc
+		if (istype(W.loc, /obj/item/weapon/gripper))
+			var/obj/item/weapon/gripper/G = W.loc
+			G.drop(target)
+			return 1
+	return 0
+
+
+/mob/living/silicon/robot/canUnEquip(obj/item/I)
+	if(!I) //If there's nothing to drop, the drop is automatically successful.
+		return 1
+	if (I.loc != src)
+		return 1//Allows objects inside grippers
+	return 0//don't allow dropping our modules
+
+
+/mob/living/silicon/robot/proc/describe_module(var/slot)
+	var/list/index_module = list(module_state_1,module_state_2,module_state_3)
+	var/result = "   Hardpoint [slot] holds "
+	result += (index_module[slot]) ? "\icon[index_module[slot]] [index_module[slot]]." : "nothing."
+	result += "\n"
+	return result
+
+/mob/living/silicon/robot/proc/describe_all_modules()
+	var/result="It has three tool hardpoints.\n"
+	for (var/x = 1; x <=3; x++)
+		result += describe_module(x)
+	var/selected = get_selected_module()
+	if (selected)
+		result += "\nThe activity light on hardpoint [selected] is on.\n"
+	return result

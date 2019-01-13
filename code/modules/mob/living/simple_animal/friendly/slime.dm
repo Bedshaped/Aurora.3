@@ -13,6 +13,13 @@
 	response_harm   = "stomps on"
 	emote_see = list("jiggles", "bounces in place")
 	var/colour = "grey"
+	mob_size = 3
+	composition_reagent = "slimejelly"
+
+/mob/living/simple_animal/slime/can_force_feed(var/feeder, var/food, var/feedback)
+	if(feedback)
+		feeder << "Where do you intend to put \the [food]? \The [src] doesn't have a mouth!"
+	return 0
 
 /mob/living/simple_animal/adultslime
 	name = "pet slime"
@@ -28,13 +35,15 @@
 	response_harm   = "stomps on"
 	emote_see = list("jiggles", "bounces in place")
 	var/colour = "grey"
+	mob_size = 6
+	composition_reagent = "slimejelly"
 
-/mob/living/simple_animal/adultslime/New()
-	..()
-	overlays += "aslime-:33"
+/mob/living/simple_animal/adultslime/Initialize()
+	. = ..()
+	add_overlay("aslime-:33")
 
 
-/mob/living/simple_animal/slime/adult/death()
+/mob/living/simple_animal/adultslime/death()
 	var/mob/living/simple_animal/slime/S1 = new /mob/living/simple_animal/slime (src.loc)
 	S1.icon_state = "[src.colour] baby slime"
 	S1.icon_living = "[src.colour] baby slime"

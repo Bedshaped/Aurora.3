@@ -99,6 +99,7 @@ for reference:
 				return
 		return
 	else
+		user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 		switch(W.damtype)
 			if("fire")
 				src.health -= W.force * 1
@@ -111,6 +112,7 @@ for reference:
 			qdel(src)
 			return
 		..()
+
 /obj/structure/barricade/proc/dismantle()
 	material.place_dismantled_product(get_turf(src))
 	qdel(src)
@@ -128,18 +130,6 @@ for reference:
 				visible_message("<span class='danger'>\The [src] is blown apart!</span>")
 				dismantle()
 			return
-
-/obj/structure/barricade/meteorhit()
-	visible_message("<span class='danger'>\The [src] is smashed apart!</span>")
-	dismantle()
-	return
-
-/obj/structure/barricade/blob_act()
-	src.health -= 25
-	if (src.health <= 0)
-		visible_message("<span class='danger'>The blob eats through \the [src]!</span>")
-		qdel(src)
-	return
 
 /obj/structure/barricade/CanPass(atom/movable/mover, turf/target, height=0, air_group=0)//So bullets will fly over and stuff.
 	if(air_group || (height==0))
@@ -187,45 +177,27 @@ for reference:
 						user << "Barrier lock toggled off."
 						return
 				else
-					var/datum/effect/effect/system/spark_spread/s = new /datum/effect/effect/system/spark_spread
-					s.set_up(2, 1, src)
-					s.start()
-					visible_message("\red BZZzZZzZZzZT")
+					spark(src, 2, src)
+					visible_message("<span class='warning'>BZZzZZzZZzZT</span>")
 					return
 			return
-		else if (istype(W, /obj/item/weapon/card/emag))
-			if (src.emagged == 0)
-				src.emagged = 1
-				src.req_access.Cut()
-				src.req_one_access.Cut()
-				user << "You break the ID authentication lock on \the [src]."
-				var/datum/effect/effect/system/spark_spread/s = new /datum/effect/effect/system/spark_spread
-				s.set_up(2, 1, src)
-				s.start()
-				visible_message("\red BZZzZZzZZzZT")
-				return
-			else if (src.emagged == 1)
-				src.emagged = 2
-				user << "You short out the anchoring mechanism on \the [src]."
-				var/datum/effect/effect/system/spark_spread/s = new /datum/effect/effect/system/spark_spread
-				s.set_up(2, 1, src)
-				s.start()
-				visible_message("\red BZZzZZzZZzZT")
-				return
-		else if (istype(W, /obj/item/weapon/wrench))
+		else if (iswrench(W))
 			if (src.health < src.maxhealth)
+				user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 				src.health = src.maxhealth
 				src.emagged = 0
 				src.req_access = list(access_security)
-				visible_message("\red [user] repairs \the [src]!")
+				visible_message("<span class='warning'>[user] repairs \the [src]!</span>")
 				return
 			else if (src.emagged > 0)
+				user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 				src.emagged = 0
 				src.req_access = list(access_security)
-				visible_message("\red [user] repairs \the [src]!")
+				visible_message("<span class='warning'>[user] repairs \the [src]!</span>")
 				return
 			return
 		else
+			user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 			switch(W.damtype)
 				if("fire")
 					src.health -= W.force * 0.75
@@ -254,16 +226,6 @@ for reference:
 			anchored = !anchored
 			icon_state = "barrier[src.locked]"
 
-	meteorhit()
-		src.explode()
-		return
-
-	blob_act()
-		src.health -= 25
-		if (src.health <= 0)
-			src.explode()
-		return
-
 	CanPass(atom/movable/mover, turf/target, height=0, air_group=0)//So bullets will fly over and stuff.
 		if(air_group || (height==0))
 			return 1
@@ -273,17 +235,28 @@ for reference:
 			return 0
 
 	proc/explode()
-
-		visible_message("\red <B>[src] blows apart!</B>")
-		var/turf/Tsec = get_turf(src)
+		visible_message("<span class='danger'>[src] blows apart!</span>")
 
 	/*	var/obj/item/stack/rods/ =*/
-		PoolOrNew(/obj/item/stack/rods, Tsec)
+		new /obj/item/stack/rods(get_turf(src))
 
-		var/datum/effect/effect/system/spark_spread/s = new /datum/effect/effect/system/spark_spread
-		s.set_up(3, 1, src)
-		s.start()
+		spark(src, 3, alldirs)
 
 		explosion(src.loc,-1,-1,0)
-		if(src)
-			qdel(src)
+		qdel(src)
+
+/obj/machinery/deployable/barrier/emag_act(var/remaining_charges, var/mob/user)
+	if (src.emagged == 0)
+		src.emagged = 1
+		src.req_access.Cut()
+		src.req_one_access.Cut()
+		user << "You break the ID authentication lock on \the [src]."
+		spark(src, 2, alldirs)
+		visible_message("<span class='warning'>BZZzZZzZZzZT</span>")
+		return 1
+	else if (src.emagged == 1)
+		src.emagged = 2
+		user << "You short out the anchoring mechanism on \the [src]."
+		spark(src, 2, alldirs)
+		visible_message("<span class='warning'>BZZzZZzZZzZT</span>")
+		return 1

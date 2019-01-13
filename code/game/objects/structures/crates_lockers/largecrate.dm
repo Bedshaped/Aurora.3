@@ -10,14 +10,17 @@
 	return
 
 /obj/structure/largecrate/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(istype(W, /obj/item/weapon/crowbar))
+	if(iscrowbar(W))
 		new /obj/item/stack/material/wood(src)
 		var/turf/T = get_turf(src)
-		for(var/atom/movable/M in contents)
-			M.forceMove(T)
+		for(var/atom/movable/AM in contents)
+			if(AM.simulated) AM.forceMove(T)
 		user.visible_message("<span class='notice'>[user] pries \the [src] open.</span>", \
 							 "<span class='notice'>You pry open \the [src].</span>", \
 							 "<span class='notice'>You hear splitting wood.</span>")
+		for(var/obj/vehicle/V in T.contents)
+			if(V)
+				V.unload(user)
 		qdel(src)
 	else
 		return attack_hand(user)
@@ -31,7 +34,7 @@
 	icon_state = "mulecrate"
 
 /obj/structure/largecrate/hoverpod/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(istype(W, /obj/item/weapon/crowbar))
+	if(iscrowbar(W))
 		var/obj/item/mecha_parts/mecha_equipment/ME
 		var/obj/mecha/working/hoverpod/H = new (loc)
 
@@ -46,8 +49,8 @@
 	var/held_count = 1
 	var/held_type
 
-/obj/structure/largecrate/animal/New()
-	..()
+/obj/structure/largecrate/animal/Initialize()
+	. = ..()
 	for(var/i = 1;i<=held_count;i++)
 		new held_type(src)
 
@@ -74,3 +77,13 @@
 	name = "chicken crate"
 	held_count = 5
 	held_type = /mob/living/simple_animal/chick
+	
+/obj/structure/largecrate/animal/dog
+	name = "dog carrier"
+	held_type = /mob/living/simple_animal/hostile/commanded/dog
+	
+/obj/structure/largecrate/animal/dog/amaskan
+	held_type = /mob/living/simple_animal/hostile/commanded/dog/amaskan
+	
+/obj/structure/largecrate/animal/dog/pug
+	held_type = /mob/living/simple_animal/hostile/commanded/dog/pug

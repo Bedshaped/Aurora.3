@@ -7,7 +7,7 @@
 	var/spell/targeted/projectile/carried
 
 	penetrating = 0
-	kill_count = 10 //set by the duration of the spell
+	range = 10 //set by the duration of the spell
 
 	var/proj_trail = 0 //if it leaves a trail
 	var/proj_trail_lifespan = 0 //deciseconds
@@ -21,19 +21,21 @@
 	carried = null
 	return ..()
 
-/obj/item/projectile/spell_projectile/ex_act()
+/obj/item/projectile/spell_projectile/ex_act(var/severity = 2.0)
 	return
 
 /obj/item/projectile/spell_projectile/before_move()
 	if(proj_trail && src && src.loc) //pretty trails
-		var/obj/effect/overlay/trail = PoolOrNew(/obj/effect/overlay, src.loc)
+		var/obj/effect/overlay/trail = new /obj/effect/overlay(src.loc)
 		trails += trail
 		trail.icon = proj_trail_icon
 		trail.icon_state = proj_trail_icon_state
 		trail.density = 0
-		spawn(proj_trail_lifespan)
-			trails -= trail
-			qdel(trail)
+		addtimer(CALLBACK(src, .proc/post_trail, trail), proj_trail_lifespan)
+
+/obj/item/projectile/spell_projectile/proc/post_trail(obj/effect/overlay/trail)
+	trails -= trail
+	qdel(trail)
 
 /obj/item/projectile/spell_projectile/proc/prox_cast(var/list/targets)
 	if(loc)
@@ -41,7 +43,7 @@
 		qdel(src)
 	return
 
-/obj/item/projectile/spell_projectile/Bump(var/atom/A)
+/obj/item/projectile/spell_projectile/Collide(atom/A)
 	if(loc && carried)
 		prox_cast(carried.choose_prox_targets(user = carried.holder, spell_holder = src))
 	return 1

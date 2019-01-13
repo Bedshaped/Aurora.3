@@ -4,9 +4,10 @@
 
 /obj/item/weapon/rig/ert
 	name = "ERT-C hardsuit control module"
-	desc = "A suit worn by the commander of a NanoTrasen Emergency Response Team. Has blue highlights. Armoured and space ready."
+	desc = "A suit worn by the commander of an Emergency Response Team. Has blue highlights. Armoured and space ready."
 	suit_type = "ERT commander"
 	icon_state = "ert_commander_rig"
+	emp_protection = 35
 
 	helm_type = /obj/item/clothing/head/helmet/space/rig/ert
 
@@ -20,66 +21,100 @@
 
 	initial_modules = list(
 		/obj/item/rig_module/ai_container,
+		/obj/item/rig_module/vision/nvg,
 		/obj/item/rig_module/maneuvering_jets,
 		/obj/item/rig_module/datajack,
+		/obj/item/rig_module/actuators/combat
 		)
 
 /obj/item/weapon/rig/ert/engineer
 	name = "ERT-E suit control module"
-	desc = "A suit worn by the engineering division of a NanoTrasen Emergency Response Team. Has orange highlights. Armoured and space ready."
+	desc = "A suit worn by the engineering division of an Emergency Response Team. Has orange highlights. Armoured and space ready."
 	suit_type = "ERT engineer"
 	icon_state = "ert_engineer_rig"
 	armor = list(melee = 60, bullet = 50, laser = 30,energy = 15, bomb = 30, bio = 100, rad = 100)
-	siemens_coefficient = 0
+	emp_protection = 30
+
+	glove_type = /obj/item/clothing/gloves/rig/eva
 
 	initial_modules = list(
 		/obj/item/rig_module/ai_container,
+		/obj/item/rig_module/vision/meson,
 		/obj/item/rig_module/maneuvering_jets,
-		/obj/item/rig_module/device/plasmacutter,
-		/obj/item/rig_module/device/rcd
+		/obj/item/rig_module/mounted/plasmacutter,
+		/obj/item/rig_module/device/rcd,
+		/obj/item/rig_module/actuators
 		)
 
 /obj/item/weapon/rig/ert/medical
 	name = "ERT-M suit control module"
-	desc = "A suit worn by the medical division of a NanoTrasen Emergency Response Team. Has white highlights. Armoured and space ready."
+	desc = "A suit worn by the medical division of an Emergency Response Team. Has white highlights. Armoured and space ready."
 	suit_type = "ERT medic"
 	icon_state = "ert_medical_rig"
+	emp_protection = 30
 
 	initial_modules = list(
 		/obj/item/rig_module/ai_container,
+		/obj/item/rig_module/vision/medhud,
 		/obj/item/rig_module/maneuvering_jets,
 		/obj/item/rig_module/device/healthscanner,
-		/obj/item/rig_module/chem_dispenser/injector
+		/obj/item/rig_module/chem_dispenser/injector,
+		/obj/item/rig_module/actuators
 		)
 
 /obj/item/weapon/rig/ert/security
 	name = "ERT-S suit control module"
-	desc = "A suit worn by the security division of a NanoTrasen Emergency Response Team. Has red highlights. Armoured and space ready."
+	desc = "A suit worn by the security division of an Emergency Response Team. Has red highlights. Armoured and space ready."
 	suit_type = "ERT security"
 	icon_state = "ert_security_rig"
+	emp_protection = 30
+
+	initial_modules = list(
+		/obj/item/rig_module/ai_container,
+		/obj/item/rig_module/vision/sechud,
+		/obj/item/rig_module/maneuvering_jets,
+		/obj/item/rig_module/grenade_launcher,
+		/obj/item/rig_module/mounted/egun,
+		/obj/item/rig_module/actuators
+		)
+
+/obj/item/weapon/rig/ert/janitor
+	name = "ERT-J suit control module"
+	desc = "A suit worn by the janitoral division of an Emergency Response Team. Has purple highlights. Armoured and space ready."
+	suit_type = "ERT janitor"
+	icon_state = "ert_janitor_rig"
 
 	initial_modules = list(
 		/obj/item/rig_module/ai_container,
 		/obj/item/rig_module/maneuvering_jets,
-		/obj/item/rig_module/grenade_launcher,
-		/obj/item/rig_module/mounted/egun,
+		/obj/item/rig_module/fabricator/sign,
+		/obj/item/rig_module/grenade_launcher/cleaner,
+		/obj/item/rig_module/device/decompiler,
+		/obj/item/rig_module/actuators
 		)
 
 /obj/item/weapon/rig/ert/assetprotection
-	name = "Heavy Asset Protection suit control module"
-	desc = "A heavy suit worn by the highest level of Nanotrasen Asset Protection, don't mess with the person wearing this. Armoured and space ready."
+	name = "heavy asset protection suit control module"
+	desc = "A heavy suit worn by the highest level of Asset Protection, don't mess with the person wearing this. Armoured and space ready."
 	suit_type = "heavy asset protection"
 	icon_state = "asset_protection_rig"
-	armor = list(melee = 60, bullet = 50, laser = 50,energy = 40, bomb = 40, bio = 100, rad = 100)
+	armor = list(melee = 60, bullet = 60, laser = 60,energy = 40, bomb = 50, bio = 100, rad = 100)
+	siemens_coefficient = 0
+	emp_protection = 50
 
 	initial_modules = list(
 		/obj/item/rig_module/ai_container,
 		/obj/item/rig_module/maneuvering_jets,
 		/obj/item/rig_module/grenade_launcher,
 		/obj/item/rig_module/vision/multi,
-		/obj/item/rig_module/mounted/egun,
+		/obj/item/rig_module/mounted/pulse,
+		/obj/item/rig_module/chem_dispenser/combat,
 		/obj/item/rig_module/chem_dispenser/injector,
-		/obj/item/rig_module/device/plasmacutter,
+		/obj/item/rig_module/device/drill,
 		/obj/item/rig_module/device/rcd,
-		/obj/item/rig_module/datajack
+		/obj/item/rig_module/datajack,
+		/obj/item/rig_module/actuators/combat
 		)
+
+/obj/item/weapon/rig/ert/assetprotection/empty
+	initial_modules = list()

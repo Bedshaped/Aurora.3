@@ -2,7 +2,6 @@ var/datum/antagonist/revolutionary/revs
 
 /datum/antagonist/revolutionary
 	id = MODE_REVOLUTIONARY
-	role_type = BE_REV
 	role_text = "Head Revolutionary"
 	role_text_plural = "Revolutionaries"
 	bantype = "revolutionary"
@@ -29,8 +28,8 @@ var/datum/antagonist/revolutionary/revs
 	faction_indicator = "rev"
 	faction_invisible = 1
 
-	restricted_jobs = list("Internal Affairs Agent", "AI", "Cyborg","Captain", "Head of Personnel", "Head of Security", "Chief Engineer", "Research Director", "Chief Medical Officer")
-	protected_jobs = list("Security Officer", "Warden", "Detective")
+	restricted_jobs = list("AI", "Cyborg")
+	protected_jobs = list("Security Officer", "Security Cadet", "Warden", "Detective", "Forensic Technician", "Head of Personnel", "Chief Engineer", "Research Director", "Chief Medical Officer", "Captain", "Head of Security", "Internal Affairs Agent")
 
 /datum/antagonist/revolutionary/New()
 	..()
@@ -47,3 +46,21 @@ var/datum/antagonist/revolutionary/revs
 		rev_obj.target = player.mind
 		rev_obj.explanation_text = "Assassinate, capture or convert [player.real_name], the [player.mind.assigned_role]."
 		global_objectives += rev_obj
+
+/datum/antagonist/revolutionary/can_become_antag(var/datum/mind/player)
+	if(!..())
+		return 0
+	for(var/obj/item/weapon/implant/loyalty/L in player.current)
+		if(L && (L.imp_in == player.current))
+			return 0
+	return 1
+
+/datum/antagonist/revolutionary/equip(var/mob/living/carbon/human/player)
+
+	if(!..())
+		return 0
+
+	player.equip_to_slot_or_del(new /obj/item/device/announcer(player), slot_in_backpack)
+
+	give_codewords(player)
+	return 1

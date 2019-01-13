@@ -33,7 +33,10 @@
 	status_flags = CANPUSH
 	minbodytemp = 0
 	heat_damage_per_tick = 20
+	mob_size = 10
 
+	tameable = FALSE
+	attack_emote = "growls at"
 
 /mob/living/simple_animal/hostile/alien/drone
 	name = "alien drone"
@@ -72,6 +75,7 @@
 	projectilesound = 'sound/weapons/pierce.ogg'
 	rapid = 1
 	status_flags = 0
+	mob_size = 12
 
 /mob/living/simple_animal/hostile/alien/queen/large
 	name = "alien empress"
@@ -82,15 +86,11 @@
 	move_to_delay = 4
 	maxHealth = 400
 	health = 400
+	mob_size = 14
 
 /obj/item/projectile/neurotox
 	damage = 30
 	icon_state = "toxin"
-
-/mob/living/simple_animal/hostile/alien/death()
-	..()
-	visible_message("[src] lets out a waning guttural screech, green blood bubbling from its maw...")
-	playsound(src, 'sound/voice/hiss6.ogg', 100, 1)
 
 // Xenoarch aliens.
 /mob/living/simple_animal/hostile/samak
@@ -113,6 +113,7 @@
 	speak = list("Hruuugh!","Hrunnph")
 	emote_see = list("paws the ground","shakes its mane","stomps")
 	emote_hear = list("snuffles")
+	mob_size = 10
 
 /mob/living/simple_animal/hostile/diyaab
 	name = "diyaab"
@@ -134,6 +135,9 @@
 	speak = list("Awrr?","Aowrl!","Worrl")
 	emote_see = list("sniffs the air cautiously","looks around")
 	emote_hear = list("snuffles")
+	pass_flags = PASSTABLE
+	density = 0
+	mob_size = 3
 
 /mob/living/simple_animal/hostile/shantak
 	name = "shantak"
@@ -154,6 +158,7 @@
 	speak_chance = 5
 	speak = list("Shuhn","Shrunnph?","Shunpf")
 	emote_see = list("scratches the ground","shakes out it's mane","tinkles gently")
+	mob_size = 5
 
 /mob/living/simple_animal/yithian
 	name = "yithian"
@@ -162,6 +167,9 @@
 	icon_living = "yithian"
 	icon_dead = "yithian_dead"
 	icon = 'icons/jungle.dmi'
+	pass_flags = PASSTABLE
+	density = 0
+	mob_size = 2
 
 /mob/living/simple_animal/tindalos
 	name = "tindalos"
@@ -170,3 +178,6 @@
 	icon_living = "tindalos"
 	icon_dead = "tindalos_dead"
 	icon = 'icons/jungle.dmi'
+	pass_flags = PASSTABLE
+	density = 0
+	mob_size = 1.5

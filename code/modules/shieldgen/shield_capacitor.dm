@@ -19,13 +19,23 @@
 	var/charge_rate = 100000	//100 kW
 	var/obj/machinery/shield_gen/owned_gen
 
-/obj/machinery/shield_capacitor/New()
-	spawn(10)
-		for(var/obj/machinery/shield_gen/possible_gen in range(1, src))
-			if(get_dir(src, possible_gen) == src.dir)
-				possible_gen.owned_capacitor = src
-				break
+/obj/machinery/shield_capacitor/Initialize()
 	..()
+	return INITIALIZE_HINT_LATELOAD
+
+/obj/machinery/shield_capacitor/LateInitialize()
+	for(var/obj/machinery/shield_gen/possible_gen in range(1, src))
+		if(get_dir(src, possible_gen) == src.dir)
+			possible_gen.owned_capacitor = src
+			break
+
+/obj/machinery/shield_capacitor/emag_act(var/remaining_charges, var/mob/user)
+	if(prob(75))
+		src.locked = !src.locked
+		user << "Controls are now [src.locked ? "locked." : "unlocked."]"
+		. = 1
+		updateDialog()
+	spark(src, 5, alldirs)
 
 /obj/machinery/shield_capacitor/attackby(obj/item/W, mob/user)
 
@@ -36,19 +46,10 @@
 			user << "Controls are now [src.locked ? "locked." : "unlocked."]"
 			updateDialog()
 		else
-			user << "\red Access denied."
-	else if(istype(W, /obj/item/weapon/card/emag))
-		if(prob(75))
-			src.locked = !src.locked
-			user << "Controls are now [src.locked ? "locked." : "unlocked."]"
-			updateDialog()
-		var/datum/effect/effect/system/spark_spread/s = new /datum/effect/effect/system/spark_spread
-		s.set_up(5, 1, src)
-		s.start()
-
-	else if(istype(W, /obj/item/weapon/wrench))
+			user << span("alert", "Access denied.")
+	else if(iswrench(W))
 		src.anchored = !src.anchored
-		src.visible_message("\blue \icon[src] [src] has been [anchored ? "bolted to the floor" : "unbolted from the floor"] by [user].")
+		src.visible_message(span("notice", "\The [src] has been [anchored ? "bolted to the floor" : "unbolted from the floor"] by \the [user]."))
 
 		if(anchored)
 			spawn(0)
@@ -98,14 +99,20 @@
 	user << browse(t, "window=shield_capacitor;size=500x400")
 	user.set_machine(src)
 
-/obj/machinery/shield_capacitor/process()
+/obj/machinery/shield_capacitor/machinery_process()
 	if (!anchored)
 		active = 0
 
 	//see if we can connect to a power net.
 	var/datum/powernet/PN
 	var/turf/T = src.loc
+
+	if (!istype(T))
+		active = 0
+		return
+
 	var/obj/structure/cable/C = T.get_cable_node()
+
 	if (C)
 		PN = C.powernet
 
@@ -127,7 +134,7 @@
 		return
 	if( href_list["toggle"] )
 		if(!active && !anchored)
-			usr << "\red The [src] needs to be firmly secured to the floor first."
+			usr << "<span class='warning'>The [src] needs to be firmly secured to the floor first.</span>"
 			return
 		active = !active
 	if( href_list["charge_rate"] )
@@ -150,7 +157,7 @@
 		usr << "It is fastened to the floor!"
 		return
 	if(config.ghost_interaction)
-		src.set_dir(turn(src.dir, 90))
+		src.set_dir(turn(src.dir, -90))
 		return
 	else
 		if(istype(usr,/mob/living/simple_animal/mouse))
@@ -160,6 +167,6 @@
 		if(usr.stat || usr.restrained())
 			return
 
-		src.set_dir(turn(src.dir, 90))
+		src.set_dir(turn(src.dir, -90))
 		return
 	return

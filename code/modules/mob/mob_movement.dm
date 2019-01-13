@@ -10,6 +10,9 @@
 		return (!mover.density || !density || lying)
 	return
 
+/mob/proc/setMoveCooldown(var/timeout)
+	if(client)
+		client.move_delay = max(world.time + timeout, client.move_delay)
 
 /client/North()
 	..()
@@ -27,42 +30,50 @@
 	..()
 
 
+/client/proc/client_dir(input, direction=-1)
+	return turn(input, direction*dir2angle(dir))
+
 /client/Northeast()
-	swap_hand()
-	return
-
-
-/client/Southeast()
-	attack_self()
-	return
-
-
-/client/Southwest()
-	if(iscarbon(usr))
-		var/mob/living/carbon/C = usr
-		C.toggle_throw_mode()
-	else
-		usr << "\red This mob type cannot throw items."
-	return
-
-
+	diagonal_action(NORTHEAST)
 /client/Northwest()
-	if(iscarbon(usr))
-		var/mob/living/carbon/C = usr
-		if(!C.get_active_hand())
-			usr << "\red You have nothing to drop in your hand."
+	diagonal_action(NORTHWEST)
+/client/Southeast()
+	diagonal_action(SOUTHEAST)
+/client/Southwest()
+	diagonal_action(SOUTHWEST)
+
+/client/proc/diagonal_action(direction)
+	switch(client_dir(direction, 1))
+		if(NORTHEAST)
+			swap_hand()
 			return
-		drop_item()
-	else
-		usr << "\red This mob type cannot drop items."
-	return
+		if(SOUTHEAST)
+			attack_self()
+			return
+		if(SOUTHWEST)
+			if(iscarbon(usr))
+				var/mob/living/carbon/C = usr
+				C.toggle_throw_mode()
+			else
+				usr << "<span class='warning'>This mob type cannot throw items.</span>"
+			return
+		if(NORTHWEST)
+			if(iscarbon(usr))
+				var/mob/living/carbon/C = usr
+				if(!C.get_active_hand())
+					usr << "<span class='warning'>You have nothing to drop in your hand.</span>"
+					return
+				drop_item()
+			else
+				usr << "<span class='warning'>This mob type cannot drop items.</span>"
+			return
 
 //This gets called when you press the delete button.
 /client/verb/delete_key_pressed()
 	set hidden = 1
 
 	if(!usr.pulling)
-		usr << "\blue You are not pulling anything."
+		usr << "<span class='notice'>You are not pulling anything.</span>"
 		return
 	usr.stop_pulling()
 
@@ -156,7 +167,6 @@
 		src.m_flag = 1
 		if ((A != src.loc && A && A.z == src.z))
 			src.last_move = get_dir(A, src.loc)
-	return
 
 /client/proc/Move_object(direct)
 	if(mob && mob.control_object)
@@ -173,22 +183,26 @@
 	if(!mob)
 		return // Moved here to avoid nullrefs below
 
-	if(mob.control_object)	Move_object(direct)
+	if(mob.control_object)
+		Move_object(direct)
 
 	if(mob.incorporeal_move && isobserver(mob))
 		Process_Incorpmove(direct)
 		return
 
-	if(moving)	return 0
+	if(moving || world.time < move_delay)
+		return 0
 
-	if(world.time < move_delay)	return
+	//This compensates for the inaccuracy of move ticks
+	//Whenever world.time overshoots the movedelay, due to it only ticking once per decisecond
+	//The overshoot value is subtracted from our next delay, farther down where move delay is set.
+	//This doesn't entirely remove the problem, but it keeps travel times accurate to within 0.1 seconds
+	//Over an infinite distance, and prevents the inaccuracy from compounding. Thus making it basically a non-issue
+	var/leftover = world.time - move_delay
+	if (leftover > 1)
+		leftover = 0
 
-	if(locate(/obj/effect/stop/, mob.loc))
-		for(var/obj/effect/stop/S in mob.loc)
-			if(S.victim == mob)
-				return
-
-	if(mob.stat==DEAD && isliving(mob))
+	if(mob.stat == DEAD && isliving(mob))
 		mob.ghostize()
 		return
 
@@ -196,32 +210,24 @@
 	if(mob.eyeobj)
 		return mob.EyeMove(n,direct)
 
-	if(mob.monkeyizing)	return//This is sota the goto stop mobs from moving var
+	if(mob.transforming)
+		return	//This is sota the goto stop mobs from moving var
 
 	if(isliving(mob))
 		var/mob/living/L = mob
 		if(L.incorporeal_move)//Move though walls
 			Process_Incorpmove(direct)
 			return
-		if(mob.client)
-			if(mob.client.view != world.view) // If mob moves while zoomed in with device, unzoom them.
-				for(var/obj/item/item in mob.contents)
-					if(item.zoom)
-						item.zoom()
-						break
-				/*
-				if(locate(/obj/item/weapon/gun/energy/sniperrifle, mob.contents))		// If mob moves while zoomed in with sniper rifle, unzoom them.
-					var/obj/item/weapon/gun/energy/sniperrifle/s = locate() in mob
-					if(s.zoom)
-						s.zoom()
-				if(locate(/obj/item/device/binoculars, mob.contents))		// If mob moves while zoomed in with binoculars, unzoom them.
-					var/obj/item/device/binoculars/b = locate() in mob
-					if(b.zoom)
-						b.zoom()
-				*/
 
-	if(Process_Grab())	return
+		if(mob.client && mob.client.view != world.view)		// If mob moves while zoomed in with device, unzoom them.
+			for(var/obj/item/item in mob)
+				if(item.zoom)
+					item.zoom(mob)
+					break
 
+		// Only meaningful for living mobs.
+		if(Process_Grab())
+			return
 
 	if(!mob.canmove)
 		return
@@ -232,39 +238,74 @@
 	if(!mob.lastarea)
 		mob.lastarea = get_area(mob.loc)
 
-	if((istype(mob.loc, /turf/space)) || (mob.lastarea.has_gravity == 0))
-		if(!mob.Process_Spacemove(0))	return 0
-
-
-	if(isobj(mob.loc) || ismob(mob.loc))//Inside an object, tell it we moved
-		var/atom/O = mob.loc
-		return O.relaymove(mob, direct)
-
 	if(isturf(mob.loc))
+		if(!mob.check_solid_ground())
+			var/allowmove = mob.Allow_Spacemove(0)
+			if(!allowmove)
+				return 0
+			else if(allowmove == -1 && mob.handle_spaceslipping()) //Check to see if we slipped
+				return 0
+			else
+				mob.inertia_dir = 0 //If not then we can reset inertia and move
 
-		if(mob.restrained())//Why being pulled while cuffed prevents you from moving
+
+		if(mob.restrained())		//Why being pulled while cuffed prevents you from moving
 			for(var/mob/M in range(mob, 1))
 				if(M.pulling == mob)
 					if(!M.restrained() && M.stat == 0 && M.canmove && mob.Adjacent(M))
-						src << "\blue You're restrained! You can't move!"
+						src << "<span class='notice'>You're restrained! You can't move!</span>"
 						return 0
 					else
 						M.stop_pulling()
 
 		if(mob.pinned.len)
-			src << "\blue You're pinned to a wall by [mob.pinned[1]]!"
+			src << "<span class='notice'>You're pinned to a wall by [mob.pinned[1]]!</span>"
 			return 0
 
-		move_delay = world.time//set move delay
-		mob.last_move_intent = world.time + 10
-		switch(mob.m_intent)
-			if("run")
-				if(mob.drowsyness > 0)
-					move_delay += 6
-				move_delay += 1+config.run_speed
-			if("walk")
-				move_delay += 7+config.walk_speed
-		move_delay += mob.movement_delay()
+		move_delay = world.time - leftover//set move delay
+
+		if (mob.buckled)
+			if(istype(mob.buckled, /obj/vehicle))
+				//manually set move_delay for vehicles so we don't inherit any mob movement penalties
+				//specific vehicle move delays are set in code\modules\vehicles\vehicle.dm
+				move_delay = world.time
+				//drunk driving
+				if(mob.confused && prob(20))
+					direct = pick(cardinal)
+				return mob.buckled.relaymove(mob,direct)
+
+			//TODO: Fuck wheelchairs.
+			//Toss away all this snowflake code here, and rewrite wheelchairs as a vehicle.
+			else if(istype(mob.buckled, /obj/structure/bed/chair/wheelchair))
+				var/min_move_delay = 0
+				if(ishuman(mob.buckled))
+					var/mob/living/carbon/human/driver = mob.buckled
+					var/obj/item/organ/external/l_hand = driver.get_organ("l_hand")
+					var/obj/item/organ/external/r_hand = driver.get_organ("r_hand")
+					if((!l_hand || l_hand.is_stump()) && (!r_hand || r_hand.is_stump()))
+						return // No hands to drive your chair? Tough luck!
+					min_move_delay = driver.min_walk_delay
+				//drunk wheelchair driving
+				if(mob.confused && prob(20))
+					direct = pick(cardinal)
+				move_delay += max((mob.movement_delay() + config.walk_speed) * config.walk_delay_multiplier, min_move_delay)
+				return mob.buckled.relaymove(mob,direct)
+
+		var/tally = mob.movement_delay() + config.walk_speed
+
+		// Apply human specific modifiers.
+		var/mob_is_human = ishuman(mob)	// Only check this once and just reuse the value.
+		if (mob_is_human)
+			var/mob/living/carbon/human/H = mob
+			//If we're sprinting and able to continue sprinting, then apply the sprint bonus ontop of this
+			if (H.m_intent == "run" && H.species.handle_sprint_cost(H, tally)) //This will return false if we collapse from exhaustion
+				tally = (tally / (1 + H.sprint_speed_factor)) * config.run_delay_multiplier
+			else
+				tally = max(tally * config.walk_delay_multiplier, H.min_walk_delay) //clamp walking speed if its limited
+		else
+			tally *= config.walk_delay_multiplier
+
+		move_delay += tally
 
 		var/tickcomp = 0 //moved this out here so we can use it for vehicles
 		if(config.Tickcomp)
@@ -272,41 +313,20 @@
 			tickcomp = ((1/(world.tick_lag))*1.3) - 1.3
 			move_delay = move_delay + tickcomp
 
-		if(istype(mob.buckled, /obj/vehicle))
-			//manually set move_delay for vehicles so we don't inherit any mob movement penalties
-			//specific vehicle move delays are set in code\modules\vehicles\vehicle.dm
-			move_delay = world.time + tickcomp
-			//drunk driving
-			if(mob.confused && prob(20))
-				direct = pick(cardinal)
-			return mob.buckled.relaymove(mob,direct)
-
 		if(istype(mob.machine, /obj/machinery))
 			if(mob.machine.relaymove(mob,direct))
 				return
 
-		if(mob.pulledby || mob.buckled) // Wheelchair driving!
-			if(istype(mob.loc, /turf/space))
-				return // No wheelchair driving in space
-			if(istype(mob.pulledby, /obj/structure/bed/chair/wheelchair))
-				return mob.pulledby.relaymove(mob, direct)
-			else if(istype(mob.buckled, /obj/structure/bed/chair/wheelchair))
-				if(ishuman(mob.buckled))
-					var/mob/living/carbon/human/driver = mob.buckled
-					var/obj/item/organ/external/l_hand = driver.get_organ("l_hand")
-					var/obj/item/organ/external/r_hand = driver.get_organ("r_hand")
-					if((!l_hand || l_hand.is_stump()) && (!r_hand || r_hand.is_stump()))
-						return // No hands to drive your chair? Tough luck!
-				//drunk wheelchair driving
-				if(mob.confused && prob(20))
-					direct = pick(cardinal)
-				move_delay += 2
-				return mob.buckled.relaymove(mob,direct)
+		//Wheelchair pushing goes here for now.
+		//TODO: Fuck wheelchairs.
+		if(istype(mob.pulledby, /obj/structure/bed/chair/wheelchair))
+			move_delay += 1
+			return mob.pulledby.relaymove(mob, direct)
 
 		//We are now going to move
 		moving = 1
 		//Something with pulling things
-		if(locate(/obj/item/weapon/grab, mob))
+		if (mob_is_human && (istype(mob:l_hand, /obj/item/weapon/grab) || istype(mob:r_hand, /obj/item/weapon/grab)))
 			move_delay = max(move_delay, world.time + 7)
 			var/list/L = mob.ret_grab()
 			if(istype(L, /list))
@@ -343,29 +363,28 @@
 		else
 			. = mob.SelfMove(n, direct)
 
-		for (var/obj/item/weapon/grab/G in mob)
+		for (var/obj/item/weapon/grab/G in list(mob:l_hand, mob:r_hand))
 			if (G.state == GRAB_NECK)
 				mob.set_dir(reverse_dir[direct])
 			G.adjust_position()
+
 		for (var/obj/item/weapon/grab/G in mob.grabbed_by)
 			G.adjust_position()
 
 		moving = 0
 
-		return .
-
-	return
+	if(isobj(mob.loc) || ismob(mob.loc))	//Inside an object, tell it we moved
+		var/atom/O = mob.loc
+		return O.relaymove(mob, direct)
 
 /mob/proc/SelfMove(turf/n, direct)
 	return Move(n, direct)
-
 
 ///Process_Incorpmove
 ///Called by client/Move()
 ///Allows mobs to run though walls
 /client/proc/Process_Incorpmove(direct)
 	var/turf/mobloc = get_turf(mob)
-
 	switch(mob.incorporeal_move)
 		if(1)
 			var/turf/T = get_step(mob, direct)
@@ -376,45 +395,48 @@
 				mob.forceMove(get_step(mob, direct))
 				mob.dir = direct
 		if(2)
-			if(prob(50))
-				var/locx
-				var/locy
-				switch(direct)
-					if(NORTH)
-						locx = mobloc.x
-						locy = (mobloc.y+2)
-						if(locy>world.maxy)
-							return
-					if(SOUTH)
-						locx = mobloc.x
-						locy = (mobloc.y-2)
-						if(locy<1)
-							return
-					if(EAST)
-						locy = mobloc.y
-						locx = (mobloc.x+2)
-						if(locx>world.maxx)
-							return
-					if(WEST)
-						locy = mobloc.y
-						locx = (mobloc.x-2)
-						if(locx<1)
-							return
-					else
-						return
-				mob.forceMove(locate(locx,locy,mobloc.z))
-				spawn(0)
-					var/limit = 2//For only two trailing shadows.
-					for(var/turf/T in getline(mobloc, mob.loc))
-						spawn(0)
-							anim(T,mob,'icons/mob/mob.dmi',,"shadow",,mob.dir)
-						limit--
-						if(limit<=0)	break
-			else
-				spawn(0)
-					anim(mobloc,mob,'icons/mob/mob.dmi',,"shadow",,mob.dir)
-				mob.forceMove(get_step(mob, direct))
+			anim(mobloc,mob,'icons/mob/mob.dmi',,"shadow",,mob.dir)
+			mob.forceMove(get_step(mob, direct))
 			mob.dir = direct
+
+		if(3)
+			if(!mob.canmove || mob.anchored)
+				return
+			move_delay = 1 + world.time
+			var/turf/T = get_step(mob, direct)
+			for(var/obj/structure/window/W in T)
+				if(istype(W, /obj/structure/window/phoronbasic) || istype(W, /obj/structure/window/phoronreinforced))
+					if(W.is_full_window())
+						mob << "<span class='warning'>\The [W] obstructs your movement!</span>"
+						return
+
+					if((direct & W.dir) && W.density)
+						mob << "<span class='warning'>\The [W] obstructs your movement!</span>"
+						return
+			if(istype(T, /turf/simulated/wall/phoron) || istype(T, /turf/simulated/wall/ironphoron))
+				mob << "<span class='warning'>\The [T] obstructs your movement!</span>"
+				return
+
+			for(var/mob/living/L in T)
+				if(L.is_diona() == DIONA_WORKER)
+					mob << "<span class='danger'>You struggle briefly as you are photovored into \the [L], trapped within a nymphomatic husk!</span>"
+					var/mob/living/carbon/alien/diona/D = new /mob/living/carbon/alien/diona(L)
+					var/mob/living/simple_animal/shade/bluespace/BS = mob
+					if (!(/mob/living/carbon/proc/echo_eject in L.verbs))
+						L.verbs.Add(/mob/living/carbon/proc/echo_eject)
+					BS.mind.transfer_to(D)
+					D.echo = 1
+					D.stat = CONSCIOUS
+					D.gestalt = L
+					D.sync_languages(D.gestalt)
+					D.update_verbs()
+					D.forceMove(L)
+					qdel(BS)
+					return
+
+			mob.forceMove(get_step(mob, direct))
+			mob.dir = direct
+
 	// Crossed is always a bit iffy
 	for(var/obj/S in mob.loc)
 		if(istype(S,/obj/effect/step_trigger) || istype(S,/obj/effect/beam))
@@ -432,73 +454,101 @@
 /mob/proc/Post_Incorpmove()
 	return
 
-///Process_Spacemove
-///Called by /client/Move()
-///For moving in space
-///Return 1 for movement 0 for none
-/mob/proc/Process_Spacemove(var/check_drift = 0)
-
+// Checks whether this mob is allowed to move in space
+// Return 1 for movement, 0 for none,
+// -1 to allow movement but with a chance of slipping
+/mob/proc/Allow_Spacemove(var/check_drift = 0)
 	if(!Check_Dense_Object()) //Nothing to push off of so end here
-		update_floating(0)
 		return 0
-
-	update_floating(1)
 
 	if(restrained()) //Check to see if we can do things
 		return 0
 
-	//Check to see if we slipped
-	if(prob(Process_Spaceslipping(5)))
-		src << "\blue <B>You slipped!</B>"
-		src.inertia_dir = src.last_move
-		step(src, src.inertia_dir)
+	return -1
+
+//Checks if a mob has solid ground to stand on
+//If there's no gravity then there's no up or down so naturally you can't stand on anything.
+//For the same reason lattices in space don't count - those are things you grip, presumably.
+/mob/proc/check_solid_ground()
+	if(istype(loc, /turf/space))
 		return 0
-	//If not then we can reset inertia and move
-	inertia_dir = 0
+
+	if(!lastarea)
+		lastarea = get_area(loc)
+	if(!lastarea.has_gravity())
+		return 0
+
 	return 1
+
 
 /mob/proc/Check_Dense_Object() //checks for anything to push off in the vicinity. also handles magboots on gravity-less floors tiles
 
-	var/dense_object = 0
-	var/shoegrip
+	var/shoegrip = Check_Shoegrip()
 
-	for(var/turf/turf in oview(1,src))
-		if(istype(turf,/turf/space))
-			continue
+	for(var/turf/simulated/T in RANGE_TURFS(1,src)) //we only care for non-space turfs
+		if(T.density)	//walls work
+			return 1
+		else
+			var/area/A = T.loc
+			if(A.has_gravity() || shoegrip)
+				return 1
 
-		if(istype(turf,/turf/simulated/floor)) // Floors don't count if they don't have gravity
-			var/area/A = turf.loc
-			if(istype(A) && A.has_gravity == 0)
-				if(shoegrip == null)
-					shoegrip = Check_Shoegrip() //Shoegrip is only ever checked when a zero-gravity floor is encountered to reduce load
-				if(!shoegrip)
-					continue
+	for(var/obj/O in orange(1, src))
+		if(istype(O, /obj/structure/lattice))
+			return 1
+		if(O && O.density && O.anchored)
+			return 1
 
-		dense_object++
-		break
-
-	if(!dense_object && (locate(/obj/structure/lattice) in oview(1, src)))
-		dense_object++
-
-	//Lastly attempt to locate any dense objects we could push off of
-	//TODO: If we implement objects drifing in space this needs to really push them
-	//Due to a few issues only anchored and dense objects will now work.
-	if(!dense_object)
-		for(var/obj/O in oview(1, src))
-			if((O) && (O.density) && (O.anchored))
-				dense_object++
-				break
-
-	return dense_object
+	return 0
 
 /mob/proc/Check_Shoegrip()
 	return 0
 
-/mob/proc/Process_Spaceslipping(var/prob_slip = 5)
-	//Setup slipage
-	//If knocked out we might just hit it and stop.  This makes it possible to get dead bodies and such.
+/mob/proc/slip_chance(var/prob_slip = 5)
 	if(stat)
-		prob_slip = 0  // Changing this to zero to make it line up with the comment.
+		return 0
+	if(Check_Shoegrip())
+		return 0
+	return prob_slip
 
-	prob_slip = round(prob_slip)
-	return(prob_slip)
+//return 1 if slipped, 0 otherwise
+/mob/proc/handle_spaceslipping()
+	if(prob(slip_chance(5)) && !buckled)
+		to_chat(src, "<span class='warning'>You slipped!</span>")
+		src.inertia_dir = src.last_move
+		step(src, src.inertia_dir)
+		return 1
+	return 0
+
+// /tg/ movement procs
+
+//The byond version of these verbs wait for the next tick before acting.
+//	instant verbs however can run mid tick or even during the time between ticks.
+/client/verb/moveup()
+	set name = ".moveup"
+	set instant = 1
+	Move(get_step(mob, NORTH), NORTH)
+
+/client/verb/movedown()
+	set name = ".movedown"
+	set instant = 1
+	Move(get_step(mob, SOUTH), SOUTH)
+
+/client/verb/moveright()
+	set name = ".moveright"
+	set instant = 1
+	Move(get_step(mob, EAST), EAST)
+
+/client/verb/moveleft()
+	set name = ".moveleft"
+	set instant = 1
+	Move(get_step(mob, WEST), WEST)
+
+/mob/proc/update_gravity()
+	return
+
+/mob/proc/mob_has_gravity(turf/T)
+	return has_gravity(src, T)
+
+/mob/proc/mob_negates_gravity()
+	return 0

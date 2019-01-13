@@ -22,7 +22,6 @@
 	throw_range = 15
 	matter = list(DEFAULT_WALL_MATERIAL = 10)
 	var/colour = "black"	//what colour the ink is!
-	pressure_resistance = 2
 
 
 /obj/item/weapon/pen/blue
@@ -35,20 +34,38 @@
 	icon_state = "pen_red"
 	colour = "red"
 
+/obj/item/weapon/pen/multi
+	desc = "It's a pen with multiple colors of ink!"
+	var/selectedColor = 1
+	var/colors = list("black","blue","red")
+
+/obj/item/weapon/pen/multi/attack_self(mob/user)
+	if(++selectedColor > 3)
+		selectedColor = 1
+
+	colour = colors[selectedColor]
+
+	if(colour == "black")
+		icon_state = "pen"
+	else
+		icon_state = "pen_[colour]"
+
+	user << "<span class='notice'>Changed color to '[colour].'</span>"
+
 /obj/item/weapon/pen/invisible
 	desc = "It's an invisble pen marker."
 	icon_state = "pen"
 	colour = "white"
 
 
-/obj/item/weapon/pen/attack(mob/M as mob, mob/user as mob)
+/obj/item/weapon/pen/attack(mob/M as mob, mob/user as mob, var/target_zone)
 	if(!ismob(M))
 		return
 	user << "<span class='warning'>You stab [M] with the pen.</span>"
 //	M << "\red You feel a tiny prick!" //That's a whole lot of meta!
 	M.attack_log += text("\[[time_stamp()]\] <font color='orange'>Has been stabbed with [name]  by [user.name] ([user.ckey])</font>")
 	user.attack_log += text("\[[time_stamp()]\] <font color='red'>Used the [name] to stab [M.name] ([M.ckey])</font>")
-	msg_admin_attack("[user.name] ([user.ckey]) Used the [name] to stab [M.name] ([M.ckey]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[user.x];Y=[user.y];Z=[user.z]'>JMP</a>)")
+	msg_admin_attack("[user.name] ([user.ckey]) Used the [name] to stab [M.name] ([M.ckey]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[user.x];Y=[user.y];Z=[user.z]'>JMP</a>)",ckey=key_name(user),ckey_target=key_name(M))
 	return
 
 /*
@@ -58,6 +75,7 @@
 /obj/item/weapon/pen/reagent
 	flags = OPENCONTAINER
 	slot_flags = SLOT_BELT
+	origin_tech = list(TECH_MATERIAL = 2, TECH_ILLEGAL = 5)
 
 /obj/item/weapon/pen/reagent/New()
 	..()
@@ -75,14 +93,14 @@
 			if(M.reagents)
 				var/contained_reagents = reagents.get_reagents()
 				var/trans = reagents.trans_to_mob(M, 30, CHEM_BLOOD)
-				admin_inject_log(user, M, src, contained_reagents, trans)
+				admin_inject_log(user, M, src, contained_reagents, reagents.get_temperature(), trans)
 
 /*
  * Sleepy Pens
  */
 /obj/item/weapon/pen/reagent/sleepy
 	desc = "It's a black ink pen with a sharp point and a carefully engraved \"Waffle Co.\""
-	origin_tech = "materials=2;syndicate=5"
+	origin_tech = list(TECH_MATERIAL = 2, TECH_ILLEGAL = 5)
 
 /obj/item/weapon/pen/reagent/sleepy/New()
 	..()
@@ -92,8 +110,8 @@
 /*
  * Parapens
  */
- /obj/item/weapon/pen/reagent/paralysis
-	origin_tech = "materials=2;syndicate=5"
+/obj/item/weapon/pen/reagent/paralysis
+	origin_tech = list(TECH_MATERIAL = 2, TECH_ILLEGAL = 5)
 
 /obj/item/weapon/pen/reagent/paralysis/New()
 	..()
@@ -107,24 +125,19 @@
 	var/signature = ""
 
 /obj/item/weapon/pen/chameleon/attack_self(mob/user as mob)
-	/*
-	// Limit signatures to official crew members
-	var/personnel_list[] = list()
-	for(var/datum/data/record/t in data_core.locked) //Look in data core locked.
-		personnel_list.Add(t.fields["name"])
-	personnel_list.Add("Anonymous")
-
-	var/new_signature = input("Enter new signature pattern.", "New Signature") as null|anything in personnel_list
-	if(new_signature)
-		signature = new_signature
-	*/
 	signature = sanitize(input("Enter new signature. Leave blank for 'Anonymous'", "New Signature", signature))
 
 /obj/item/weapon/pen/proc/get_signature(var/mob/user)
-	return (user && user.real_name) ? user.real_name : "Anonymous"
+	if (user)
+		if (user.mind && user.mind.signature)
+			return user.mind.signature
+		else if (user.real_name)
+			return "<i>[user.real_name]</i>"
+
+	return "<i>Anonymous</i>"
 
 /obj/item/weapon/pen/chameleon/get_signature(var/mob/user)
-	return signature ? signature : "Anonymous"
+	return signature ? "<i>[signature]</i>" : "<i>Anonymous</i>"
 
 /obj/item/weapon/pen/chameleon/verb/set_colour()
 	set name = "Change Pen Colour"
@@ -138,7 +151,7 @@
 			if("Yellow")
 				colour = COLOR_YELLOW
 			if("Green")
-				colour = COLOR_GREEN
+				colour = COLOR_LIME
 			if("Pink")
 				colour = COLOR_PINK
 			if("Blue")
@@ -172,10 +185,6 @@
 	var/uses = 30 //0 for unlimited uses
 	var/instant = 0
 	var/colourName = "red" //for updateIcon purposes
-
-	suicide_act(mob/user)
-		viewers(user) << "\red <b>[user] is jamming the [src.name] up \his nose and into \his brain. It looks like \he's trying to commit suicide.</b>"
-		return (BRUTELOSS|OXYLOSS)
 
 	New()
 		name = "[colourName] crayon"

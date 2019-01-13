@@ -7,7 +7,7 @@
 
 /obj/machinery/mining/drill
 	name = "mining drill head"
-	desc = "An enormous drill."
+	desc = "A large industrial drill. Its bore does not penetrate deep enough to access the sublevels."
 	icon_state = "mining_drill"
 	var/braces_needed = 2
 	var/list/supports = list()
@@ -38,20 +38,25 @@
 	var/need_update_field = 0
 	var/need_player_check = 0
 
-/obj/machinery/mining/drill/New()
+	var/datum/effect_system/sparks/spark_system
 
-	..()
+	component_types = list(
+		/obj/item/weapon/circuitboard/miningdrill,
+		/obj/item/weapon/stock_parts/matter_bin,
+		/obj/item/weapon/stock_parts/capacitor,
+		/obj/item/weapon/stock_parts/micro_laser,
+		/obj/item/weapon/cell/high
+	)
 
-	component_parts = list()
-	component_parts += new /obj/item/weapon/circuitboard/miningdrill(src)
-	component_parts += new /obj/item/weapon/stock_parts/matter_bin(src)
-	component_parts += new /obj/item/weapon/stock_parts/capacitor(src)
-	component_parts += new /obj/item/weapon/stock_parts/micro_laser(src)
-	component_parts += new /obj/item/weapon/cell/high(src)
+/obj/machinery/mining/drill/Initialize()
+	. = ..()
+	spark_system = bind_spark(src, 3)
 
-	RefreshParts()
+/obj/machinery/mining/drill/Destroy()
+	QDEL_NULL(spark_system)
+	return ..()
 
-/obj/machinery/mining/drill/process()
+/obj/machinery/mining/drill/machinery_process()
 
 	if(need_player_check)
 		return
@@ -74,8 +79,8 @@
 		return
 
 	//Drill through the flooring, if any.
-	if(istype(get_turf(src), /turf/simulated/floor/plating/airless/asteroid))
-		var/turf/simulated/floor/plating/airless/asteroid/T = get_turf(src)
+	if(istype(get_turf(src), /turf/simulated/floor/asteroid))
+		var/turf/simulated/floor/asteroid/T = get_turf(src)
 		if(!T.dug)
 			T.gets_dug()
 	else if(istype(get_turf(src), /turf/simulated/floor))
@@ -84,7 +89,7 @@
 
 	//Dig out the tasty ores.
 	if(resource_field.len)
-		var/turf/harvesting = pick(resource_field)
+		var/turf/simulated/harvesting = pick(resource_field)
 
 		while(resource_field.len && !harvesting.resources)
 			harvesting.has_resources = 0
@@ -144,18 +149,26 @@
 	if(!active)
 		if(default_deconstruction_screwdriver(user, O))
 			return
-		if(default_deconstruction_crowbar(user, O))
+		if (!panel_open)
+			if(default_deconstruction_crowbar(user, O))
+				return
+			if(default_part_replacement(user, O))
+				return
+	if(active) return ..()
+
+	if(iscrowbar(O))
+		if (panel_open && cell)
+			user << "You wrench out \the [cell]."
+			cell.forceMove(get_turf(user))
+			component_parts -= cell
+			cell = null
 			return
-		if(default_part_replacement(user, O))
-			return
-	if(!panel_open || active) return ..()
 
 	if(istype(O, /obj/item/weapon/cell))
 		if(cell)
 			user << "The drill already has a cell installed."
 		else
-			user.drop_item()
-			O.loc = src
+			user.drop_from_inventory(O,src)
 			cell = O
 			component_parts += O
 			user << "You install \the [O]."
@@ -165,13 +178,7 @@
 /obj/machinery/mining/drill/attack_hand(mob/user as mob)
 	check_supports()
 
-	if (panel_open && cell)
-		user << "You take out \the [cell]."
-		cell.loc = get_turf(user)
-		component_parts -= cell
-		cell = null
-		return
-	else if(need_player_check)
+	if(need_player_check)
 		user << "You hit the manual override and reset the drill's error checking."
 		need_player_check = 0
 		if(anchored)
@@ -189,8 +196,42 @@
 		else
 			user << "<span class='notice'>The drill is unpowered.</span>"
 	else
-		user << "<span class='notice'>Turning on a piece of industrial machinery without sufficient bracing or wires exposed is a bad idea.</span>"
-
+		if(use_cell_power())
+			if(!supported && !panel_open)
+				system_error("unbraced drill error")
+				sleep(30)
+				if(!supported) //if you can resolve it manually in three seconds then power to you good-sir.
+					if(prob(50))
+						visible_message("<span class='notice'>\icon[src] [src.name] beeps, \"Unbraced drill error automatically corrected. Please brace your drill.\"</span>")
+					else
+						visible_message("<span class='danger'>\The [src] explodes!</span>")
+						fragem(src,10,35,2,1,5,1,0)
+						qdel(src)
+				else
+					visible_message("<span class='notice'>\icon[src] [src.name] beeps, \"Unbraced drill error manually resolved. Operations may resume normally.\"</span>")
+			if(supported && panel_open)
+				if(cell)
+					system_error("unsealed cell fitting error")
+					spark_system.queue()
+					sleep(20)
+					spark_system.queue()
+					sleep(10)
+					spark_system.queue()
+					sleep(10)
+					if(panel_open)
+						if(prob(70))
+							visible_message("<span class='danger'>\The [src]'s cell shorts out!</span>")
+							cell.use(cell.charge)
+						else
+							visible_message("<span class='danger'>\The [src]'s cell detonates!</span>")
+							explosion(src.loc, -1, -1, 2, 1)
+							qdel(cell)
+							component_parts -= cell
+							cell = null
+					else
+						visible_message("<span class='notice'>\icon[src] [src.name] beeps, \"Unsealed cell fitting error manually resolved. Operations may resume normally.\"</span>")
+		else
+			user << "<span class='notice'>The drill is unpowered.</span>"
 	update_icon()
 
 /obj/machinery/mining/drill/update_icon()
@@ -211,11 +252,11 @@
 	charge_use = 50
 
 	for(var/obj/item/weapon/stock_parts/P in component_parts)
-		if(istype(P, /obj/item/weapon/stock_parts/micro_laser))
+		if(ismicrolaser(P))
 			harvest_speed = P.rating
-		if(istype(P, /obj/item/weapon/stock_parts/matter_bin))
+		else if(ismatterbin(P))
 			capacity = 200 * P.rating
-		if(istype(P, /obj/item/weapon/stock_parts/capacitor))
+		else if(iscapacitor(P))
 			charge_use -= 10 * P.rating
 	cell = locate(/obj/item/weapon/cell) in component_parts
 
@@ -238,7 +279,8 @@
 /obj/machinery/mining/drill/proc/system_error(var/error)
 
 	if(error)
-		src.visible_message("<span class='notice'>\The [src] flashes a '[error]' warning.</span>")
+		visible_message("<span class='warning'>\icon[src] [src.name] flashes a system warning: [error].</span>")
+		playsound(src.loc, 'sound/machines/warning-buzzer.ogg', 100, 1)
 	need_player_check = 1
 	active = 0
 	update_icon()
@@ -253,7 +295,7 @@
 
 	var/tx = T.x - 2
 	var/ty = T.y - 2
-	var/turf/mine_turf
+	var/turf/simulated/mine_turf
 	for(var/iy = 0,iy < 5, iy++)
 		for(var/ix = 0, ix < 5, ix++)
 			mine_turf = locate(tx + ix, ty + iy, T.z)
@@ -280,10 +322,12 @@
 	var/obj/structure/ore_box/B = locate() in orange(1)
 	if(B)
 		for(var/obj/item/weapon/ore/O in contents)
-			O.loc = B
+			O.forceMove(B)
 		usr << "<span class='notice'>You unload the drill's storage cache into the ore box.</span>"
 	else
-		usr << "<span class='notice'>You must move an ore box up to the drill before you can unload it.</span>"
+		for(var/obj/item/weapon/ore/O in contents)
+			O.forceMove(src.loc)
+		usr << "<span class='notice'>You spill the content's of the drill's storage box all over the ground. Idiot.</span>"
 
 
 /obj/machinery/mining/brace
@@ -292,16 +336,68 @@
 	icon_state = "mining_brace"
 	var/obj/machinery/mining/drill/connected
 
+	component_types = list(
+		/obj/item/weapon/circuitboard/miningdrillbrace
+	)
+
 /obj/machinery/mining/brace/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(istype(W,/obj/item/weapon/wrench))
+	if(connected && connected.active)
+		user << "<span class='notice'>You know you ought not work with the brace of a <i>running</i> drill, but you do anyways.</span>"
+		sleep(5)
+		if(istype(user, /mob/living/carbon/human))
+			//Save the users active hand
+			var/mob/living/carbon/human/H = user
+			var/obj/item/organ/external/LA = H.get_organ("l_hand")
+			var/obj/item/organ/external/RA = H.get_organ("r_hand")
+			var/active_hand = H.hand
+			if(prob(20))
+				if(active_hand)
+					LA.droplimb(0,DROPLIMB_BLUNT)
+				else
+					RA.droplimb(0,DROPLIMB_BLUNT)
+				connected.system_error("unexpected user interface error")
+				return
+			else
+				H.apply_damage(25,BRUTE, sharp=1, edge=1)
+				connected.system_error("unexpected user interface error")
+				return
+		else
+			var/mob/living/M = user
+			M.apply_damage(25,BRUTE, sharp=1, edge=1)
+
+	if(default_deconstruction_screwdriver(user, W))
+		return
+	if(default_deconstruction_crowbar(user, W))
+		return
+
+	if(iswrench(W))
 
 		if(istype(get_turf(src), /turf/space))
-			user << "<span class='notice'>You can't anchor something to empty space. Idiot.</span>"
+			user << "<span class='notice'>You send the [src] careening into space. Idiot.</span>"
+			var/inertia = rand(10,30)
+			for(var/i in 1 to inertia)
+				step_away(src,user,15,8)
+				if(!(istype(get_turf(src), /turf/space)))
+					break
+				sleep(1)
 			return
 
 		if(connected && connected.active)
-			user << "<span class='notice'>You can't unanchor the brace of a running drill!</span>"
-			return
+			if(prob(50))
+				sleep(10)
+				connected.system_error("unbraced drill error")
+				sleep(30)
+				if(connected && connected.active) //if you can resolve it manually in three seconds then power to you good-sir.
+					if(prob(50))
+						visible_message("<span class='notice'>\icon[src] [src.name] beeps, \"Unbraced drill error automatically corrected. Please brace your drill.\"</span>")
+					else
+						visible_message("<span class='danger'>\The [src] explodes!</span>")
+						fragem(src,10,35,2,1,5,1,0)
+						qdel(src)
+						return
+			else
+				connected.system_error("unexpected user interface error")
+				return
 
 		playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
 		user << "<span class='notice'>You [anchored ? "un" : ""]anchor the brace.</span>"

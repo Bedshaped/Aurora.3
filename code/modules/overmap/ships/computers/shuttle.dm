@@ -8,8 +8,8 @@
 	var/obj/effect/map/destination //current destination
 	var/obj/effect/map/home //current destination
 
-/obj/machinery/computer/shuttle_control/explore/initialize()
-	..()
+/obj/machinery/computer/shuttle_control/explore/Initialize()
+	. = ..()
 	home = map_sectors["[z]"]
 	shuttle_tag = "[shuttle_tag]-[z]"
 	if(!shuttle_controller.shuttles[shuttle_tag])
@@ -18,7 +18,7 @@
 		shuttle.area_station = locate(landing_type)
 		shuttle.area_offsite = shuttle.area_station
 		shuttle_controller.shuttles[shuttle_tag] = shuttle
-		shuttle_controller.process_shuttles += shuttle
+		START_PROCESSING(shuttle_controller, shuttle)
 		testing("Exploration shuttle '[shuttle_tag]' at zlevel [z] successfully added.")
 
 //Sets destination to new sector. Can be null.
@@ -84,7 +84,7 @@
 			else
 				shuttle_status = "Standing-by at offsite location."
 		if(WAIT_LAUNCH, FORCE_LAUNCH)
-			shuttle_status = "Shuttle has recieved command and will depart shortly."
+			shuttle_status = "Shuttle has received command and will depart shortly."
 		if(WAIT_ARRIVE)
 			shuttle_status = "Proceeding to destination."
 		if(WAIT_FINISH)
@@ -100,10 +100,10 @@
 		"docking_override" = shuttle.docking_controller? shuttle.docking_controller.override_enabled : null,
 		"can_launch" = can_go && shuttle.can_launch(),
 		"can_cancel" = can_go && shuttle.can_cancel(),
-		"can_force" = can_go && shuttle.can_force(),
+		"can_force" = can_go && shuttle.can_force()
 	)
 
-	ui = nanomanager.try_update_ui(user, src, ui_key, ui, data, force_open)
+	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data, force_open)
 
 	if (!ui)
 		ui = new(user, src, ui_key, "shuttle_control_console_exploration.tmpl", "[shuttle_tag] Shuttle Control", 470, 310)

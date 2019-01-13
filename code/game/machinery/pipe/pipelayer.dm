@@ -15,9 +15,9 @@
 	var/obj/item/weapon/wrench/W
 	var/list/Pipes = list("regular pipes"=0,"scrubbers pipes"=31,"supply pipes"=29,"heat exchange pipes"=2)
 
-/obj/machinery/pipelayer/New()
+/obj/machinery/pipelayer/Initialize()
+	. = ..()
 	W = new(src)
-	..()
 
 /obj/machinery/pipelayer/Move(new_turf,M_Dir)
 	..()
@@ -39,13 +39,13 @@
 
 /obj/machinery/pipelayer/attackby(var/obj/item/W as obj, var/mob/user as mob)
 
-	if (istype(W, /obj/item/weapon/wrench))
+	if (iswrench(W))
 		P_type_t = input("Choose pipe type", "Pipe type") as null|anything in Pipes
 		P_type = Pipes[P_type_t]
 		user.visible_message("<span class='notice'>[user] has set \the [src] to manufacture [P_type_t].</span>", "<span class='notice'>You set \the [src] to manufacture [P_type_t].</span>")
 		return
 
-	if(istype(W, /obj/item/weapon/crowbar))
+	if(iscrowbar(W))
 		a_dis=!a_dis
 		user.visible_message("<span class='notice'>[user] has [!a_dis?"de":""]activated auto-dismantling.</span>", "<span class='notice'>You [!a_dis?"de":""]activate auto-dismantling.</span>")
 		return
@@ -62,7 +62,7 @@
 
 		return
 
-	if(istype(W, /obj/item/weapon/screwdriver))
+	if(isscrewdriver(W))
 		if(metal)
 			var/m = round(input(usr,"Please specify the amount of metal to remove","Remove metal",min(round(metal),50)) as num, 1)
 			m = min(m, 50)
@@ -110,10 +110,8 @@
 	if(istype(new_turf, /turf/simulated/floor))
 		var/turf/simulated/floor/T = new_turf
 		if(!T.is_plating())
-			if(!T.broken && !T.burnt)
-				new T.floor_type(T)
-			T.make_plating()
-	return !new_turf.intact
+			T.make_plating(!(T.broken || T.burnt))
+	return new_turf.is_plating()
 
 /obj/machinery/pipelayer/proc/layPipe(var/turf/w_turf,var/M_Dir,var/old_dir)
 	if(!on || !(M_Dir in list(1, 2, 4, 8)) || M_Dir==old_dir)

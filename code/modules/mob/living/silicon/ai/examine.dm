@@ -28,7 +28,7 @@
 		if (src.stat == UNCONSCIOUS)
 			msg += "It is non-responsive and displaying the text: \"RUNTIME: Sensory Overload, stack 26/3\".\n"
 		msg += "</span>"
-	msg += "*---------*</span>"
+	msg += "*---------*"
 	if(hardware && (hardware.owner == src))
 		msg += "<br>"
 		msg += hardware.get_examine_desc()
@@ -39,6 +39,6 @@
 /mob/proc/showLaws(var/mob/living/silicon/S)
 	return
 
-/mob/dead/observer/showLaws(var/mob/living/silicon/S)
+/mob/abstract/observer/showLaws(var/mob/living/silicon/S)
 	if(antagHUD || is_admin(src))
 		S.laws.show_laws(src)

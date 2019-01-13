@@ -10,19 +10,19 @@
 	var/input = sanitize(input(usr, "Enter the description of the custom event. Be descriptive. To cancel the event, make this blank or hit cancel.", "Custom Event", custom_event_msg) as message|null, MAX_BOOK_MESSAGE_LEN, extra = 0)
 	if(!input || input == "")
 		custom_event_msg = null
-		log_admin("[usr.key] has cleared the custom event text.")
+		log_admin("[usr.key] has cleared the custom event text.",admin_key=key_name(usr))
 		message_admins("[key_name_admin(usr)] has cleared the custom event text.")
 		return
 
-	log_admin("[usr.key] has changed the custom event text.")
+	log_admin("[usr.key] has changed the custom event text.",admin_key=key_name(usr))
 	message_admins("[key_name_admin(usr)] has changed the custom event text.")
 
 	custom_event_msg = input
 
-	world << "<h1 class='alert'>Custom Event</h1>"
-	world << "<h2 class='alert'>A custom event is starting. OOC Info:</h2>"
-	world << "<span class='alert'>[custom_event_msg]</span>"
-	world << "<br>"
+	to_world("<h1 class='alert'>Custom Event</h1>")
+	to_world("<h2 class='alert'>A custom event is starting. OOC Info:</h2>")
+	to_world("<span class='alert'>[custom_event_msg]</span>")
+	to_world("<br>")
 
 // normal verb for players to view info
 /client/verb/cmd_view_custom_event()

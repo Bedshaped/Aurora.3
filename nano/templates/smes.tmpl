@@ -1,3 +1,11 @@
+{{if data.failTime}}
+<div class='notice'>
+	<b><h3>SYSTEM FAILURE</h3></b>
+	<i>I/O regulators malfunction detected! Waiting for system reboot...</i><br>
+	Automatic reboot in {{:data.failTime}} seconds...
+	{{:helper.link('Reboot Now', 'refresh', {'reboot' : 1})}}<br><br><br>
+</div>
+{{else}}
 <div class="item">
 	<div class="itemLabel">
 		Stored Capacity:
@@ -6,6 +14,24 @@
 		{{:helper.displayBar(data.storedCapacity, 0, 100, data.charging ? 'good' : 'average')}}
 		<div class="statusValue">
 			{{:helper.round(data.storedCapacity)}}%
+		</div>
+	</div>
+</div>
+
+<div class="item">
+	<div class="itemLabel">
+		Charge status:
+	</div>
+	<div class="itemContent">
+		<div class="statusValue">
+		{{if data.charge_mode == 1}}
+			SMES will be fully charged in {{:data.time}}
+		{{else data.charge_mode == 2}}
+			SMES input and output are equal
+		{{else}}
+			SMES will run out of charge in {{:data.time}}
+		{{/if}}
+			
 		</div>
 	</div>
 </div>
@@ -40,6 +66,17 @@
 			{{:helper.link('MAX', null, {'input' : 'max'}, (data.chargeLevel < data.chargeMax) ? null : 'disabled')}}
 			<div style="float: left; width: 100px; text-align: center;">&nbsp;{{:data.chargeLevel}} W&nbsp;</div>
 		</div>
+</div>
+
+<div class="item">
+	<div class="itemLabel">
+		Input Load:
+	</div>
+	<div class="itemContent">
+		{{:helper.displayBar(data.charge_taken, 0, data.chargeMax, (data.charge_taken < data.chargeLevel) ? 'average' : 'good')}}
+		<div class="statusValue">
+			{{:data.charge_taken}} W
+		</div>
 	</div>
 </div>
 
@@ -54,7 +91,7 @@
 		{{if data.outputting == 2}}
 			[<span class='good'>Outputting</span>]
 		{{else data.outputting == 1}}
-			[<span class='average'>Stored energy too low</span>]
+			[<span class='average'>Disconnected or No Charge</span>]
 		{{else}}
 			[<span class='bad'>Not Outputting</span>]
 		{{/if}}
@@ -87,3 +124,5 @@
 		</div>
 	</div>
 </div>
+
+{{/if}}

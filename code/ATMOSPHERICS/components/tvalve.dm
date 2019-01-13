@@ -12,8 +12,6 @@
 	var/state = 0 // 0 = go straight, 1 = go to side
 
 	// like a trinary component, node1 is input, node2 is side output, node3 is straight output
-	var/obj/machinery/atmospherics/node1
-	var/obj/machinery/atmospherics/node2
 	var/obj/machinery/atmospherics/node3
 
 	var/datum/pipe_network/network_node1
@@ -48,9 +46,9 @@
 /obj/machinery/atmospherics/tvalve/hide(var/i)
 	update_underlays()
 
-/obj/machinery/atmospherics/tvalve/New()
+/obj/machinery/atmospherics/tvalve/Initialize()
 	initialize_directions()
-	..()
+	. = ..()
 
 /obj/machinery/atmospherics/tvalve/proc/initialize_directions()
 	switch(dir)
@@ -118,7 +116,7 @@
 	node2 = null
 	node3 = null
 
-	..()
+	return ..()
 
 /obj/machinery/atmospherics/tvalve/proc/go_to_side()
 
@@ -181,14 +179,11 @@
 	else
 		src.go_to_side()
 
-/obj/machinery/atmospherics/tvalve/process()
+/obj/machinery/atmospherics/tvalve/machinery_process()
 	..()
 	. = PROCESS_KILL
-	//machines.Remove(src)
 
-	return
-
-/obj/machinery/atmospherics/tvalve/initialize()
+/obj/machinery/atmospherics/tvalve/atmos_init()
 	var/node1_dir
 	var/node2_dir
 	var/node3_dir
@@ -308,21 +303,21 @@
 	if(!powered())
 		return
 	if(!src.allowed(user))
-		user << "\red Access denied."
+		user << "<span class='warning'>Access denied.</span>"
 		return
 	..()
 
 //Radio remote control
 
 /obj/machinery/atmospherics/tvalve/digital/proc/set_frequency(new_frequency)
-	radio_controller.remove_object(src, frequency)
+	SSradio.remove_object(src, frequency)
 	frequency = new_frequency
 	if(frequency)
-		radio_connection = radio_controller.add_object(src, frequency, RADIO_ATMOSIA)
+		radio_connection = SSradio.add_object(src, frequency, RADIO_ATMOSIA)
 
 
 
-/obj/machinery/atmospherics/tvalve/digital/initialize()
+/obj/machinery/atmospherics/tvalve/digital/atmos_init()
 	..()
 	if(frequency)
 		set_frequency(frequency)
@@ -347,24 +342,24 @@
 				go_to_side()
 
 /obj/machinery/atmospherics/tvalve/attackby(var/obj/item/weapon/W as obj, var/mob/user as mob)
-	if (!istype(W, /obj/item/weapon/wrench))
+	if (!iswrench(W))
 		return ..()
 	if (istype(src, /obj/machinery/atmospherics/tvalve/digital))
-		user << "\red You cannot unwrench this [src], it's too complicated."
+		user << "<span class='warning'>You cannot unwrench \the [src], it's too complicated.</span>"
 		return 1
 	var/datum/gas_mixture/int_air = return_air()
 	var/datum/gas_mixture/env_air = loc.return_air()
 	if ((int_air.return_pressure()-env_air.return_pressure()) > 2*ONE_ATMOSPHERE)
-		user << "\red You cannot unwrench this [src], it too exerted due to internal pressure."
+		user << "<span class='warnng'>You cannot unwrench \the [src], it too exerted due to internal pressure.</span>"
 		add_fingerprint(user)
 		return 1
 	playsound(src.loc, 'sound/items/Ratchet.ogg', 50, 1)
-	user << "\blue You begin to unfasten \the [src]..."
-	if (do_after(user, 40))
+	user << "<span class='notice'>You begin to unfasten \the [src]...</span>"
+	if (do_after(user, 40, act_target = src))
 		user.visible_message( \
-			"[user] unfastens \the [src].", \
-			"\blue You have unfastened \the [src].", \
-			"You hear ratchet.")
+			"<span class='notice'>\The [user] unfastens \the [src].</span>", \
+			"<span class='notice'>You have unfastened \the [src].</span>", \
+			"You hear a ratchet.")
 		new /obj/item/pipe(loc, make_from=src)
 		qdel(src)
 
@@ -386,7 +381,7 @@
 		if(WEST)
 			initialize_directions = EAST|WEST|SOUTH
 
-/obj/machinery/atmospherics/tvalve/mirrored/initialize()
+/obj/machinery/atmospherics/tvalve/mirrored/atmos_init()
 	var/node1_dir
 	var/node2_dir
 	var/node3_dir
@@ -448,19 +443,19 @@
 	if(!powered())
 		return
 	if(!src.allowed(user))
-		user << "\red Access denied."
+		user << "<span class='warning'>Access denied.</span>"
 		return
 	..()
 
 //Radio remote control -eh?
 
 /obj/machinery/atmospherics/tvalve/mirrored/digital/proc/set_frequency(new_frequency)
-	radio_controller.remove_object(src, frequency)
+	SSradio.remove_object(src, frequency)
 	frequency = new_frequency
 	if(frequency)
-		radio_connection = radio_controller.add_object(src, frequency, RADIO_ATMOSIA)
+		radio_connection = SSradio.add_object(src, frequency, RADIO_ATMOSIA)
 
-/obj/machinery/atmospherics/tvalve/mirrored/digital/initialize()
+/obj/machinery/atmospherics/tvalve/mirrored/digital/atmos_init()
 	..()
 	if(frequency)
 		set_frequency(frequency)

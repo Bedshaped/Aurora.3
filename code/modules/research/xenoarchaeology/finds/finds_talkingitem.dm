@@ -20,11 +20,11 @@
 
 /datum/talking_atom/proc/init()
 	if(holder_atom)
-		processing_objects.Add(src)
+		START_PROCESSING(SSprocessing, src)
 
-/datum/talking_atom/proc/process()
+/datum/talking_atom/process()
 	if(!holder_atom)
-		processing_objects.Remove(src)
+		STOP_PROCESSING(SSprocessing, src)
 
 	else if(heard_words.len >= 1 && world.time > last_talk_time + talk_interval && prob(talk_chance))
 		SaySomething()
@@ -55,25 +55,16 @@
 		var/list/w = heard_words["[lowertext(seperate[Xa])]"]
 		if(w)
 			w.Add("[lowertext(seperate[next])]")
-		//world << "Adding [lowertext(seperate[next])] to [lowertext(seperate[Xa])]"
 
 	if(prob(30))
 		var/list/options = list("[holder_atom] seems to be listening intently to [source]...",\
 			"[holder_atom] seems to be focusing on [source]...",\
 			"[holder_atom] seems to turn it's attention to [source]...")
-		holder_atom.loc.visible_message("\blue \icon[holder_atom] [pick(options)]")
+		holder_atom.loc.visible_message("<span class='notice'>\icon[holder_atom] [pick(options)]</span>")
 
 	if(prob(20))
 		spawn(2)
 			SaySomething(pick(seperate))
-
-/*/obj/item/weapon/talkingcrystal/proc/debug()
-	//set src in view()
-	for(var/v in heard_words)
-		world << "[uppertext(v)]"
-		var/list/d = heard_words["[v]"]
-		for(var/X in d)
-			world << "[X]"*/
 
 /datum/talking_atom/proc/SaySomething(var/word = null)
 	if(!holder_atom)
@@ -119,11 +110,11 @@
 	for(var/mob/M in mob_list)
 		if (!M.client)
 			continue //skip monkeys and leavers
-		if (istype(M, /mob/new_player))
+		if (istype(M, /mob/abstract/new_player))
 			continue
 		if(M.stat == 2 &&  M.client.prefs.toggles & CHAT_GHOSTEARS)
 			listening|=M
 
 	for(var/mob/M in listening)
-		M << "\icon[holder_atom] <b>[holder_atom]</b> reverberates, \blue\"[msg]\""
+		M << "\icon[holder_atom] <b>[holder_atom]</b> reverberates, <span class='notice'>\"[msg]\"</span>"
 	last_talk_time = world.time

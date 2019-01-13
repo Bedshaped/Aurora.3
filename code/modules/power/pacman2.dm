@@ -30,34 +30,28 @@
 		P.air_contents.phoron -= 0.01
 		return
 
-	New()
-		..()
-		component_parts = list()
-		component_parts += new /obj/item/weapon/stock_parts/matter_bin(src)
-		component_parts += new /obj/item/weapon/stock_parts/micro_laser(src)
-		component_parts += new /obj/item/stack/cable_coil(src)
-		component_parts += new /obj/item/stack/cable_coil(src)
-		component_parts += new /obj/item/weapon/stock_parts/capacitor(src)
-		component_parts += new board_path(src)
-		RefreshParts()
+	setup_components()
+		. = list(
+			new /obj/item/weapon/stock_parts/matter_bin(src),
+			new /obj/item/weapon/stock_parts/micro_laser(src),
+			new /obj/item/stack/cable_coil(src),
+			new /obj/item/stack/cable_coil(src),
+			new /obj/item/weapon/stock_parts/capacitor(src),
+			new board_path(src)
+		)
 
 	RefreshParts()
 		var/temp_rating = 0
-		var/temp_reliability = 0
 		for(var/obj/item/weapon/stock_parts/SP in component_parts)
 			if(istype(SP, /obj/item/weapon/stock_parts/matter_bin))
 				//max_coins = SP.rating * SP.rating * 1000
 			else if(istype(SP, /obj/item/weapon/stock_parts/micro_laser) || istype(SP, /obj/item/weapon/stock_parts/capacitor))
 				temp_rating += SP.rating
-		for(var/obj/item/weapon/CP in component_parts)
-			temp_reliability += CP.reliability
-		reliability = min(round(temp_reliability / 4), 100)
 		power_gen = round(initial(power_gen) * (max(2, temp_rating) / 2))
 
 	examine(mob/user)
 		..(user)
-		user << "\blue The generator has [P.air_contents.phoron] units of fuel left, producing [power_gen] per cycle."
-		if(crit_fail) user << "\red The generator seems to have broken down."
+		user << "<span class='notice'>The generator has [P.air_contents.phoron] units of fuel left, producing [power_gen] per cycle.</span>"
 
 	handleInactive()
 		heat -= 2
@@ -75,42 +69,31 @@
 	attackby(var/obj/item/O as obj, var/mob/user as mob)
 		if(istype(O, /obj/item/weapon/tank/phoron))
 			if(P)
-				user << "\red The generator already has a phoron tank loaded!"
+				user << "<span class='warning'>The generator already has a phoron tank loaded!</span>"
 				return
 			P = O
-			user.drop_item()
-			O.loc = src
-			user << "\blue You add the phoron tank to the generator."
-		else if (istype(O, /obj/item/weapon/card/emag))
-			var/obj/item/weapon/card/emag/E = O
-			if(E.uses)
-				E.uses--
-			else
-				return
-			emagged = 1
-			emp_act(1)
+			user.drop_from_inventory(O,src)
+			user << "<span class='notice'>You add the phoron tank to the generator.</span>"
 		else if(!active)
-			if(istype(O, /obj/item/weapon/wrench))
+			if(iswrench(O))
 				anchored = !anchored
 				playsound(src.loc, 'sound/items/Deconstruct.ogg', 50, 1)
 				if(anchored)
-					user << "\blue You secure the generator to the floor."
+					user << "<span class='notice'>You secure the generator to the floor.</span>"
 				else
-					user << "\blue You unsecure the generator from the floor."
-				makepowernets()
-			else if(istype(O, /obj/item/weapon/screwdriver))
+					user << "<span class='notice'>You unsecure the generator from the floor.</span>"
+				SSmachinery.powernet_update_queued = TRUE
+			else if(isscrewdriver(O))
 				open = !open
 				playsound(src.loc, 'sound/items/Screwdriver.ogg', 50, 1)
 				if(open)
-					user << "\blue You open the access panel."
+					user << "<span class='notice'>You open the access panel.</span>"
 				else
-					user << "\blue You close the access panel."
-			else if(istype(O, /obj/item/weapon/crowbar) && !open)
+					user << "<span class='notice'>You close the access panel.</span>"
+			else if(iscrowbar(O) && !open)
 				var/obj/machinery/constructable_frame/machine_frame/new_frame = new /obj/machinery/constructable_frame/machine_frame(src.loc)
 				for(var/obj/item/I in component_parts)
-					if(I.reliability < 100)
-						I.crit_fail = 1
-					I.loc = src.loc
+					I.forceMove(src.loc)
 				new_frame.state = 2
 				new_frame.icon_state = "box_1"
 				qdel(src)
@@ -159,7 +142,7 @@
 		src.add_fingerprint(usr)
 		if(href_list["action"])
 			if(href_list["action"] == "enable")
-				if(!active && HasFuel() && !crit_fail)
+				if(!active && HasFuel())
 					active = 1
 					icon_state = "portgen1"
 					src.updateUsrDialog()
@@ -179,3 +162,8 @@
 			if (href_list["action"] == "close")
 				usr << browse(null, "window=port_gen")
 				usr.machine = null
+
+/obj/machinery/power/port_gen/pacman2/emag_act(var/remaining_uses, var/mob/user)				
+	emagged = 1
+	emp_act(1)
+	return 1

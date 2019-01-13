@@ -30,7 +30,7 @@
 	invocation = "none"
 	invocation_type = SpI_NONE
 	range = 0
-	summon_type = list(/turf/simulated/floor/engine/cult)
+	summon_type = list(/turf/simulated/floor/cult)
 
 	hud_state = "const_floor"
 
@@ -132,6 +132,7 @@
 	icon_state = "m_shield_cult"
 	light_color = "#B40000"
 	light_range = 2
+	appearance_flags = NO_CLIENT_COLOR
 
 /obj/effect/forcefield/cult/cultify()
 	return

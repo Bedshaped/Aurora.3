@@ -23,13 +23,6 @@
 		F.dirt += 4
 	qdel(src)
 
-/obj/effect/decal/cleanable/greenglow
-
-	New()
-		..()
-		spawn(1200)// 2 minutes
-			qdel(src)
-
 /obj/effect/decal/cleanable/dirt
 	name = "dirt"
 	desc = "Someone should clean that up."
@@ -58,9 +51,17 @@
 	density = 0
 	anchored = 1
 	layer = 2
-	light_range = 1
+	light_range = 2
+	light_power = 0.5
+	light_color = LIGHT_COLOR_GREEN
+	uv_intensity = 0
 	icon = 'icons/effects/effects.dmi'
 	icon_state = "greenglow"
+
+/obj/effect/decal/cleanable/greenglow/Initialize(mapload)
+	. = ..()
+	if (!mapload)	// Round-start goo should stick around.
+		QDEL_IN(src, 2 MINUTES)
 
 /obj/effect/decal/cleanable/cobweb
 	name = "cobweb"
@@ -102,10 +103,10 @@
 	random_icon_states = list("vomit_1", "vomit_2", "vomit_3", "vomit_4")
 	var/list/viruses = list()
 
-	Destroy()
-		for(var/datum/disease/D in viruses)
-			D.cure(0)
-		..()
+/obj/effect/decal/cleanable/vomit/Destroy()
+	for(var/datum/disease/D in viruses)
+		D.cure(0)
+	return ..()
 
 /obj/effect/decal/cleanable/tomato_smudge
 	name = "tomato smudge"

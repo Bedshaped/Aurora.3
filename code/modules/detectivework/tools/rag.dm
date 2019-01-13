@@ -1,5 +1,5 @@
 /mob
-	var/bloody_hands = 0
+	var/bloody_hands = null
 	var/mob/living/carbon/human/bloody_hands_mob
 	var/track_blood = 0
 	var/list/feet_blood_DNA
@@ -29,13 +29,13 @@
 	var/on_fire = 0
 	var/burn_time = 20 //if the rag burns for too long it turns to ashes
 
-/obj/item/weapon/reagent_containers/glass/rag/New()
-	..()
+/obj/item/weapon/reagent_containers/glass/rag/Initialize()
+	. = ..()
 	update_name()
 
 /obj/item/weapon/reagent_containers/glass/rag/Destroy()
-	processing_objects -= src //so we don't continue turning to ash while gc'd
-	..()
+	STOP_PROCESSING(SSprocessing, src) //so we don't continue turning to ash while gc'd
+	return ..()
 
 /obj/item/weapon/reagent_containers/glass/rag/attack_self(mob/user as mob)
 	if(on_fire)
@@ -100,7 +100,7 @@
 		reagents.splash(A, 1) //get a small amount of liquid on the thing we're wiping.
 		update_name()
 		if(do_after(user,30))
-			user.visible_message("\The [user] finishes wiping off the [A]!")
+			user.visible_message("\The [user] finishes wiping off \the [A]!")
 			A.clean_blood()
 
 /obj/item/weapon/reagent_containers/glass/rag/attack(atom/target as obj|turf|area, mob/user as mob , flag)
@@ -111,7 +111,7 @@
 			user.do_attack_animation(src)
 			M.IgniteMob()
 		else if(reagents.total_volume)
-			if(user.zone_sel.selecting == "mouth")
+			if(user.zone_sel.selecting == "mouth" && !(M.wear_mask && M.wear_mask.item_flags & AIRTIGHT))
 				user.do_attack_animation(src)
 				user.visible_message(
 					"<span class='danger'>\The [user] smothers [target] with [src]!</span>",
@@ -120,7 +120,8 @@
 					)
 
 				//it's inhaled, so... maybe CHEM_BLOOD doesn't make a whole lot of sense but it's the best we can do for now
-				reagents.trans_to_mob(target, amount_per_transfer_from_this, CHEM_BLOOD)
+				//^HA HA HA
+				reagents.trans_to_mob(target, amount_per_transfer_from_this, CHEM_BREATHE)
 				update_name()
 			else
 				wipe_down(target, user)
@@ -144,7 +145,7 @@
 		return
 
 	if(!on_fire && istype(A) && (src in user))
-		if(A.is_open_container())
+		if(A.is_open_container() && !(A in user))
 			remove_contents(user, A)
 		else if(!ismob(A)) //mobs are handled in attack() - this prevents us from wiping down people while smothering them.
 			wipe_down(A, user)
@@ -178,14 +179,14 @@
 		qdel(src)
 		return
 
-	processing_objects += src
+	START_PROCESSING(SSprocessing, src)
 	set_light(2, null, "#E38F46")
 	on_fire = 1
 	update_name()
 	update_icon()
 
 /obj/item/weapon/reagent_containers/glass/rag/proc/extinguish()
-	processing_objects -= src
+	STOP_PROCESSING(SSprocessing, src)
 	set_light(0)
 	on_fire = 0
 
@@ -212,7 +213,7 @@
 		location.hotspot_expose(700, 5)
 
 	if(burn_time <= 0)
-		processing_objects -= src
+		STOP_PROCESSING(SSprocessing, src)
 		new /obj/effect/decal/cleanable/ash(location)
 		qdel(src)
 		return

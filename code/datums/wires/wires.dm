@@ -17,8 +17,8 @@ var/list/wireColours = list("red", "blue", "green", "darkred", "orange", "brown"
 	var/wire_count = 0 // Max is 16
 	var/wires_status = 0 // BITFLAG OF WIRES
 
-	var/list/wires = list()
-	var/list/signallers = list()
+	var/list/wires
+	var/list/signallers
 
 	var/table_options = " align='center'"
 	var/row_options1 = " width='80px'"
@@ -27,7 +27,8 @@ var/list/wireColours = list("red", "blue", "green", "darkred", "orange", "brown"
 	var/window_y = 470
 
 /datum/wires/New(var/atom/holder)
-	..()
+	wires = list()
+	signallers = list()
 	src.holder = holder
 	if(!istype(holder, holder_type))
 		CRASH("Our holder is null/the wrong type!")
@@ -45,6 +46,10 @@ var/list/wireColours = list("red", "blue", "green", "darkred", "orange", "brown"
 		else
 			var/list/wires = same_wires[holder_type]
 			src.wires = wires // Reference the wires list.
+
+/datum/wires/Destroy()
+	holder = null
+	return ..()
 
 /datum/wires/proc/GenerateWires()
 	var/list/colours_to_pick = wireColours.Copy() // Get a copy, not a reference.
@@ -112,14 +117,14 @@ var/list/wireColours = list("red", "blue", "green", "darkred", "orange", "brown"
 			var/obj/item/I = L.get_active_hand()
 			holder.add_hiddenprint(L)
 			if(href_list["cut"]) // Toggles the cut/mend status
-				if(istype(I, /obj/item/weapon/wirecutters))
+				if(iswirecutter(I))
 					var/colour = href_list["cut"]
 					CutWireColour(colour)
 				else
 					L << "<span class='error'>You need wirecutters!</span>"
 
 			else if(href_list["pulse"])
-				if(istype(I, /obj/item/device/multitool))
+				if(ismultitool(I))
 					var/colour = href_list["pulse"]
 					PulseColour(colour)
 				else
@@ -136,7 +141,7 @@ var/list/wireColours = list("red", "blue", "green", "darkred", "orange", "brown"
 				// Attach
 				else
 					if(istype(I, /obj/item/device/assembly/signaler))
-						L.drop_item()
+						usr.drop_from_inventory(I)
 						Attach(colour, I)
 					else
 						L << "<span class='error'>You need a remote signaller!</span>"
@@ -236,7 +241,7 @@ var/const/POWER = 8
 	if(colour && S)
 		if(!IsAttached(colour))
 			signallers[colour] = S
-			S.loc = holder
+			S.forceMove(holder)
 			S.connected = src
 			return S
 
@@ -246,7 +251,7 @@ var/const/POWER = 8
 		if(S)
 			signallers -= colour
 			S.connected = null
-			S.loc = holder.loc
+			S.forceMove(holder.loc)
 			return S
 
 

@@ -1,4 +1,7 @@
 // The random spawn proc on the antag datum will handle announcing the spawn and whatnot.
+/datum/event/random_antag
+	no_fake = 1
+
 /datum/event/random_antag/announce()
 	return
 
@@ -8,6 +11,6 @@
 		var/datum/antagonist/antag = all_antag_types[antag_type]
 		if(antag.flags & ANTAG_RANDSPAWN)
 			valid_types |= antag
-	if(valid_types.len)
+	if(valid_types.len && master_mode != "extended")
 		var/datum/antagonist/antag = pick(valid_types)
 		antag.attempt_random_spawn()

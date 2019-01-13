@@ -1,6 +1,6 @@
 /mob/living/simple_animal/hostile/syndicate
 	name = "\improper Syndicate operative"
-	desc = "Death to Nanotrasen."
+	desc = "Death to the Company."
 	icon_state = "syndicate"
 	icon_living = "syndicate"
 	icon_dead = "syndicate_dead"
@@ -35,6 +35,8 @@
 	faction = "syndicate"
 	status_flags = CANPUSH
 
+	tameable = FALSE
+
 /mob/living/simple_animal/hostile/syndicate/death()
 	..()
 	if(corpse)
@@ -65,13 +67,13 @@
 			if (O.damtype == HALLOSS)
 				damage = 0
 			health -= damage
-			visible_message("\red \b [src] has been attacked with the [O] by [user]. ")
+			visible_message("<span class='danger'>[src] has been attacked with the [O] by [user].</span>")
 		else
-			visible_message("\red \b [src] blocks the [O] with its shield! ")
+			visible_message("<span class='danger'>[src] blocks the [O] with its shield!</span>")
 		//user.do_attack_animation(src)
 	else
-		usr << "\red This weapon is ineffective, it does no damage."
-		visible_message("\red [user] gently taps [src] with the [O]. ")
+		usr << "<span class='warning'>This weapon is ineffective, it does no damage.</span>"
+		visible_message("<span class='warning'>[user] gently taps [src] with the [O].</span>")
 
 
 /mob/living/simple_animal/hostile/syndicate/melee/bullet_act(var/obj/item/projectile/Proj)
@@ -79,7 +81,7 @@
 	if(prob(65))
 		src.health -= Proj.damage
 	else
-		visible_message("\red <B>[src] blocks [Proj] with its shield!</B>")
+		visible_message("<span class='danger'>[src] blocks [Proj] with its shield!</span>")
 	return 0
 
 
@@ -99,7 +101,7 @@
 	corpse = /obj/effect/landmark/mobcorpse/syndicatecommando
 	speed = 0
 
-/mob/living/simple_animal/hostile/syndicate/melee/space/Process_Spacemove(var/check_drift = 0)
+/mob/living/simple_animal/hostile/syndicate/melee/space/Allow_Spacemove(var/check_drift = 0)
 	return
 
 /mob/living/simple_animal/hostile/syndicate/ranged
@@ -107,7 +109,7 @@
 	rapid = 1
 	icon_state = "syndicateranged"
 	icon_living = "syndicateranged"
-	casingtype = /obj/item/ammo_casing/a12mm
+	casingtype = /obj/item/ammo_casing/c10mm
 	projectilesound = 'sound/weapons/Gunshot_light.ogg'
 	projectiletype = /obj/item/projectile/bullet/pistol/medium
 
@@ -129,7 +131,7 @@
 	corpse = /obj/effect/landmark/mobcorpse/syndicatecommando
 	speed = 0
 
-/mob/living/simple_animal/hostile/syndicate/ranged/space/Process_Spacemove(var/check_drift = 0)
+/mob/living/simple_animal/hostile/syndicate/ranged/space/Allow_Spacemove(var/check_drift = 0)
 	return
 
 
@@ -145,6 +147,7 @@
 	maxHealth = 15
 	melee_damage_lower = 15
 	melee_damage_upper = 15
+	density = 0
 	attacktext = "cut"
 	attack_sound = 'sound/weapons/bladeslice.ogg'
 	faction = "syndicate"
@@ -158,6 +161,24 @@
 	max_n2 = 0
 	minbodytemp = 0
 
+	tameable = FALSE
+
+	flying = TRUE
+	attack_emote = "buzzes at"
+
 /mob/living/simple_animal/hostile/viscerator/death()
 	..(null,"is smashed into pieces!")
+	var/T = get_turf(src)
+	new /obj/effect/gibspawner/robot(T)
+	spark(T, 3, alldirs)
 	qdel(src)
+
+/mob/living/simple_animal/hostile/viscerator/proc/wakeup()
+	stance = HOSTILE_STANCE_IDLE
+
+/mob/living/simple_animal/hostile/viscerator/emp_act(severity)
+	LoseTarget()
+	stance = HOSTILE_STANCE_TIRED
+	addtimer(CALLBACK(src, .proc/wakeup), 150)
+	if(severity == 1.0)
+		apply_damage(5)

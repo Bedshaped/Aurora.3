@@ -9,6 +9,7 @@
 	fire_sound_text = "a loud whoosh of moving air"
 	fire_delay = 50
 	fire_sound = 'sound/weapons/tablehit1.ogg'
+	needspin = FALSE
 
 	var/fire_pressure                                   // Used in fire checks/pressure checks.
 	var/max_w_class = 3                                 // Hopper intake size.
@@ -21,8 +22,8 @@
 	var/force_divisor = 400                             // Force equates to speed. Speed/5 equates to a damage multiplier for whoever you hit.
 	                                                    // For reference, a fully pressurized oxy tank at 50% gas release firing a health
 	                                                    // analyzer with a force_divisor of 10 hit with a damage multiplier of 3000+.
-/obj/item/weapon/gun/launcher/pneumatic/New()
-	..()
+/obj/item/weapon/gun/launcher/pneumatic/Initialize()
+	. = ..()
 	item_storage = new(src)
 	item_storage.name = "hopper"
 	item_storage.max_w_class = max_w_class
@@ -161,7 +162,6 @@
 /obj/item/weapon/cannonframe/attackby(obj/item/W as obj, mob/user as mob)
 	if(istype(W,/obj/item/pipe))
 		if(buildstate == 0)
-			user.drop_from_inventory(W)
 			qdel(W)
 			user << "<span class='notice'>You secure the piping inside the frame.</span>"
 			buildstate++
@@ -179,13 +179,12 @@
 			return
 	else if(istype(W,/obj/item/device/transfer_valve))
 		if(buildstate == 4)
-			user.drop_from_inventory(W)
 			qdel(W)
 			user << "<span class='notice'>You install the transfer valve and connect it to the piping.</span>"
 			buildstate++
 			update_icon()
 			return
-	else if(istype(W,/obj/item/weapon/weldingtool))
+	else if(iswelder(W))
 		if(buildstate == 1)
 			var/obj/item/weapon/weldingtool/T = W
 			if(T.remove_fuel(0,user))
@@ -213,3 +212,9 @@
 		return
 	else
 		..()
+
+/obj/item/weapon/gun/launcher/pneumatic/small
+	name = "small pneumatic cannon"
+	desc = "It looks smaller than your garden variety cannon"
+	max_w_class = 1
+	w_class = 3

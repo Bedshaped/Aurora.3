@@ -21,16 +21,51 @@
 
 	..()
 
-	if(handcuffed)
-		spawn() escape_handcuffs()
-	else if(legcuffed)
-		spawn() escape_legcuffs()
+	if (handcuffed)
+		INVOKE_ASYNC(src, .proc/escape_handcuffs)
+	else if (legcuffed)
+		INVOKE_ASYNC(src, .proc/escape_legcuffs)
+
+/mob/living/carbon/human/process_resist()
+	if (istype(wear_suit, /obj/item/clothing/suit/straight_jacket))
+		INVOKE_ASYNC(src, .proc/escape_jacket)
+		return
+	..()
+
+/mob/living/carbon/human/proc/escape_jacket()
+	visible_message(
+		"<span class='danger'>\The [src] attempts to escape [wear_suit]!</span>",
+		"<span class='warning'>You attempt to escape [wear_suit]. (This will take around 6 minutes and you need to stand still)</span>"
+		)
+	if (!do_after(src, 1.5 MINUTES, act_target = src))
+		return
+	visible_message(
+			"<span class='danger'>\The [src] is shifting in their [wear_suit]!</span>",
+			"<span class='warning'>You start to loosen the [wear_suit].</span>"
+		)
+	if (!do_after(src, 1.5 MINUTES, act_target = src))
+		return
+	visible_message(
+			"<span class='danger'>\The [src] is moving in their [wear_suit]!</span>",
+			"<span class='warning'>You slip one of your arms out of the [wear_suit].</span>"
+		)
+	if (!do_after(src, 1.5 MINUTES, act_target = src))
+		return
+	visible_message(
+			"<span class='danger'>\The [src] is moving around in their [wear_suit] - it looks like they are about to break out!</span>",
+			"<span class='warning'>You start to pull loose the straps on the straightjacket[wear_suit].</span>"
+		)
+	if (do_after(src, 1.5 MINUTES, act_target = src))
+		var/obj/ex_suit = wear_suit
+		remove_from_mob(wear_suit)
+		ex_suit.forceMove(get_turf(src))
 
 /mob/living/carbon/proc/escape_handcuffs()
-	if(!(last_special <= world.time)) return
+	//if(!(last_special <= world.time)) return
 
-	next_move = world.time + 100
-	last_special = world.time + 100
+	//This line represent a significant buff to grabs...
+	// We don't have to check the click cooldown because /mob/living/verb/resist() has done it for us, we can simply set the delay
+	setClickCooldown(100)
 
 	if(can_break_cuffs()) //Don't want to do a lot of logic gating here.
 		break_handcuffs()
@@ -46,8 +81,13 @@
 		breakouttime = HC.breakouttime
 		displaytime = breakouttime / 600 //Minutes
 
+	var/mob/living/carbon/human/H = src
+	if(istype(H) && H.gloves && istype(H.gloves,/obj/item/clothing/gloves/rig))
+		breakouttime /= 2
+		displaytime /= 2
+
 	visible_message(
-		"<span class='danger'>[src] attempts to remove \the [HC]!</span>",
+		"<span class='danger'>\The [src] attempts to remove \the [HC]!</span>",
 		"<span class='warning'>You attempt to remove \the [HC]. (This will take around [displaytime] minutes and you need to stand still)</span>"
 		)
 
@@ -55,16 +95,16 @@
 		if(!handcuffed || buckled)
 			return
 		visible_message(
-			"<span class='danger'>[src] manages to remove \the [handcuffed]!</span>",
+			"<span class='danger'>\The [src] manages to remove \the [handcuffed]!</span>",
 			"<span class='notice'>You successfully remove \the [handcuffed].</span>"
 			)
 		drop_from_inventory(handcuffed)
 
 /mob/living/carbon/proc/escape_legcuffs()
-	if(!(last_special <= world.time)) return
+	if(!canClick())
+		return
 
-	next_move = world.time + 100
-	last_special = world.time + 100
+	setClickCooldown(100)
 
 	if(can_break_cuffs()) //Don't want to do a lot of logic gating here.
 		break_legcuffs()
@@ -101,7 +141,10 @@
 	if(HULK in mutations)
 		return 1
 
-	if (get_species() == "Unathi" && gender == "male")
+	if(stamina < 100)
+		return 0
+
+	if(src.gender in src.species.breakcuffs)
 		return 1
 
 	return 0
@@ -121,7 +164,9 @@
 			"<span class='warning'>You successfully break your [handcuffed.name].</span>"
 			)
 
-		say(pick(";RAAAAAAAARGH!", ";HNNNNNNNNNGGGGGGH!", ";GWAAAAAAAARRRHHH!", "NNNNNNNNGGGGGGGGHH!", ";AAAAAAARRRGH!" ))
+		if((isunathi(src)) || (HULK in mutations))
+			say(pick("RAAAAAAAARGH!", "HNNNNNNNNNGGGGGGH!", "GWAAAAAAAARRRHHH!", "NNNNNNNNGGGGGGGGHH!", "AAAAAAARRRGH!" ))
+			stamina -= 100 //takes a bunch of stamina
 
 		qdel(handcuffed)
 		handcuffed = null
@@ -142,7 +187,7 @@
 			"<span class='warning'>You successfully break your legcuffs.</span>"
 			)
 
-		say(pick(";RAAAAAAAARGH!", ";HNNNNNNNNNGGGGGGH!", ";GWAAAAAAAARRRHHH!", "NNNNNNNNGGGGGGGGHH!", ";AAAAAAARRRGH!" ))
+		say(pick("RAAAAAAAARGH!", "HNNNNNNNNNGGGGGGH!", "GWAAAAAAAARRRHHH!", "NNNNNNNNGGGGGGGGHH!", "AAAAAAARRRGH!" ))
 
 		qdel(legcuffed)
 		legcuffed = null
@@ -154,14 +199,13 @@
 	return ..()
 
 /mob/living/carbon/escape_buckle()
+
 	if(!buckled) return
-	if(!(last_special <= world.time)) return
 
 	if(!restrained())
 		..()
 	else
-		next_move = world.time + 100
-		last_special = world.time + 100
+		setClickCooldown(100)
 		visible_message(
 			"<span class='danger'>[usr] attempts to unbuckle themself!</span>",
 			"<span class='warning'>You attempt to unbuckle yourself. (This will take around 2 minutes and you need to stand still)</span>"
@@ -173,3 +217,4 @@
 			visible_message("<span class='danger'>[usr] manages to unbuckle themself!</span>",
 							"<span class='notice'>You successfully unbuckle yourself.</span>")
 			buckled.user_unbuckle_mob(src)
+

@@ -3,9 +3,11 @@ var/datum/antagonist/traitor/traitors
 // Inherits most of its vars from the base datum.
 /datum/antagonist/traitor
 	id = MODE_TRAITOR
-	restricted_jobs = list("Internal Affairs Agent", "Head of Security", "Captain")
-	protected_jobs = list("Security Officer", "Warden", "Detective")
+	restricted_jobs = list("Internal Affairs Agent", "Head of Security", "Captain", "AI")
+	protected_jobs = list("Security Officer", "Security Cadet", "Warden", "Detective", "Forensic Technician")
 	flags = ANTAG_SUSPICIOUS | ANTAG_RANDSPAWN | ANTAG_VOTABLE
+
+	faction = "syndicate"
 
 /datum/antagonist/traitor/New()
 	..()
@@ -18,6 +20,13 @@ var/datum/antagonist/traitor/traitors
 	if (..())
 		return
 	if(href_list["spawn_uplink"]) spawn_uplink(locate(href_list["spawn_uplink"]))
+
+/datum/antagonist/traitor/can_become_antag(var/datum/mind/player)
+	if(!..())
+		return 0
+	if(istype(player.current, /mob/living/silicon/robot/drone))
+		return 0
+	return 1
 
 /datum/antagonist/traitor/create_objectives(var/datum/mind/traitor)
 	if(!..())
@@ -76,11 +85,15 @@ var/datum/antagonist/traitor/traitors
 /datum/antagonist/traitor/equip(var/mob/living/carbon/human/traitor_mob)
 	if(istype(traitor_mob, /mob/living/silicon)) // this needs to be here because ..() returns false if the mob isn't human
 		add_law_zero(traitor_mob)
+		if(isrobot(traitor_mob))
+			var/mob/living/silicon/robot/R = traitor_mob
+			R.emagged = 1
 		return 1
 
 	if(!..())
 		return 0
 
+	traitor_mob.faction = "syndicate"
 	spawn_uplink(traitor_mob)
 	// Tell them about people they might want to contact.
 	var/mob/living/carbon/human/M = get_nt_opposed()
@@ -90,14 +103,6 @@ var/datum/antagonist/traitor/traitors
 
 	//Begin code phrase.
 	give_codewords(traitor_mob)
-
-/datum/antagonist/traitor/proc/give_codewords(mob/living/traitor_mob)
-	traitor_mob << "<u><b>Your employers provided you with the following information on how to identify possible allies:</b></u>"
-	traitor_mob << "<b>Code Phrase</b>: <span class='danger'>[syndicate_code_phrase]</span>"
-	traitor_mob << "<b>Code Response</b>: <span class='danger'>[syndicate_code_response]</span>"
-	traitor_mob.mind.store_memory("<b>Code Phrase</b>: [syndicate_code_phrase]")
-	traitor_mob.mind.store_memory("<b>Code Response</b>: [syndicate_code_response]")
-	traitor_mob << "Use the code words, preferably in the order provided, during regular conversation, to identify other agents. Proceed with caution, however, as everyone is a potential foe."
 
 /datum/antagonist/traitor/proc/spawn_uplink(var/mob/living/carbon/human/traitor_mob)
 	if(!istype(traitor_mob))
@@ -138,17 +143,16 @@ var/datum/antagonist/traitor/traitors
 	if(istype(R,/obj/item/device/radio))
 		// generate list of radio freqs
 		var/obj/item/device/radio/target_radio = R
-		var/freq = 1441
+		var/freq = PUBLIC_LOW_FREQ
 		var/list/freqlist = list()
-		while (freq <= 1489)
+		while (freq <= PUBLIC_HIGH_FREQ)
 			if (freq < 1451 || freq > PUB_FREQ)
 				freqlist += freq
 			freq += 2
 			if ((freq % 2) == 0)
 				freq += 1
 		freq = freqlist[rand(1, freqlist.len)]
-		var/obj/item/device/uplink/hidden/T = new(R)
-		T.uplink_owner = traitor_mob.mind
+		var/obj/item/device/uplink/hidden/T = new(R, traitor_mob.mind)
 		target_radio.hidden_uplink = T
 		target_radio.traitor_frequency = freq
 		traitor_mob << "A portable object teleportation relay has been installed in your [R.name] [loc]. Simply dial the frequency [format_frequency(freq)] to unlock its hidden features."
@@ -157,8 +161,7 @@ var/datum/antagonist/traitor/traitors
 	else if (istype(R, /obj/item/device/pda))
 		// generate a passcode if the uplink is hidden in a PDA
 		var/pda_pass = "[rand(100,999)] [pick("Alpha","Bravo","Delta","Omega")]"
-		var/obj/item/device/uplink/hidden/T = new(R)
-		T.uplink_owner = traitor_mob.mind
+		var/obj/item/device/uplink/hidden/T = new(R, traitor_mob.mind)
 		R.hidden_uplink = T
 		var/obj/item/device/pda/P = R
 		P.lock_code = pda_pass

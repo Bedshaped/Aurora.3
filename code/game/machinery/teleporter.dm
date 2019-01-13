@@ -1,17 +1,13 @@
 /obj/machinery/computer/teleporter
 	name = "Teleporter Control Console"
 	desc = "Used to control a linked teleportation Hub and Station."
-	icon_state = "teleport"
-	circuit = "/obj/item/weapon/circuitboard/teleporter"
+	icon_screen = "teleport"
+	circuit = /obj/item/weapon/circuitboard/teleporter
 	dir = 4
 	var/obj/item/locked = null
 	var/id = null
 	var/one_time_use = 0 //Used for one-time-use teleport cards (such as clown planet coordinates.)
 						 //Setting this to 1 will set src.locked to null after a player enters the portal and will not allow hand-teles to open portals to that location.
-
-/* Ghosts can't use this */
-/obj/machinery/computer/teleporter/attack_ghost(user as mob)
-	return 1
 
 /obj/machinery/computer/teleporter/New()
 	src.id = "[rand(1000, 9999)]"
@@ -20,8 +16,8 @@
 	underlays += image('icons/obj/stationobjs.dmi', icon_state = "telecomp-wires")
 	return
 
-/obj/machinery/computer/teleporter/initialize()
-	..()
+/obj/machinery/computer/teleporter/Initialize()
+	. = ..()
 	var/obj/machinery/teleport/station/station = locate(/obj/machinery/teleport/station, get_step(src, dir))
 	var/obj/machinery/teleport/hub/hub
 	if(station)
@@ -56,13 +52,13 @@
 		if(istype(L, /obj/effect/landmark/) && istype(L.loc, /turf))
 			usr << "You insert the coordinates into the machine."
 			usr << "A message flashes across the screen reminding the traveller that the nuclear authentication disk is to remain on the station at all times."
-			user.drop_item()
+			user.drop_from_inventory(I,get_turf(src))
 			qdel(I)
 
 			if(C.data == "Clown Land")
 				//whoops
 				for(var/mob/O in hearers(src, null))
-					O.show_message("\red Incoming bluespace portal detected, unable to lock in.", 2)
+					O.show_message("<span class='warning'>Incoming bluespace portal detected, unable to lock in.</span>", 2)
 
 				for(var/obj/machinery/teleport/hub/H in range(1))
 					var/amount = rand(2,5)
@@ -71,7 +67,7 @@
 				//
 			else
 				for(var/mob/O in hearers(src, null))
-					O.show_message("\blue Locked In", 2)
+					O.show_message("<span class='notice'>Locked In</span>", 2)
 				src.locked = L
 				one_time_use = 1
 
@@ -88,16 +84,16 @@
 	if(..()) return
 
 	/* Ghosts can't use this one because it's a direct selection */
-	if(istype(user, /mob/dead/observer)) return
+	if(istype(user, /mob/abstract/observer)) return
 
 	var/list/L = list()
 	var/list/areaindex = list()
 
-	for(var/obj/item/device/radio/beacon/R in world)
+	for(var/obj/item/device/radio/beacon/R in teleportbeacons)
 		var/turf/T = get_turf(R)
 		if (!T)
 			continue
-		if(!(T.z in config.player_levels))
+		if(!(T.z in current_map.player_levels))
 			continue
 		var/tmpname = T.loc.name
 		if(areaindex[tmpname])
@@ -106,7 +102,7 @@
 			areaindex[tmpname] = 1
 		L[tmpname] = R
 
-	for (var/obj/item/weapon/implant/tracking/I in world)
+	for (var/obj/item/weapon/implant/tracking/I in implants)
 		if (!I.implanted || !ismob(I.loc))
 			continue
 		else
@@ -132,7 +128,7 @@
 
 	src.locked = L[desc]
 	for(var/mob/O in hearers(src, null))
-		O.show_message("\blue Locked In", 2)
+		O.show_message("<span class='notice'>Locked In</span>", 2)
 	src.add_fingerprint(usr)
 	return
 
@@ -174,26 +170,31 @@
 	idle_power_usage = 10
 	active_power_usage = 2000
 	var/obj/machinery/computer/teleporter/com
+	var/datum/effect_system/sparks/spark_system
 
 
 /obj/machinery/teleport/hub/New()
 	..()
 	underlays.Cut()
 	underlays += image('icons/obj/stationobjs.dmi', icon_state = "tele-wires")
+	spark_system = bind_spark(src, 5, alldirs)
 
-/obj/machinery/teleport/hub/Bumped(M as mob|obj)
-	spawn()
-		if (src.icon_state == "tele1")
-			teleport(M)
-			use_power(5000)
-	return
+/obj/machinery/teleport/hub/Destroy()
+	QDEL_NULL(spark_system)
+	com = null
+	return ..()
+
+/obj/machinery/teleport/hub/CollidedWith(M as mob|obj)
+	if (src.icon_state == "tele1")
+		teleport(M)
+		use_power(5000)
 
 /obj/machinery/teleport/hub/proc/teleport(atom/movable/M as mob|obj)
 	if (!com)
 		return
 	if (!com.locked)
 		for(var/mob/O in hearers(src, null))
-			O.show_message("\red Failure: Cannot authenticate locked on coordinates. Please reinstate coordinate matrix.")
+			O.show_message("<span class='warning'>Failure: Cannot authenticate locked on coordinates. Please reinstate coordinate matrix.</span>")
 		return
 	if (istype(M, /atom/movable))
 		if(prob(5) && !accurate) //oh dear a problem, put em in deep space
@@ -205,14 +206,15 @@
 			com.one_time_use = 0
 			com.locked = null
 	else
-		var/datum/effect/effect/system/spark_spread/s = new /datum/effect/effect/system/spark_spread
-		s.set_up(5, 1, src)
-		s.start()
+		spark_system.queue()
 		accurate = 1
-		spawn(3000)	accurate = 0 //Accurate teleporting for 5 minutes
+		addtimer(CALLBACK(src, .proc/reset_teleport), 5 MINUTES)
 		for(var/mob/B in hearers(src, null))
-			B.show_message("\blue Test fire completed.")
+			B.show_message("<span class='notice'>Test fire completed.</span>")
 	return
+
+/obj/machinery/teleport/hub/proc/reset_teleport()
+	accurate = 0
 /*
 /proc/do_teleport(atom/movable/M as mob|obj, atom/destination, precision)
 	if(istype(M, /obj/effect))
@@ -220,12 +222,12 @@
 		return
 	if (istype(M, /obj/item/weapon/disk/nuclear)) // Don't let nuke disks get teleported --NeoFite
 		for(var/mob/O in viewers(M, null))
-			O.show_message(text("\red <B>The [] bounces off of the portal!</B>", M.name), 1)
+			O.show_message(text("<span class='danger'>The [] bounces off of the portal!</span>", M.name), 1)
 		return
 	if (istype(M, /mob/living))
 		var/mob/living/MM = M
 		if(MM.check_contents_for(/obj/item/weapon/disk/nuclear))
-			MM << "\red Something you are carrying seems to be unable to pass through the portal. Better drop it if you want to go through."
+			MM << "<span class='warning'>Something you are carrying seems to be unable to pass through the portal. Better drop it if you want to go through.</span>"
 			return
 	var/disky = 0
 	for (var/atom/O in M.contents) //I'm pretty sure this accounts for the maximum amount of container in container stacking. --NeoFite
@@ -245,14 +247,14 @@
 				disky = 1
 	if (disky)
 		for(var/mob/P in viewers(M, null))
-			P.show_message(text("\red <B>The [] bounces off of the portal!</B>", M.name), 1)
+			P.show_message(text("<span class='danger'>The [] bounces off of the portal!</span>", M.name), 1)
 		return
 
 //Bags of Holding cause bluespace teleportation to go funky. --NeoFite
 	if (istype(M, /mob/living))
 		var/mob/living/MM = M
 		if(MM.check_contents_for(/obj/item/weapon/storage/backpack/holding))
-			MM << "\red The Bluespace interface on your Bag of Holding interferes with the teleport!"
+			MM << "<span class='warning'>The Bluespace interface on your Bag of Holding interferes with the teleport!</span>"
 			precision = rand(1,100)
 	if (istype(M, /obj/item/weapon/storage/backpack/holding))
 		precision = rand(1,100)
@@ -291,7 +293,7 @@
 	if(tmploc==null)
 		return
 
-	M.loc = tmploc
+	M.forceMove(tmploc)
 	sleep(2)
 
 	var/datum/effect/effect/system/spark_spread/s = new /datum/effect/effect/system/spark_spread
@@ -314,8 +316,7 @@
 
 /obj/machinery/teleport/station/New()
 	..()
-	overlays.Cut()
-	overlays += image('icons/obj/stationobjs.dmi', icon_state = "controller-wires")
+	set_overlays("controller-wires")
 
 /obj/machinery/teleport/station/attackby(var/obj/item/weapon/W)
 	src.attack_hand()
@@ -339,7 +340,7 @@
 		update_use_power(2)
 		com.update_use_power(2)
 		for(var/mob/O in hearers(src, null))
-			O.show_message("\blue Teleporter engaged!", 2)
+			O.show_message("<span class='notice'>Teleporter engaged!</span>", 2)
 	src.add_fingerprint(usr)
 	src.engaged = 1
 	return
@@ -354,7 +355,7 @@
 		com.update_use_power(1)
 		update_use_power(1)
 		for(var/mob/O in hearers(src, null))
-			O.show_message("\blue Teleporter disengaged!", 2)
+			O.show_message("<span class='notice'>Teleporter disengaged!</span>", 2)
 	src.add_fingerprint(usr)
 	src.engaged = 0
 	return
@@ -370,7 +371,7 @@
 	if (com && !active)
 		active = 1
 		for(var/mob/O in hearers(src, null))
-			O.show_message("\blue Test firing!", 2)
+			O.show_message("<span class='notice'>Test firing!</span>", 2)
 		com.teleport()
 		use_power(5000)
 
@@ -391,9 +392,9 @@
 		icon_state = "controller"
 
 
-/obj/effect/laser/Bump()
+/obj/effect/laser/Collide()
+	. = ..()
 	src.range--
-	return
 
 /obj/effect/laser/Move()
 	src.range--

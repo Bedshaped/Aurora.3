@@ -15,7 +15,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 /datum/game_mode/epidemic/pre_setup()
 	doctors = 0
-	for(var/mob/new_player/player in world)
+	for(var/mob/abstract/new_player/player in world)
 		if(player.mind.assigned_role in list("Chief Medical Officer","Medical Doctor"))
 			doctors++
 			break
@@ -33,7 +33,7 @@
 /////////////////////////////////////////////////////////
 
 /datum/game_mode/epidemic/send_intercept()
-	var/intercepttext = "<FONT size = 3 color='red'><B>CONFIDENTIAL REPORT</FONT><HR>"
+	var/intercepttext = "<FONT size = 3 color='red'><B>CONFIDENTIAL REPORT</B></FONT><HR>"
 	virus_name = "X-[rand(1,99)]&trade;"
 	intercepttext += "<B>Warning: Pathogen [virus_name] has been detected on [station_name()].</B><BR><BR>"
 	intercepttext += "<B>Code violet quarantine of [station_name()] put under immediate effect.</B><BR>"
@@ -45,37 +45,25 @@
 	intercepttext += "<B>* A cure is to be researched immediately, but NanoTrasen intellectual property must be respected. To prevent knowledge of [virus_name] from falling into unauthorized hands, all medical staff that work with the pathogen must be enhanced with a NanoTrasen loyality implant.</B><BR>"
 
 
-	for (var/obj/machinery/computer/communications/comm in world)
-		if (!(comm.stat & (BROKEN | NOPOWER)) && comm.prints_intercept)
-			var/obj/item/weapon/paper/intercept = new /obj/item/weapon/paper( comm.loc )
-			intercept.name = "paper"
-			intercept.info = intercepttext
+	//New message handling won't hurt if someone enables epidemic
+	post_comm_message("Cent. Com. CONFIDENTIAL REPORT", intercepttext)
 
-			comm.messagetitle.Add("Cent. Com. CONFIDENTIAL REPORT")
-			comm.messagetext.Add(intercepttext)
-
-	world << sound('sound/AI/commandreport.ogg')
+	to_world(sound('sound/AI/commandreport.ogg'))
 
 	// add an extra law to the AI to make sure it cooperates with the heads
 	var/extra_law = "Crew authorized to know of pathogen [virus_name]'s existence are: Heads of command. Do not allow unauthorized personnel to gain knowledge of [virus_name]. Aid authorized personnel in quarantining and neutrlizing the outbreak. This law overrides all other laws."
-	for(var/mob/living/silicon/ai/M in world)
+	for(var/mob/living/silicon/ai/M in silicon_mob_list)
 		M.add_ion_law(extra_law)
-		M << "\red " + extra_law
+		M << "<span class='danger'>[extra_law]</span>"
 
 /datum/game_mode/epidemic/proc/announce_to_kill_crew()
-	var/intercepttext = "<FONT size = 3 color='red'><B>CONFIDENTIAL REPORT</FONT><HR>"
+	var/intercepttext = "<FONT size = 3 color='red'><B>CONFIDENTIAL REPORT</B></FONT><HR>"
 	intercepttext += "<FONT size = 2;color='red'><B>PATHOGEN [virus_name] IS STILL PRESENT ON [station_name()]. IN COMPLIANCE WITH NANOTRASEN LAWS FOR INTERSTELLAR SAFETY, EMERGENCY SAFETY MEASURES HAVE BEEN AUTHORIZED. ALL INFECTED CREW MEMBERS ON [station_name()] ARE TO BE NEUTRALIZED AND DISPOSED OF IN A MANNER THAT WILL DESTROY ALL TRACES OF THE PATHOGEN. FAILURE TO COMPLY WILL RESULT IN IMMEDIATE DESTRUCTION OF [station_name].</B></FONT><BR>"
 	intercepttext += "<B>CRUISER WILL ARRIVE IN [round(cruiser_seconds()/60)] MINUTES</B><BR>"
 
-	for (var/obj/machinery/computer/communications/comm in world)
-		if (!(comm.stat & (BROKEN | NOPOWER)) && comm.prints_intercept)
-			var/obj/item/weapon/paper/intercept = new /obj/item/weapon/paper( comm.loc )
-			intercept.name = "paper"
-			intercept.info = intercepttext
+	post_comm_message("Cent. Com. CONFIDENTIAL REPORT", intercepttext)
 
-			comm.messagetitle.Add("Cent. Com. CONFIDENTIAL REPORT")
-			comm.messagetext.Add(intercepttext)
-	world << sound('sound/AI/commandreport.ogg')
+	to_world(sound('sound/AI/commandreport.ogg'))
 
 
 /datum/game_mode/epidemic/post_setup()
@@ -84,17 +72,15 @@
 
 	// scan the crew for possible infectees
 	var/list/crew = list()
-	for(var/mob/living/carbon/human/H in world) if(H.client)
+	for(var/mob/living/carbon/human/H in human_mob_list) if(H.client)
 		// heads should not be infected
 		if(H.mind.assigned_role in command_positions) continue
 		crew += H
 
 	if(crew.len < 2)
-		world << "\red There aren't enough players for this mode!"
-		world << "\red Rebooting world in 5 seconds."
+		to_world("<span class='danger'>There aren't enough players for this mode!</span>")
+		to_world("<span class='danger'>Rebooting world in 5 seconds.</span>")
 
-		if(blackbox)
-			blackbox.save_all_data_to_sql()
 		sleep(50)
 		world.Reboot()
 
@@ -144,7 +130,7 @@
 	checkwin_counter++
 	if(checkwin_counter >= 20)
 		if(!finished)
-			ticker.mode.check_win()
+			SSticker.mode.check_win()
 		checkwin_counter = 0
 	return 0
 
@@ -154,7 +140,7 @@
 /datum/game_mode/epidemic/check_win()
 	var/alive = 0
 	var/sick = 0
-	for(var/mob/living/carbon/human/H in world)
+	for(var/mob/living/carbon/human/H in human_mob_list)
 		if(H.key && H.stat != 2) alive++
 		if(H.virus2.len && H.stat != 2) sick++
 
@@ -177,21 +163,20 @@
 ///Handle crew failure(station explodes)///
 ///////////////////////////////////////////
 /datum/game_mode/epidemic/proc/crew_lose()
-	ticker.mode:explosion_in_progress = 1
-	for(var/mob/M in world)
+	SSticker.mode:explosion_in_progress = 1
+	for(var/mob/M in mob_list)
 		if(M.client)
 			M << 'sound/machines/Alarm.ogg'
-	world << "\blue<b>Incoming missile detected.. Impact in 10..</b>"
+	to_world("<span class='notice'><b>Incoming missile detected.. Impact in 10..</b></span>")
 	for (var/i=9 to 1 step -1)
 		sleep(10)
-		world << "\blue<b>[i]..</b>"
+		to_world("<span class='notice'><b>[i]..</b></span>")
 	sleep(10)
 	enter_allowed = 0
-	if(ticker)
-		ticker.station_explosion_cinematic(0,null)
-		if(ticker.mode)
-			ticker.mode:station_was_nuked = 1
-			ticker.mode:explosion_in_progress = 0
+	SSticker.station_explosion_cinematic(0,null)
+	if(SSticker.mode)
+		SSticker.mode:station_was_nuked = 1
+		SSticker.mode:explosion_in_progress = 0
 	finished = 2
 	return
 
@@ -202,9 +187,9 @@
 /datum/game_mode/epidemic/declare_completion()
 	if(finished == 1)
 		feedback_set_details("round_end_result","win - epidemic cured")
-		world << "\red <FONT size = 3><B> The virus outbreak was contained! The crew wins!</B></FONT>"
+		to_world("<font size = 3><span class='danger'>The virus outbreak was contained! The crew wins!</span></font>")
 	else if(finished == 2)
 		feedback_set_details("round_end_result","loss - rev heads killed")
-		world << "\red <FONT size = 3><B> The crew succumbed to the epidemic!</B></FONT>"
+		to_world("<font size = 3><span class='danger'>The crew succumbed to the epidemic!</span></font>")
 	..()
 	return 1

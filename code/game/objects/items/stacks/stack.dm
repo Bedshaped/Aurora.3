@@ -11,35 +11,50 @@
 
 /obj/item/stack
 	gender = PLURAL
-	origin_tech = "materials=1"
+	origin_tech = list(TECH_MATERIAL = 1)
 	var/list/datum/stack_recipe/recipes
 	var/singular_name
 	var/amount = 1
 	var/max_amount //also see stack recipes initialisation, param "max_res_amount" must be equal to this max_amount
 	var/stacktype //determines whether different stack types can merge
+	var/build_type = null //used when directly applied to a turf
 	var/uses_charge = 0
 	var/list/charge_costs = null
 	var/list/datum/matter_synth/synths = null
+	var/icon_has_variants = FALSE
 
-/obj/item/stack/New(var/loc, var/amount=null)
-	..()
+/obj/item/stack/Initialize(mapload, amount)
+	. = ..()
 	if (!stacktype)
 		stacktype = type
 	if (amount)
 		src.amount = amount
-	return
+
+	if (icon_has_variants && !item_state)
+		item_state = icon_state
+
+	update_icon()
 
 /obj/item/stack/Destroy()
-	if(uses_charge)
-		return 1
 	if (src && usr && usr.machine == src)
 		usr << browse(null, "window=stack")
 	return ..()
 
+/obj/item/stack/update_icon()
+	if (!icon_has_variants)
+		return ..()
+	
+	if (amount <= (max_amount * (1/3)))
+		icon_state = initial(icon_state)
+	else if (amount <= (max_amount * (2/3)))
+		icon_state = "[initial(icon_state)]_2"
+	else
+		icon_state = "[initial(icon_state)]_3"
+
 /obj/item/stack/examine(mob/user)
 	if(..(user, 1))
 		if(!uses_charge)
-			user << "There are [src.amount] [src.singular_name]\s in the stack."
+			user << "There [src.amount == 1 ? "is" : "are"] [src.amount] [src.singular_name]\s in the stack."
 		else
 			user << "There is enough charge for [get_amount()]."
 
@@ -107,21 +122,21 @@
 
 	if (!can_use(required))
 		if (produced>1)
-			user << "\red You haven't got enough [src] to build \the [produced] [recipe.title]\s!"
+			user << "<span class='warning'>You haven't got enough [src] to build \the [produced] [recipe.title]\s!</span>"
 		else
-			user << "\red You haven't got enough [src] to build \the [recipe.title]!"
+			user << "<span class='warning'>You haven't got enough [src] to build \the [recipe.title]!</span>"
 		return
 
 	if (recipe.one_per_turf && (locate(recipe.result_type) in user.loc))
-		user << "\red There is another [recipe.title] here!"
+		user << "<span class='warning'>There is another [recipe.title] here!</span>"
 		return
 
 	if (recipe.on_floor && !isfloor(user.loc))
-		user << "\red \The [recipe.title] must be constructed on the floor!"
+		user << "<span class='warning'>\The [recipe.title] must be constructed on the floor!</span>"
 		return
 
 	if (recipe.time)
-		user << "\blue Building [recipe.title] ..."
+		user << "<span class='notice'>Building [recipe.title] ...</span>"
 		if (!do_after(user, recipe.time))
 			return
 
@@ -188,6 +203,7 @@
 			if(usr)
 				usr.remove_from_mob(src)
 			qdel(src) //should be safe to qdel immediately since if someone is still using this stack it will persist for a little while longer
+		update_icon()
 		return 1
 	else
 		if(get_amount() < used)
@@ -204,6 +220,7 @@
 			return 0
 		else
 			amount += extra
+		update_icon()
 		return 1
 	else if(!synths || synths.len < uses_charge)
 		return 0

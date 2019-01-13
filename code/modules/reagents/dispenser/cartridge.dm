@@ -14,12 +14,20 @@
 	var/spawn_reagent = null
 	var/label = ""
 
-/obj/item/weapon/reagent_containers/chem_disp_cartridge/New()
-	..()
+	var/temperature_override = 0 //A non-zero value with set the temperature of the reagents inside to this value, in kelvin.
+
+
+/obj/item/weapon/reagent_containers/chem_disp_cartridge/Initialize(mapload,temperature_override)
+	. = ..()
+	if(temperature_override)
+		src.temperature_override = temperature_override
 	if(spawn_reagent)
-		reagents.add_reagent(spawn_reagent, volume)
-		var/datum/reagent/R = chemical_reagents_list[spawn_reagent]
-		setLabel(R.name)
+		reagents.add_reagent(spawn_reagent, volume, temperature = src.temperature_override)
+		var/datum/reagent/R = SSchemistry.chemical_reagents[spawn_reagent]
+		if(label)
+			setLabel(label)
+		else
+			setLabel(R.name)
 
 /obj/item/weapon/reagent_containers/chem_disp_cartridge/examine(mob/user)
 	..()
@@ -35,6 +43,13 @@
 	set name = "Set Cartridge Label"
 	set category = "Object"
 	set src in view(usr, 1)
+
+	if (!ishuman(usr))
+		return
+
+	if (usr.stat)
+		usr << "You cannot do that in your current state."
+		return
 
 	setLabel(L, usr)
 

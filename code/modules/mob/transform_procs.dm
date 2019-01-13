@@ -1,18 +1,16 @@
-/mob/living/carbon/human/proc/monkeyize()
-	if (monkeyizing)
+/mob/living/carbon/human/proc/monkeyize(var/kpg=0)
+	if (transforming)
 		return
 	for(var/obj/item/W in src)
 		if (W==w_uniform) // will be torn
 			continue
 		drop_from_inventory(W)
 	regenerate_icons()
-	monkeyizing = 1
+	transforming = 1
 	canmove = 0
 	stunned = 1
 	icon = null
 	invisibility = 101
-	for(var/t in organs)
-		qdel(t)
 	var/atom/movable/overlay/animation = new /atom/movable/overlay( loc )
 	animation.icon_state = "blank"
 	animation.icon = 'icons/mob/mob.dmi'
@@ -21,7 +19,7 @@
 	sleep(48)
 	//animation = null
 
-	monkeyizing = 0
+	transforming = 0
 	stunned = 0
 	update_canmove()
 	invisibility = initial(invisibility)
@@ -33,20 +31,61 @@
 	for(var/obj/item/W in src)
 		drop_from_inventory(W)
 	set_species(species.primitive_form)
-	dna.SetSEState(MONKEYBLOCK,1)
-	dna.SetSEValueRange(MONKEYBLOCK,0xDAC, 0xFFF)
+	if(!kpg)
+		dna.SetSEState(MONKEYBLOCK,1)
 
 	src << "<B>You are now [species.name]. </B>"
 	qdel(animation)
 
 	return src
 
-/mob/new_player/AIize()
+/mob/living/carbon/human/proc/humanize(var/kpg=0) // we needed this a lot to be honest, why wasn't it made before?
+	if (transforming)
+		return
+	for(var/obj/item/W in src)
+		drop_from_inventory(W)
+	regenerate_icons()
+	transforming = 1
+	canmove = 0
+	stunned = 1
+	icon = null
+	invisibility = 101
+	var/atom/movable/overlay/animation = new /atom/movable/overlay( loc )
+	animation.icon_state = "blank"
+	animation.icon = 'icons/mob/mob.dmi'
+	animation.master = src
+	flick("monkey2h", animation)
+	sleep(48)
+
+	transforming = 0
+	stunned = 0
+	update_canmove()
+	invisibility = initial(invisibility)
+
+	if(!species.greater_form) //If the creature in question has no greater form set, this is going to be messy.
+		gib()
+		return
+
+	for(var/obj/item/W in src)
+		drop_from_inventory(W)
+	set_species(species.greater_form)
+	if(!kpg)
+		dna.SetSEState(MONKEYBLOCK,0)
+
+	src << "<B>You are now [species.name]. </B>"
+	qdel(animation)
+
+	return src
+
+
+
+
+/mob/abstract/new_player/AIize()
 	spawning = 1
 	return ..()
 
 /mob/living/carbon/human/AIize(move=1) // 'move' argument needs defining here too because BYOND is dumb
-	if (monkeyizing)
+	if (transforming)
 		return
 	for(var/t in organs)
 		qdel(t)
@@ -54,11 +93,11 @@
 	return ..(move)
 
 /mob/living/carbon/AIize()
-	if (monkeyizing)
+	if (transforming)
 		return
 	for(var/obj/item/W in src)
 		drop_from_inventory(W)
-	monkeyizing = 1
+	transforming = 1
 	canmove = 0
 	icon = null
 	invisibility = 101
@@ -97,9 +136,7 @@
 				if (sloc.name == "AI")
 					loc_landmark = sloc
 
-		O.loc = loc_landmark.loc
-		for (var/obj/item/device/radio/intercom/comm in O.loc)
-			comm.ai += O
+		O.forceMove(loc_landmark.loc)
 
 	O.on_mob_init()
 
@@ -112,12 +149,12 @@
 
 //human -> robot
 /mob/living/carbon/human/proc/Robotize()
-	if (monkeyizing)
+	if (transforming)
 		return
 	for(var/obj/item/W in src)
 		drop_from_inventory(W)
 	regenerate_icons()
-	monkeyizing = 1
+	transforming = 1
 	canmove = 0
 	icon = null
 	invisibility = 101
@@ -144,7 +181,7 @@
 	else
 		O.key = key
 
-	O.loc = loc
+	O.forceMove(loc)
 	O.job = "Cyborg"
 	if(O.mind.assigned_role == "Cyborg")
 		if(O.mind.role_alt_title == "Android")
@@ -165,12 +202,9 @@
 
 //human -> alien
 /mob/living/carbon/human/proc/Alienize()
-	if (monkeyizing)
-		return
 	for(var/obj/item/W in src)
 		drop_from_inventory(W)
 	regenerate_icons()
-	monkeyizing = 1
 	canmove = 0
 	icon = null
 	invisibility = 101
@@ -188,12 +222,12 @@
 	return
 
 /mob/living/carbon/human/proc/slimeize(adult as num, reproduce as num)
-	if (monkeyizing)
+	if (transforming)
 		return
 	for(var/obj/item/W in src)
 		drop_from_inventory(W)
 	regenerate_icons()
-	monkeyizing = 1
+	transforming = 1
 	canmove = 0
 	icon = null
 	invisibility = 101
@@ -222,12 +256,12 @@
 	return
 
 /mob/living/carbon/human/proc/corgize()
-	if (monkeyizing)
+	if (transforming)
 		return
 	for(var/obj/item/W in src)
 		drop_from_inventory(W)
 	regenerate_icons()
-	monkeyizing = 1
+	transforming = 1
 	canmove = 0
 	icon = null
 	invisibility = 101
@@ -248,16 +282,16 @@
 	var/mobpath = input("Which type of mob should [src] turn into?", "Choose a type") in mobtypes
 
 	if(!safe_animal(mobpath))
-		usr << "\red Sorry but this mob type is currently unavailable."
+		usr << "<span class='warning'>Sorry but this mob type is currently unavailable.</span>"
 		return
 
-	if(monkeyizing)
+	if(transforming)
 		return
 	for(var/obj/item/W in src)
 		drop_from_inventory(W)
 
 	regenerate_icons()
-	monkeyizing = 1
+	transforming = 1
 	canmove = 0
 	icon = null
 	invisibility = 101
@@ -282,7 +316,7 @@
 	var/mobpath = input("Which type of mob should [src] turn into?", "Choose a type") in mobtypes
 
 	if(!safe_animal(mobpath))
-		usr << "\red Sorry but this mob type is currently unavailable."
+		usr << "<span class='warning'>Sorry but this mob type is currently unavailable.</span>"
 		return
 
 	var/mob/new_mob = new mobpath(src.loc)
@@ -343,6 +377,3 @@
 
 	//Not in here? Must be untested!
 	return 0
-
-
-

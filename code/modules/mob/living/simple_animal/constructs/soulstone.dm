@@ -2,22 +2,23 @@
 	return
 
 /obj/item/device/soulstone
-	name = "Soul Stone Shard"
+	name = "soul stone shard"
 	icon = 'icons/obj/wizard.dmi'
 	icon_state = "soulstone"
 	item_state = "electronic"
 	desc = "A fragment of the legendary treasure known simply as the 'Soul Stone'. The shard still flickers with a fraction of the full artefacts power."
 	w_class = 2
 	slot_flags = SLOT_BELT
-	origin_tech = "bluespace=4;materials=4"
+	origin_tech = list(TECH_BLUESPACE = 4, TECH_MATERIAL = 4)
 	var/imprinted = "empty"
+	appearance_flags = NO_CLIENT_COLOR
 
 //////////////////////////////Capturing////////////////////////////////////////////////////////
 
 /obj/item/device/soulstone/attack(mob/living/carbon/human/M as mob, mob/user as mob)
 	if(!istype(M, /mob/living/carbon/human))//If target is not a human.
 		return ..()
-	if(istype(M, /mob/living/carbon/human/dummy))
+	if(istype(M, /mob/living/carbon/human/apparition))
 		return..()
 
 	if(M.has_brain_worms()) //Borer stuff - RR
@@ -26,7 +27,7 @@
 
 	M.attack_log += text("\[[time_stamp()]\] <font color='orange'>Has had their soul captured with [src.name] by [user.name] ([user.ckey])</font>")
 	user.attack_log += text("\[[time_stamp()]\] <font color='red'>Used the [src.name] to capture the soul of [M.name] ([M.ckey])</font>")
-	msg_admin_attack("[user.name] ([user.ckey]) used the [src.name] to capture the soul of [M.name] ([M.ckey]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[user.x];Y=[user.y];Z=[user.z]'>JMP</a>)")
+	msg_admin_attack("[user.name] ([user.ckey]) used the [src.name] to capture the soul of [M.name] ([M.ckey]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[user.x];Y=[user.y];Z=[user.z]'>JMP</a>)",ckey=key_name(src),ckey_target=key_name(M))
 
 	transfer_soul("VICTIM", M, user)
 	return
@@ -88,6 +89,7 @@
 	return
 
 /obj/structure/constructshell/cult
+	appearance_flags = NO_CLIENT_COLOR
 	icon_state = "construct-cult"
 	desc = "This eerie contraption looks like it would come alive if supplied with a missing ingredient."
 
@@ -117,7 +119,9 @@
 	for(var/obj/item/W in T)
 		T.drop_from_inventory(W)
 
-	new /obj/effect/decal/remains/human(T.loc) //Spawns a skeleton
+	var/obj/effect/decal/remains/remains = T.species.remains_type //spawns a skeleton based on the species remain type
+	new remains(T.loc)
+
 	T.invisibility = 101
 
 	var/atom/movable/overlay/animation = new /atom/movable/overlay( T.loc )
@@ -128,7 +132,7 @@
 	qdel(animation)
 
 	var/mob/living/simple_animal/shade/S = new /mob/living/simple_animal/shade( T.loc )
-	S.loc = src //put shade in stone
+	S.forceMove(src) //put shade in stone
 	S.status_flags |= GODMODE //So they won't die inside the stone somehow
 	S.canmove = 0//Can't move out of the soul stone
 	S.name = "Shade of [T.real_name]"
@@ -164,7 +168,7 @@
 		U << "<span class='danger'>Capture failed!</span>: The soul stone has already been imprinted with [src.imprinted]'s mind!"
 		return
 
-	T.loc = src //put shade in stone
+	T.forceMove(src) //put shade in stone
 	T.status_flags |= GODMODE
 	T.canmove = 0
 	T.health = T.maxHealth
@@ -209,7 +213,7 @@
 			Z << "<B>You are still bound to serve your creator, follow their orders and help them complete their goals at all costs.</B>"
 			Z.cancel_camera()
 			qdel(src)
-/obj/item/device/soulstone/proc/transfer_soul(var/choice as text, var/target, var/mob/U as mob).
+/obj/item/device/soulstone/proc/transfer_soul(var/choice as text, var/target, var/mob/U as mob)
 	switch(choice)
 		if("VICTIM")
 			transfer_human(target,U)

@@ -5,8 +5,13 @@
 	var/active_w_class
 	sharp = 0
 	edge = 0
+	armor_penetration = 10
 	flags = NOBLOODY
 	can_embed = 0//No embedding pls
+	var/base_reflectchance = 40
+	var/base_block_chance = 25
+	var/shield_power = 100
+	var/can_block_bullets = 0
 
 /obj/item/weapon/melee/energy/proc/activate(mob/living/user)
 	anchored = 1
@@ -50,12 +55,65 @@
 	add_fingerprint(user)
 	return
 
-/obj/item/weapon/melee/energy/suicide_act(mob/user)
-	var/tempgender = "[user.gender == MALE ? "he's" : user.gender == FEMALE ? "she's" : "they are"]"
-	if (active)
-		viewers(user) << pick("<span class='danger'>\The [user] is slitting \his stomach open with the [src.name]! It looks like [tempgender] trying to commit seppuku.</span>", \
-							"<span class='danger'>\The [user] is falling on the [src.name]! It looks like [tempgender] trying to commit suicide.</span>")
-		return (BRUTELOSS|FIRELOSS)
+/obj/item/weapon/melee/energy/handle_shield(mob/user, var/damage, atom/damage_source = null, mob/attacker = null, var/def_zone = null, var/attack_text = "the attack")
+	if(active && default_parry_check(user, attacker, damage_source) && prob(50))
+		user.visible_message("<span class='danger'>\The [user] parries [attack_text] with \the [src]!</span>")
+
+		spark(src, 5)
+		playsound(user.loc, 'sound/weapons/blade1.ogg', 50, 1)
+		return 1
+	else
+
+		if(!active)
+			return 0 //turn it on first!
+
+		if(user.incapacitated())
+			return 0
+
+		//block as long as they are not directly behind us
+		var/bad_arc = reverse_direction(user.dir) //arc of directions from which we cannot block
+		if(check_shield_arc(user, bad_arc, damage_source, attacker))
+
+			if(prob(base_block_chance))
+				spark(src, 5)
+				playsound(user.loc, 'sound/weapons/blade1.ogg', 50, 1)
+				shield_power -= round(damage/4)
+
+				if(shield_power <= 0)
+					visible_message("<span class='danger'>\The [user]'s [src.name] overloads!</span>")
+					deactivate()
+					shield_power = initial(shield_power)
+					return 0
+
+				if(istype(damage_source, /obj/item/projectile/energy) || istype(damage_source, /obj/item/projectile/beam))
+					var/obj/item/projectile/P = damage_source
+
+					var/reflectchance = base_reflectchance - round(damage/3)
+					if(!(def_zone in list("chest", "groin","head")))
+						reflectchance /= 2
+					if(P.starting && prob(reflectchance))
+						visible_message("<span class='danger'>\The [user]'s [src.name] reflects [attack_text]!</span>")
+
+						// Find a turf near or on the original location to bounce to
+						var/new_x = P.starting.x + pick(0, 0, 0, 0, 0, -1, 1, -2, 2)
+						var/new_y = P.starting.y + pick(0, 0, 0, 0, 0, -1, 1, -2, 2)
+
+						// redirect the projectile
+						P.firer = user
+						P.old_style_target(locate(new_x, new_y, P.z))
+
+						return PROJECTILE_CONTINUE // complete projectile permutation
+					else
+						user.visible_message("<span class='danger'>\The [user] blocks [attack_text] with \the [src]!</span>")
+						return 1
+
+				else if(istype(damage_source, /obj/item/projectile/bullet) && can_block_bullets)
+					var/reflectchance = (base_reflectchance) - round(damage/3)
+					if(!(def_zone in list("chest", "groin","head")))
+						reflectchance /= 2
+					if(prob(reflectchance))
+						user.visible_message("<span class='danger'>\The [user] blocks [attack_text] with \the [src]!</span>")
+						return 1
 
 /obj/item/weapon/melee/energy/glaive
 	name = "energy glaive"
@@ -69,22 +127,36 @@
 	throw_speed = 5
 	throw_range = 10
 	w_class = 5
-	flags = CONDUCT | NOSHIELD | NOBLOODY
-	origin_tech = "magnets=3;combat=4;syndicate=4"
+	flags = CONDUCT | NOBLOODY
+	origin_tech = list(TECH_COMBAT = 6, TECH_PHORON = 4, TECH_MATERIAL = 7, TECH_ILLEGAL = 4)
 	attack_verb = list("stabbed", "chopped", "sliced", "cleaved", "slashed", "cut")
 	sharp = 1
 	edge = 1
 	slot_flags = SLOT_BACK
+	base_reflectchance = 0
+	base_block_chance = 0 //cannot be used to block guns
+	shield_power = 0
+	can_block_bullets = 0
+	armor_penetration = 20
 
 /obj/item/weapon/melee/energy/glaive/activate(mob/living/user)
 	..()
 	icon_state = "eglaive1"
-	user << "\blue \The [src] is now energised."
+	user << "<span class='notice'>\The [src] is now energised.</span>"
 
 /obj/item/weapon/melee/energy/glaive/deactivate(mob/living/user)
 	..()
 	icon_state = initial(icon_state)
-	user << "\blue \The [src] is de-energised."
+	user << "<span class='notice'>\The [src] is de-energised.</span>"
+
+/obj/item/weapon/melee/energy/glaive/attack(mob/living/carbon/human/M as mob, mob/living/carbon/user as mob)
+	user.setClickCooldown(16)
+	..()
+
+/obj/item/weapon/melee/energy/glaive/pre_attack(var/mob/living/target, var/mob/living/user)
+	if(istype(target))
+		cleave(user, target)
+	..()
 
 /*
  * Energy Axe
@@ -104,25 +176,26 @@
 	throw_speed = 1
 	throw_range = 5
 	w_class = 3
-	flags = CONDUCT | NOSHIELD | NOBLOODY
-	origin_tech = "magnets=3;combat=4"
+	flags = CONDUCT | NOBLOODY
+	origin_tech = list(TECH_MAGNET = 3, TECH_COMBAT = 4)
 	attack_verb = list("attacked", "chopped", "cleaved", "torn", "cut")
 	sharp = 1
 	edge = 1
+	base_reflectchance = 0
+	base_block_chance = 0 //cannot be used to block guns
+	shield_power = 0
+	can_block_bullets = 0
+	armor_penetration = 35
 
 /obj/item/weapon/melee/energy/axe/activate(mob/living/user)
 	..()
 	icon_state = "axe1"
-	user << "\blue \The [src] is now energised."
+	user << "<span class='notice'>\The [src] is now energised.</span>"
 
 /obj/item/weapon/melee/energy/axe/deactivate(mob/living/user)
 	..()
 	icon_state = initial(icon_state)
-	user << "\blue \The [src] is de-energised. It's just a regular axe now."
-
-/obj/item/weapon/melee/energy/axe/suicide_act(mob/user)
-	viewers(user) << "\red <b>\The [user] swings the [src.name] towards \his head! It looks like \he's trying to commit suicide.</b>"
-	return (BRUTELOSS|FIRELOSS)
+	user << "<span class='notice'>\The [src] is de-energised. It's just a regular axe now.</span>"
 
 /*
  * Energy Sword
@@ -140,11 +213,12 @@
 	throw_speed = 1
 	throw_range = 5
 	w_class = 2
-	flags = NOSHIELD | NOBLOODY
-	origin_tech = "magnets=3;syndicate=4"
+	flags = NOBLOODY
+	origin_tech = list(TECH_MAGNET = 3, TECH_ILLEGAL = 4)
 	sharp = 1
 	edge = 1
 	var/blade_color
+	shield_power = 75
 
 /obj/item/weapon/melee/energy/sword/dropped(var/mob/user)
 	..()
@@ -180,30 +254,66 @@
 	attack_verb = list()
 	icon_state = initial(icon_state)
 
-/obj/item/weapon/melee/energy/sword/IsShield()
-	if(active)
-		return 1
-	return 0
-
 /obj/item/weapon/melee/energy/sword/pirate
 	name = "energy cutlass"
 	desc = "Arrrr matey."
 	icon_state = "cutlass0"
 
+	base_reflectchance = 60
+	base_block_chance = 60
+
 /obj/item/weapon/melee/energy/sword/pirate/activate(mob/living/user)
 	..()
 	icon_state = "cutlass1"
 
+/obj/item/weapon/melee/energy/sword/knife
+	name = "energy utility knife"
+	desc = "Some cheap energy blade, branded at the hilt with the logo of the Tau Ceti Foreign Legion."
+	icon_state = "edagger0"
+	base_reflectchance = 10
+	base_block_chance = 10
+	active_force = 20
+	force = 10
+	origin_tech = list(TECH_MAGNET = 3)
+
+/obj/item/weapon/melee/energy/sword/knife/activate(mob/living/user)
+	..()
+	icon_state = "edagger1"
+
+/*
+*Power Sword
+*/
+
+/obj/item/weapon/melee/energy/sword/powersword
+	name = "power sword"
+	desc = "For when you really want to ruin someone's day. It is extremely heavy."
+	icon_state = "powerswordoff"
+	base_reflectchance = 65
+	active_force = 40
+	base_block_chance = 65
+	active_w_class = 3
+	w_class = 3
+
+/obj/item/weapon/melee/energy/sword/powersword/activate(mob/living/user)
+	..()
+	icon_state = "powerswordon"
+
+/obj/item/weapon/melee/energy/sword/powersword/attack_self(mob/living/user as mob)
+	..()
+	if(prob(30))
+		user.visible_message("<span class='danger'>\The [user] accidentally cuts \himself with \the [src].</span>",\
+		"<span class='danger'>You accidentally cut yourself with \the [src].</span>")
+		user.take_organ_damage(5,5)
 /*
  *Energy Blade
  */
-
-//Can't be activated or deactivated, so no reason to be a subtype of energy
 /obj/item/weapon/melee/energy/blade
 	name = "energy blade"
 	desc = "A concentrated beam of energy in the shape of a blade. Very stylish... and lethal."
 	icon_state = "blade"
-	force = 70.0//Normal attacks deal very high damage.
+	force = 40
+	active_force = 40 //Normal attacks deal very high damage - about the same as wielded fire axe
+	armor_penetration = 100
 	sharp = 1
 	edge = 1
 	anchored = 1    // Never spawned outside of inventory, should be fine.
@@ -211,29 +321,33 @@
 	throw_speed = 1
 	throw_range = 1
 	w_class = 4.0//So you can't hide it in your pocket or some such.
-	flags = NOSHIELD | NOBLOODY
+	flags = NOBLOODY
 	attack_verb = list("attacked", "slashed", "stabbed", "sliced", "torn", "ripped", "diced", "cut")
 	var/mob/living/creator
-	var/datum/effect/effect/system/spark_spread/spark_system
+	base_reflectchance = 140
+	base_block_chance = 75
+	shield_power = 150
+	can_block_bullets = 1
+	active = 1
 
-/obj/item/weapon/melee/energy/blade/New()
-
-	spark_system = new /datum/effect/effect/system/spark_spread()
-	spark_system.set_up(5, 0, src)
-	spark_system.attach(src)
-
-	processing_objects |= src
+/obj/item/weapon/melee/energy/blade/Initialize()
+	. = ..()
+	START_PROCESSING(SSprocessing, src)
 
 /obj/item/weapon/melee/energy/blade/Destroy()
-	processing_objects -= src
-	..()
+	STOP_PROCESSING(SSprocessing, src)
+	return ..()
 
-/obj/item/weapon/melee/energy/blade/attack_self(mob/user as mob)
+/obj/item/weapon/melee/energy/blade/deactivate(mob/living/user)
+	if(!active)
+		return
+	playsound(user, 'sound/weapons/saberoff.ogg', 50, 1)
 	user.drop_from_inventory(src)
-	spawn(1) if(src) qdel(src)
+	QDEL_IN(src, 1)
+
 
 /obj/item/weapon/melee/energy/blade/dropped()
-	spawn(1) if(src) qdel(src)
+	QDEL_IN(src, 1)
 
 /obj/item/weapon/melee/energy/blade/process()
 	if(!creator || loc != creator || (creator.l_hand != src && creator.r_hand != src))
@@ -248,4 +362,4 @@
 			host.pinned -= src
 			host.embedded -= src
 			host.drop_from_inventory(src)
-		spawn(1) if(src) qdel(src)
+		QDEL_IN(src, 1)

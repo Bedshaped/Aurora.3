@@ -8,40 +8,44 @@
 	health = 200
 	wreckage = /obj/effect/decal/mecha_wreckage/ripley
 	cargo_capacity = 10
+	damage_absorption = list("brute"=0.6,"fire"=1,"bullet"=0.8,"laser"=0.8,"energy"=0.85,"bomb"=1)
+
 
 /obj/mecha/working/ripley/Destroy()
 	for(var/atom/movable/A in src.cargo)
-		A.loc = loc
+		A.forceMove(loc)
 		var/turf/T = loc
 		if(istype(T))
 			T.Entered(A)
 		step_rand(A)
 	cargo.Cut()
-	..()
+	return ..()
 
 /obj/mecha/working/ripley/firefighter
-	desc = "Standart APLU chassis was refitted with additional thermal protection and cistern."
+	desc = "Standard APLU chassis was refitted with additional thermal protection and cistern."
 	name = "APLU \"Firefighter\""
 	icon_state = "firefighter"
 	initial_icon = "firefighter"
 	max_temperature = 65000
 	health = 250
 	lights_power = 8
-	damage_absorption = list("fire"=0.5,"bullet"=0.8,"bomb"=0.5)
+	step_in = 7
+	damage_absorption = list("brute"=0.6,"fire"=0.5,"bullet"=0.8,"laser"=0.7,"energy"=0.85,"bomb"=0.5)
 	wreckage = /obj/effect/decal/mecha_wreckage/ripley/firefighter
 
 /obj/mecha/working/ripley/deathripley
 	desc = "OH SHIT IT'S THE DEATHSQUAD WE'RE ALL GONNA DIE"
 	name = "DEATH-RIPLEY"
 	icon_state = "deathripley"
+	initial_icon = "deathripley"
 	step_in = 2
 	opacity=0
 	lights_power = 60
 	wreckage = /obj/effect/decal/mecha_wreckage/ripley/deathripley
 	step_energy_drain = 0
 
-/obj/mecha/working/ripley/deathripley/New()
-	..()
+/obj/mecha/working/ripley/deathripley/Initialize()
+	.= ..()
 	var/obj/item/mecha_parts/mecha_equipment/ME = new /obj/item/mecha_parts/mecha_equipment/tool/safety_clamp
 	ME.attach(src)
 	return
@@ -50,8 +54,8 @@
 	desc = "An old, dusty mining ripley."
 	name = "APLU \"Miner\""
 
-/obj/mecha/working/ripley/mining/New()
-	..()
+/obj/mecha/working/ripley/mining/Initialize()
+	.= ..()
 	//Attach drill
 	if(prob(25)) //Possible diamond drill... Feeling lucky?
 		var/obj/item/mecha_parts/mecha_equipment/tool/drill/diamonddrill/D = new /obj/item/mecha_parts/mecha_equipment/tool/drill/diamonddrill
@@ -67,3 +71,24 @@
 		qdel (B)
 
 
+/obj/mecha/working/ripley/combat
+	desc = "A large APLU unit fitted with specialized composite armor and fancy, though old targeting systems."
+	name = "combat APLU \"Ripley\""
+	icon_state = "combatripley"
+	initial_icon = "combatripley"
+	health = 300
+	wreckage = /obj/effect/decal/mecha_wreckage/ripley
+	deflect_chance = 10
+	damage_absorption = list("brute"=0.75,"fire"=1,"bullet"=0.8,"laser"=0.7,"energy"=0.85,"bomb"=1)
+
+/obj/mecha/working/ripley/combat/Initialize()
+	.= ..()
+	var/obj/item/mecha_parts/mecha_equipment/ME = new /obj/item/mecha_parts/mecha_equipment/weapon/energy/riggedlaser
+	ME.attach(src)
+	ME = new /obj/item/mecha_parts/mecha_equipment/tool/drill
+	ME.attach(src)
+	ME = new /obj/item/mecha_parts/mecha_equipment/tool/passenger
+	ME.attach(src)
+	ME = new /obj/item/mecha_parts/mecha_equipment/tool/passenger
+	ME.attach(src)
+	return

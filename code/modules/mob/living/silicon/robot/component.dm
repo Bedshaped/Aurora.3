@@ -34,13 +34,15 @@
 	if(wrapped)
 		qdel(wrapped)
 
-
 	wrapped = new/obj/item/broken_device
 	wrapped.icon_state = brokenstate // Module-specific broken icons! Yay!
 
 	// The thing itself isn't there anymore, but some fried remains are.
-	installed = -1
 	uninstall()
+	installed = -1
+
+/datum/robot_component/proc/get_damage(var/type)
+	return Clamp(brute_damage + electronics_damage,0,max_damage)
 
 /datum/robot_component/proc/take_damage(brute, electronics, sharp, edge)
 	if(installed != 1) return
@@ -92,12 +94,23 @@
 
 	var/obj/item/weapon/tank/jetpack/carbondioxide/synthetic/tank = null
 
+/datum/robot_component/surge
+	name = "surge preventor"
+	external_type = /obj/item/robot_parts/robot_component/surge
+	max_damage = 60
+	installed = 0
+	var/surge_left = 0
+
+/datum/robot_component/surge/install()
+	..()
+	if(!surge_left)
+		surge_left = rand(2, 5)
 
 /datum/robot_component/jetpack/install()
 	..()
 	tank = new/obj/item/weapon/tank/jetpack/carbondioxide/synthetic
 	owner.internals = tank
-	tank.loc = owner
+	tank.forceMove(owner)
 	owner.jetpack = tank
 
 /datum/robot_component/jetpack/uninstall()
@@ -221,6 +234,7 @@
 	components["comms"] = new/datum/robot_component/binary_communication(src)
 	components["armour"] = new/datum/robot_component/armour(src)
 	components["jetpack"] = new/datum/robot_component/jetpack(src)
+	components["surge"] = new/datum/robot_component/surge(src)
 	jetpackComponent = components["jetpack"]
 	jetpackComponent.installed = 0//We start the jetpack as not installed, because its nondefault
 
@@ -251,8 +265,6 @@
 /obj/item/robot_parts/robot_component
 	icon = 'icons/obj/robot_component.dmi'
 	icon_state = "working"
-	construction_time = 200
-	construction_cost = list(DEFAULT_WALL_MATERIAL=5000)
 	var/brute = 0
 	var/burn = 0
 	var/icon_state_broken = "broken"
@@ -272,6 +284,12 @@
 	icon_state = "armor"
 	icon_state_broken = "armor_broken"
 
+/obj/item/robot_parts/robot_component/surge
+	name = "surge preventor"
+	desc = "Cyborg component designed to save internal electronics from damage of EMP pulse."
+	icon_state = "surge"
+	icon_state_broken = "surge_broken"
+
 /obj/item/robot_parts/robot_component/camera
 	name = "camera"
 	icon_state = "camera"
@@ -287,7 +305,6 @@
 	icon = 'icons/obj/tank.dmi'
 	icon_state = "jetpack-black"
 	icon_state_broken = "jetpack-black"
-	construction_cost = list(DEFAULT_WALL_MATERIAL=10000,"phoron"=15000,"uranium" = 20000)
 
 /obj/item/robot_parts/robot_component/radio
 	name = "radio"

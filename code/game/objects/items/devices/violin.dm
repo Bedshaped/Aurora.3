@@ -14,7 +14,6 @@
 	var/repeat = 0
 
 /obj/item/device/violin/proc/playnote(var/note as text)
-	//world << "Note: [note]"
 	var/soundfile
 	/*BYOND loads resource files at compile time if they are ''. This means you can't really manipulate them dynamically.
 	Tried doing it dynamically at first but its more trouble than its worth. Would have saved many lines tho.*/
@@ -201,18 +200,14 @@
 			cur_acc[i] = "n"
 
 		for(var/line in song.lines)
-			//world << line
 			for(var/beat in text2list(lowertext(line), ","))
-				//world << "beat: [beat]"
 				var/list/notes = text2list(beat, "/")
 				for(var/note in text2list(notes[1], "-"))
-					//world << "note: [note]"
 					if(!playing || !isliving(loc))//If the violin is playing, or isn't held by a person
 						playing = 0
 						return
 					if(lentext(note) == 0)
 						continue
-					//world << "Parse: [copytext(note,1,2)]"
 					var/cur_note = text2ascii(note) - 96
 					if(cur_note < 1 || cur_note > 7)
 						continue
@@ -271,7 +266,7 @@
 					Notes are played by the names of the note, and optionally, the accidental, and/or the octave number.<br>
 					By default, every note is natural and in octave 3. Defining otherwise is remembered for each note.<br>
 					Example: <i>C,D,E,F,G,A,B</i> will play a C major scale.<br>
-					After a note has an accidental placed, it will be remembered: <i>C,C4,C,C3</i> is C3,C4,C4,C3</i><br>
+					After a note has an accidental placed, it will be remembered: <i>C,C4,C,C3</i> is <i>C3,C4,C4,C3</i><br>
 					Chords can be played simply by seperating each note with a hyphon: <i>A-C#,Cn-E,E-G#,Gn-B</i><br>
 					A pause may be denoted by an empty chord: <i>C,E,,C,G</i><br>
 					To make a chord be a different time, end it with /x, where the chord length will be length<br>
@@ -391,3 +386,10 @@
 		if((M.client && M.machine == src))
 			attack_self(M)
 	return
+
+/obj/item/device/violin/attack(mob/living/carbon/M as mob, mob/living/carbon/user as mob)
+	..()
+	user.visible_message("<span class='danger'>\The [user] shatters \the [src] into pieces!</span>")
+	playsound(loc, 'sound/effects/kabong.ogg', 50, 1)
+	new /obj/item/weapon/material/shard/wood(get_turf(user))
+	qdel(src)

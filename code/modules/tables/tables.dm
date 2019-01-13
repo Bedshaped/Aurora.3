@@ -6,7 +6,7 @@
 	density = 1
 	anchored = 1
 	climbable = 1
-	layer = 2.8
+	layer = LAYER_TABLE
 	throwpass = 1
 	var/flipped = 0
 	var/maxhealth = 10
@@ -51,8 +51,21 @@
 		visible_message("<span class='warning'>\The [src] breaks down!</span>")
 		return break_to_parts() // if we break and form shards, return them to the caller to do !FUN! things with
 
-/obj/structure/table/New()
-	..()
+
+/obj/structure/table/ex_act(severity)
+	switch(severity)
+		if(1.0)
+			qdel(src)
+			return
+		if(2.0)
+			take_damage(rand(100,400))
+		if(3.0)
+			take_damage(rand(50,150))
+
+
+/obj/structure/table/Initialize()
+	. = ..()
+
 	// One table per turf.
 	for(var/obj/structure/table/T in loc)
 		if(T != src)
@@ -61,13 +74,11 @@
 			break_to_parts(full_return = 1)
 			return
 
-/obj/structure/table/initialize()
-	..()
 	// reset color/alpha, since they're set for nice map previews
 	color = "#ffffff"
 	alpha = 255
 	update_connections(1)
-	update_icon()
+	queue_icon_update()
 	update_desc()
 	update_material()
 
@@ -76,8 +87,8 @@
 	reinforced = null
 	update_connections(1) // Update tables around us to ignore us (material=null forces no connections)
 	for(var/obj/structure/table/T in oview(src, 1))
-		T.update_icon()
-	..()
+		T.queue_icon_update()
+	return ..()
 
 /obj/structure/table/examine(mob/user)
 	. = ..()
@@ -92,20 +103,20 @@
 
 /obj/structure/table/attackby(obj/item/weapon/W, mob/user)
 
-	if(reinforced && istype(W, /obj/item/weapon/screwdriver))
+	if(reinforced && isscrewdriver(W))
 		remove_reinforced(W, user)
 		if(!reinforced)
 			update_desc()
-			update_icon()
+			queue_icon_update()
 			update_material()
 		return 1
 
-	if(carpeted && istype(W, /obj/item/weapon/crowbar))
+	if(carpeted && iscrowbar(W))
 		user.visible_message("<span class='notice'>\The [user] removes the carpet from \the [src].</span>",
 		                              "<span class='notice'>You remove the carpet from \the [src].</span>")
 		new /obj/item/stack/tile/carpet(loc)
 		carpeted = 0
-		update_icon()
+		queue_icon_update()
 		return 1
 
 	if(!carpeted && material && istype(W, /obj/item/stack/tile/carpet))
@@ -114,27 +125,27 @@
 			user.visible_message("<span class='notice'>\The [user] adds \the [C] to \the [src].</span>",
 			                              "<span class='notice'>You add \the [C] to \the [src].</span>")
 			carpeted = 1
-			update_icon()
+			queue_icon_update()
 			return 1
 		else
 			user << "<span class='warning'>You don't have enough carpet!</span>"
 
-	if(!reinforced && !carpeted && material && istype(W, /obj/item/weapon/wrench))
+	if(!reinforced && !carpeted && material && iswrench(W))
 		remove_material(W, user)
 		if(!material)
 			update_connections(1)
-			update_icon()
+			queue_icon_update()
 			for(var/obj/structure/table/T in oview(src, 1))
-				T.update_icon()
+				T.queue_icon_update()
 			update_desc()
 			update_material()
 		return 1
 
-	if(!carpeted && !reinforced && !material && istype(W, /obj/item/weapon/wrench))
+	if(!carpeted && !reinforced && !material && iswrench(W))
 		dismantle(W, user)
 		return 1
 
-	if(health < maxhealth && istype(W, /obj/item/weapon/weldingtool))
+	if(health < maxhealth && iswelder(W))
 		var/obj/item/weapon/weldingtool/F = W
 		if(F.welding)
 			user << "<span class='notice'>You begin reparing damage to \the [src].</span>"
@@ -150,7 +161,7 @@
 		material = common_material_add(W, user, "plat")
 		if(material)
 			update_connections(1)
-			update_icon()
+			queue_icon_update()
 			update_desc()
 			update_material()
 		return 1
@@ -183,7 +194,7 @@
 	reinforced = common_material_add(S, user, "reinforc")
 	if(reinforced)
 		update_desc()
-		update_icon()
+		queue_icon_update()
 		update_material()
 
 /obj/structure/table/proc/update_desc()
@@ -294,33 +305,37 @@
 /obj/structure/table/update_icon()
 	if(flipped != 1)
 		icon_state = "blank"
-		overlays.Cut()
+		cut_overlays()
+
+		var/image/I
 
 		// Base frame shape. Mostly done for glass/diamond tables, where this is visible.
-		for(var/n in connections)
-			overlays += n
+		for(var/i = 1 to 4)
+			I = image(icon, dir = 1<<(i-1), icon_state = connections[i])
+			add_overlay(I)
 
 		// Standard table image
 		if(material)
-			for(var/n in connections)
-				var/image/I = image(icon, "[material.icon_base]_[n]")
-				I.color = material.icon_colour
+			for(var/i = 1 to 4)
+				I = image(icon, "[material.icon_base]_[connections[i]]", dir = 1<<(i-1))
+				if(material.icon_colour) I.color = material.icon_colour
 				I.alpha = 255 * material.opacity
-				overlays += I
+				add_overlay(I)
 
 		// Reinforcements
 		if(reinforced)
-			for(var/n in connections)
-				var/image/I = image(icon, "[reinforced.icon_reinf]_[n]")
+			for(var/i = 1 to 4)
+				I = image(icon, "[reinforced.icon_reinf]_[connections[i]]", dir = 1<<(i-1))
 				I.color = reinforced.icon_colour
 				I.alpha = 255 * reinforced.opacity
-				overlays += I
+				add_overlay(I)
 
 		if(carpeted)
-			for(var/n in connections)
-				overlays += "carpet_[n]"
+			for(var/i = 1 to 4)
+				I = image(icon, "carpet_[connections[i]]", dir = 1<<(i-1))
+				add_overlay(I)
 	else
-		overlays.Cut()
+		cut_overlays()
 		var/type = 0
 		var/tabledirs = 0
 		for(var/direction in list(turn(dir,90), turn(dir,-90)) )
@@ -341,7 +356,7 @@
 			var/image/I = image(icon, "[material.icon_base]_flip[type]")
 			I.color = material.icon_colour
 			I.alpha = 255 * material.opacity
-			overlays += I
+			add_overlay(I)
 			name = "[material.display_name] table"
 		else
 			name = "table frame"
@@ -350,16 +365,15 @@
 			var/image/I = image(icon, "[reinforced.icon_reinf]_flip[type]")
 			I.color = reinforced.icon_colour
 			I.alpha = 255 * reinforced.opacity
-			overlays += I
+			add_overlay(I)
 
 		if(carpeted)
-			for(var/n in connections)
-				overlays += "carpet_flip[type]"
+			add_overlay("carpet_flip[type]")
 
 // set propagate if you're updating a table that should update tables around it too, for example if it's a new table or something important has changed (like material).
 /obj/structure/table/proc/update_connections(propagate=0)
 	if(!material)
-		connections = list("nw0", "ne0", "sw0", "se0")
+		connections = list("0", "0", "0", "0")
 
 		if(propagate)
 			for(var/obj/structure/table/T in oview(src, 1))
@@ -369,7 +383,7 @@
 	var/list/blocked_dirs = list()
 	for(var/obj/structure/window/W in get_turf(src))
 		if(W.is_fulltile())
-			connections = list("nw0", "ne0", "sw0", "se0")
+			connections = list("0", "0", "0", "0")
 			return
 		blocked_dirs |= W.dir
 
@@ -405,49 +419,42 @@
 		if(material && T.material && material.name == T.material.name && flipped == T.flipped)
 			connection_dirs |= T_dir
 		if(propagate)
-			spawn(0)
-				T.update_connections()
-				T.update_icon()
+			INVOKE_ASYNC(T, .update_connections)
+			INVOKE_ASYNC(T, /atom/.proc/queue_icon_update)
 
 	connections = dirs_to_corner_states(connection_dirs)
 
 #define CORNER_NONE 0
-#define CORNER_EASTWEST 1
+#define CORNER_COUNTERCLOCKWISE 1
 #define CORNER_DIAGONAL 2
-#define CORNER_NORTHSOUTH 4
+#define CORNER_CLOCKWISE 4
+
+/*
+  turn() is weird:
+    turn(icon, angle) turns icon by angle degrees clockwise
+    turn(matrix, angle) turns matrix by angle degrees clockwise
+    turn(dir, angle) turns dir by angle degrees counter-clockwise
+*/
 
 /proc/dirs_to_corner_states(list/dirs)
 	if(!istype(dirs)) return
 
-	var/NE = CORNER_NONE
-	var/NW = CORNER_NONE
-	var/SE = CORNER_NONE
-	var/SW = CORNER_NONE
+	var/list/ret = list(NORTHWEST, SOUTHEAST, NORTHEAST, SOUTHWEST)
 
-	if(NORTH in dirs)
-		NE |= CORNER_NORTHSOUTH
-		NW |= CORNER_NORTHSOUTH
-	if(SOUTH in dirs)
-		SW |= CORNER_NORTHSOUTH
-		SE |= CORNER_NORTHSOUTH
-	if(EAST in dirs)
-		SE |= CORNER_EASTWEST
-		NE |= CORNER_EASTWEST
-	if(WEST in dirs)
-		NW |= CORNER_EASTWEST
-		SW |= CORNER_EASTWEST
-	if(NORTHWEST in dirs)
-		NW |= CORNER_DIAGONAL
-	if(NORTHEAST in dirs)
-		NE |= CORNER_DIAGONAL
-	if(SOUTHEAST in dirs)
-		SE |= CORNER_DIAGONAL
-	if(SOUTHWEST in dirs)
-		SW |= CORNER_DIAGONAL
+	for(var/i = 1 to ret.len)
+		var/dir = ret[i]
+		. = CORNER_NONE
+		if(dir in dirs)
+			. |= CORNER_DIAGONAL
+		if(turn(dir,45) in dirs)
+			. |= CORNER_COUNTERCLOCKWISE
+		if(turn(dir,-45) in dirs)
+			. |= CORNER_CLOCKWISE
+		ret[i] = "[.]"
 
-	return list("ne[NE]", "se[SE]", "sw[SW]", "nw[NW]")
+	return ret
 
 #undef CORNER_NONE
-#undef CORNER_EASTWEST
+#undef CORNER_COUNTERCLOCKWISE
 #undef CORNER_DIAGONAL
-#undef CORNER_NORTHSOUTH
+#undef CORNER_CLOCKWISE

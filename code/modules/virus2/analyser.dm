@@ -18,12 +18,11 @@
 		return
 
 	dish = O
-	user.drop_item()
-	O.loc = src
+	user.drop_from_inventory(O,src)
 
 	user.visible_message("[user] adds \a [O] to \the [src]!", "You add \a [O] to \the [src]!")
 
-/obj/machinery/disease2/diseaseanalyser/process()
+/obj/machinery/disease2/diseaseanalyser/machinery_process()
 	if(stat & (NOPOWER|BROKEN))
 		return
 
@@ -34,10 +33,11 @@
 				ping("\The [src] pings, \"New pathogen added to data bank.\"")
 
 			var/obj/item/weapon/paper/P = new /obj/item/weapon/paper(src.loc)
-			P.name = "paper - [dish.virus2.name()]"
+			var/pname = "paper - [dish.virus2.name()]"
+			var/info
 
 			var/r = dish.virus2.get_info()
-			P.info = {"
+			info = {"
 				[virology_letterhead("Post-Analysis Memo")]
 				[r]
 				<hr>
@@ -47,21 +47,22 @@
 			dish.info = r
 			dish.name = "[initial(dish.name)] ([dish.virus2.name()])"
 			dish.analysed = 1
-			dish.loc = src.loc
+			dish.forceMove(src.loc)
 			dish = null
 
 			icon_state = "analyser"
-			src.state("\The [src] prints a sheet of paper.")
+			P.set_content_unsafe(pname, info)
+			print(P)
 
 	else if(dish && !scanning && !pause)
-		if(dish.virus2 && dish.growth > 50)
+		if(dish.virus2 && dish.growth >= 50)
 			dish.growth -= 10
 			scanning = 5
 			icon_state = "analyser_processing"
 		else
 			pause = 1
 			spawn(25)
-				dish.loc = src.loc
+				dish.forceMove(src.loc)
 				dish = null
 
 				src.state("\The [src] buzzes, \"Insufficient growth density to complete analysis.\"")

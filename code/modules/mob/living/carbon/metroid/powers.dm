@@ -23,6 +23,10 @@
 		return "This subject is too far away..."
 	if (istype(M, /mob/living/carbon) && M.getCloneLoss() >= M.maxHealth * 1.5 || istype(M, /mob/living/simple_animal) && M.stat == DEAD)
 		return "This subject does not have an edible life energy..."
+	if (istype(M, /mob/living/carbon))
+		var/mob/living/carbon/human/H = M
+		if(istype(H) && (H.species.flags & NO_SCAN))
+			return "This subject has nothing for us to take..."
 	for(var/mob/living/carbon/slime/met in view())
 		if(met.Victim == M && met != src)
 			return "The [met.name] is already feeding on this subject..."
@@ -86,10 +90,12 @@
 	if(M && invalidFeedTarget(M)) // This means that the slime drained the victim
 		if(!client)
 			if(Victim && !rabid && !attacked && Victim.LAssailant && Victim.LAssailant != Victim && prob(50))
-				if(!(Victim.LAssailant in Friends))
-					Friends[Victim.LAssailant] = 1
-				else
-					++Friends[Victim.LAssailant]
+				var/real_assailant = Victim.LAssailant.resolve()
+				if (real_assailant)
+					if(!(real_assailant in Friends))
+						Friends[real_assailant] = TRUE
+					else
+						++Friends[real_assailant]
 
 		else
 			src << "<span class='notice'>This subject does not have a strong enough life energy anymore...</span>"
@@ -117,6 +123,7 @@
 	if(!is_adult)
 		if(amount_grown >= 10)
 			is_adult = 1
+			mob_size = 6//Adult slimes are bigger
 			maxHealth = 200
 			amount_grown = 0
 			regenerate_icons()

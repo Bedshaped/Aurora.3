@@ -29,7 +29,7 @@
 	if(istype(swab) && swab.is_used())
 		user.unEquip(W)
 		src.bloodsamp = swab
-		swab.loc = src
+		swab.forceMove(src)
 		user << "<span class='notice'>You insert \the [W] into \the [src].</span>"
 	else
 		user << "<span class='warning'>\The [src] only accepts used swabs.</span>"
@@ -45,7 +45,7 @@
 	data["bloodsamp_desc"] = (bloodsamp ? (bloodsamp.desc ? bloodsamp.desc : "No information on record.") : "")
 	data["lidstate"] = closed
 
-	ui = nanomanager.try_update_ui(user, src, ui_key, ui, data)
+	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data)
 	if (!ui)
 		ui = new(user, src, ui_key, "dnaforensics.tmpl", "QuikScan DNA Analyzer", 540, 326)
 		ui.set_initial_data(data)
@@ -84,7 +84,7 @@
 
 	return 1
 
-/obj/machinery/dnaforensics/process()
+/obj/machinery/dnaforensics/machinery_process()
 	if(scanning)
 		if(!bloodsamp || bloodsamp.loc != src)
 			bloodsamp = null
@@ -99,11 +99,12 @@
 	last_process_worldtime = world.time
 
 /obj/machinery/dnaforensics/proc/complete_scan()
-	src.visible_message("<span class='notice'>\icon[src] makes an insistent chime.</span>", 2)
+	visible_message("<span class='notice'>\icon[src] makes an insistent chime.</span>", range = 2)
 	update_icon()
 	if(bloodsamp)
-		var/obj/item/weapon/paper/P = new(src)
-		P.name = "[src] report #[++report_num]: [bloodsamp.name]"
+		var/obj/item/weapon/paper/P = new()
+		var/pname = "[src] report #[++report_num]: [bloodsamp.name]"
+		var/info
 		P.stamped = list(/obj/item/weapon/stamp)
 		P.overlays = list("paper_stamped")
 		//dna data itself
@@ -111,13 +112,13 @@
 		if(bloodsamp.dna != null)
 			data = "Spectometric analysis on provided sample has determined the presence of [bloodsamp.dna.len] strings of DNA.<br><br>"
 			for(var/blood in bloodsamp.dna)
-				data += "\blue Blood type: [bloodsamp.dna[blood]]<br>\nDNA: [blood]<br><br>"
+				data += "<span class='notice'>Blood type: [bloodsamp.dna[blood]]<br>\nDNA: [blood]<br><br></span>"
 		else
 			data += "No DNA found.<br>"
-		P.info = "<b>[src] analysis report #[report_num]</b><br>"
-		P.info += "<b>Scanned item:</b><br>[bloodsamp.name]<br>[bloodsamp.desc]<br><br>" + data
-		P.forceMove(src.loc)
-		P.update_icon()
+		info = "<b>[src] analysis report #[report_num]</b><br>"
+		info += "<b>Scanned item:</b><br>[bloodsamp.name]<br>[bloodsamp.desc]<br><br>" + data
+		P.set_content_unsafe(pname, info)
+		print(P)
 		scanning = 0
 		update_icon()
 	return

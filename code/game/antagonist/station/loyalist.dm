@@ -2,7 +2,6 @@ var/datum/antagonist/loyalists/loyalists
 
 /datum/antagonist/loyalists
 	id = MODE_LOYALIST
-	role_type = BE_LOYALIST
 	role_text = "Head Loyalist"
 	role_text_plural = "Loyalists"
 	bantype = "loyalist"
@@ -45,3 +44,11 @@ var/datum/antagonist/loyalists/loyalists
 		loyal_obj.target = player.mind
 		loyal_obj.explanation_text = "Protect [player.real_name], the [player.mind.assigned_role]."
 		global_objectives += loyal_obj
+
+/datum/antagonist/loyalists/equip(var/mob/living/carbon/human/player)
+
+	if(!..())
+		return 0
+
+	player.equip_to_slot_or_del(new /obj/item/device/announcer(player), slot_in_backpack)
+	return 1

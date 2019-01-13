@@ -14,13 +14,15 @@
 	var/translate_hivenet = 0
 	var/obj/item/device/encryptionkey/keyslot1 = null
 	var/obj/item/device/encryptionkey/keyslot2 = null
-	maxf = 1489
 
 	var/ks1type = /obj/item/device/encryptionkey
 	var/ks2type = null
 
-/obj/item/device/radio/headset/New()
-	..()
+	sprite_sheets = list("Resomi" = 'icons/mob/species/resomi/ears.dmi')
+
+/obj/item/device/radio/headset/Initialize()
+	. = ..()
+	internal_channels.Cut()
 	if(ks1type)
 		keyslot1 = new ks1type(src)
 	if(ks2type)
@@ -32,13 +34,16 @@
 	qdel(keyslot2)
 	keyslot1 = null
 	keyslot2 = null
-	..()
+	return ..()
+
+/obj/item/device/radio/headset/list_channels(var/mob/user)
+	return list_secure_channels()
 
 /obj/item/device/radio/headset/examine(mob/user)
 	if(!(..(user, 1) && radio_desc))
 		return
 
-	user << "The following channels are built-in:"
+	user << "The following channels are available:"
 	user << radio_desc
 
 /obj/item/device/radio/headset/handle_message_mode(mob/living/M as mob, message, channel)
@@ -50,7 +55,7 @@
 			var/datum/language/hivemind = all_languages["Hivemind"]
 			hivemind.broadcast(M, message)
 		if (translate_hivenet)
-			var/datum/language/bug = all_languages["Hivenet"]
+			var/datum/language/bug = all_languages[LANGUAGE_VAURCA]
 			bug.broadcast(M, message)
 		return null
 
@@ -70,12 +75,17 @@
 	ks1type = /obj/item/device/encryptionkey/hivenet
 
 /obj/item/device/radio/headset/syndicate
-	origin_tech = "syndicate=3"
+	origin_tech = list(TECH_ILLEGAL = 3)
 	syndie = 1
 	ks1type = /obj/item/device/encryptionkey/syndicate
 
+/obj/item/device/radio/headset/raider
+	origin_tech = list(TECH_ILLEGAL = 2)
+	syndie = 1
+	ks1type = /obj/item/device/encryptionkey/raider
+
 /obj/item/device/radio/headset/binary
-	origin_tech = "syndicate=3"
+	origin_tech = list(TECH_ILLEGAL = 3)
 	ks1type = /obj/item/device/encryptionkey/binary
 
 /obj/item/device/radio/headset/headset_sec
@@ -149,6 +159,10 @@
 		return -1 //Transciever Disabled.
 	return ..(freq, level, 1)
 
+/obj/item/device/radio/headset/heads/ai_integrated/Destroy()
+	myAi = null
+	return ..()
+
 /obj/item/device/radio/headset/heads/rd
 	name = "research director's headset"
 	desc = "Headset of the researching God."
@@ -165,7 +179,7 @@
 
 /obj/item/device/radio/headset/heads/ce
 	name = "chief engineer's headset"
-	desc = "The headset of the guy who is in charge of morons"
+	desc = "The headset of the guy who is in charge of morons."
 	icon_state = "com_headset"
 	item_state = "headset"
 	ks2type = /obj/item/device/encryptionkey/heads/ce
@@ -183,21 +197,7 @@
 	icon_state = "com_headset"
 	item_state = "headset"
 	ks2type = /obj/item/device/encryptionkey/heads/hop
-/*
-/obj/item/device/radio/headset/headset_mine
-	name = "mining radio headset"
-	desc = "Headset used by miners. How useless. To access the mining channel, use :d."
-	icon_state = "mine_headset"
-	item_state = "headset"
-	keyslot2 = new /obj/item/device/encryptionkey/headset_mine
 
-/obj/item/device/radio/headset/heads/qm
-	name = "quartermaster's headset"
-	desc = "The headset of the man who control your toiletpaper supply. To access the cargo channel, use :q. For mining, use :d."
-	icon_state = "cargo_headset"
-	item_state = "headset"
-	keyslot2 = new /obj/item/device/encryptionkey/heads/qm
-*/
 /obj/item/device/radio/headset/headset_cargo
 	name = "supply radio headset"
 	desc = "A headset used by the QM and their slaves."
@@ -217,11 +217,17 @@
 	desc = "The headset of the boss's boss."
 	icon_state = "com_headset"
 	item_state = "headset"
-	freerange = 1
 	ks2type = /obj/item/device/encryptionkey/ert
 
+/obj/item/device/radio/headset/legion
+	name = "Tau Ceti Foreign Legion radio headset"
+	desc = "The headset used by NanoTrasen sanctioned response forces."
+	icon_state = "com_headset"
+	item_state = "headset"
+	ks2type = /obj/item/device/encryptionkey/onlyert
+
 /obj/item/device/radio/headset/ia
-	name = "internal affair's headset"
+	name = "internal affairs headset"
 	desc = "The headset of your worst enemy."
 	icon_state = "com_headset"
 	item_state = "headset"
@@ -230,22 +236,22 @@
 /obj/item/device/radio/headset/attackby(obj/item/weapon/W as obj, mob/user as mob)
 //	..()
 	user.set_machine(src)
-	if (!( istype(W, /obj/item/weapon/screwdriver) || (istype(W, /obj/item/device/encryptionkey/ ))))
+	if (!( isscrewdriver(W) || (istype(W, /obj/item/device/encryptionkey/ ))))
 		return
 
-	if(istype(W, /obj/item/weapon/screwdriver))
+	if(isscrewdriver(W))
 		if(keyslot1 || keyslot2)
 
 
 			for(var/ch_name in channels)
-				radio_controller.remove_object(src, radiochannels[ch_name])
+				SSradio.remove_object(src, radiochannels[ch_name])
 				secure_radio_connections[ch_name] = null
 
 
 			if(keyslot1)
 				var/turf/T = get_turf(user)
 				if(T)
-					keyslot1.loc = T
+					keyslot1.forceMove(T)
 					keyslot1 = null
 
 
@@ -253,7 +259,7 @@
 			if(keyslot2)
 				var/turf/T = get_turf(user)
 				if(T)
-					keyslot2.loc = T
+					keyslot2.forceMove(T)
 					keyslot2 = null
 
 			recalculateChannels()
@@ -268,13 +274,11 @@
 			return
 
 		if(!keyslot1)
-			user.drop_item()
-			W.loc = src
+			user.drop_from_inventory(W,src)
 			keyslot1 = W
 
 		else
-			user.drop_item()
-			W.loc = src
+			user.drop_from_inventory(W,src)
 			keyslot2 = W
 
 
@@ -330,13 +334,13 @@
 
 
 	for (var/ch_name in channels)
-		if(!radio_controller)
-			sleep(30) // Waiting for the radio_controller to be created.
-		if(!radio_controller)
+		if(!SSradio)
+			sleep(30) // Waiting for the SSradio to be created.
+		if(!SSradio)
 			src.name = "broken radio headset"
 			return
 
-		secure_radio_connections[ch_name] = radio_controller.add_object(src, radiochannels[ch_name],  RADIO_CHAT)
+		secure_radio_connections[ch_name] = SSradio.add_object(src, radiochannels[ch_name],  RADIO_CHAT)
 
 	if(setDescription)
 		setupRadioDescription()

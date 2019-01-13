@@ -6,17 +6,21 @@
 	//Create global autolathe recipe list if it hasn't been made already.
 	autolathe_recipes = list()
 	autolathe_categories = list()
-	for(var/R in typesof(/datum/autolathe/recipe)-/datum/autolathe/recipe)
+	for(var/R in subtypesof(/datum/autolathe/recipe))
 		var/datum/autolathe/recipe/recipe = new R
 		autolathe_recipes += recipe
 		autolathe_categories |= recipe.category
 
 		var/obj/item/I = new recipe.path
+		// Since this runs before SSatoms runs, we've got to force initialization manually.
+		if (!I.initialized)
+			SSatoms.InitAtom(I, list(TRUE))
+
 		if(I.matter && !recipe.resources) //This can be overidden in the datums.
 			recipe.resources = list()
 			for(var/material in I.matter)
 				recipe.resources[material] = I.matter[material]*1.25 // More expensive to produce than they are to recycle.
-			qdel(I)
+		qdel(I)
 
 /datum/autolathe/recipe
 	var/name = "object"
@@ -35,6 +39,11 @@
 /datum/autolathe/recipe/flashlight
 	name = "flashlight"
 	path = /obj/item/device/flashlight
+	category = "General"
+
+/datum/autolathe/recipe/floor_light
+	name = "floor light"
+	path = /obj/machinery/floor_light
 	category = "General"
 
 /datum/autolathe/recipe/extinguisher
@@ -250,7 +259,7 @@
 	name = "ammunition (9mm rubber top mounted)"
 	path = /obj/item/ammo_magazine/mc9mmt/rubber
 	category = "Arms and Ammunition"
-	
+
 /datum/autolathe/recipe/detective_revolver_rubber
 	name = "ammunition (.38, rubber)"
 	path = /obj/item/ammo_magazine/c38/rubber
@@ -342,8 +351,8 @@
 	category = "Arms and Ammunition"
 
 /datum/autolathe/recipe/magazine_c20r
-	name = "ammunition (12mm)"
-	path = /obj/item/ammo_magazine/a12mm
+	name = "ammunition (10mm)"
+	path = /obj/item/ammo_magazine/a10mm
 	hidden = 1
 	category = "Arms and Ammunition"
 
@@ -379,7 +388,7 @@
 
 /datum/autolathe/recipe/tacknife
 	name = "tactical knife"
-	path = /obj/item/weapon/material/hatchet/tacknife
+	path = /obj/item/weapon/material/knife/tacknife
 	hidden = 1
 	category = "Arms and Ammunition"
 
@@ -388,9 +397,9 @@
 	path = /obj/item/ammo_casing/shotgun/stunshell
 	hidden = 1
 	category = "Arms and Ammunition"
-	
+
 /datum/autolathe/recipe/clip_boltaction
-	name = "ammunition (7.62mm)"
+	name = "ammunition clip (7.62mm)"
 	path = /obj/item/ammo_magazine/boltaction
 	hidden = 1
 	category = "Arms and Ammunition"
@@ -425,9 +434,9 @@
 	hidden = 1
 	category = "Devices and Components"
 
-/datum/autolathe/recipe/beartrap
+/datum/autolathe/recipe/trap
 	name = "mechanical trap"
-	path = /obj/item/weapon/beartrap
+	path = /obj/item/weapon/trap
 	hidden = 1
 	category = "Devices and Components"
 
@@ -443,4 +452,7 @@
 	hidden = 1
 	category = "General"
 
-
+/datum/autolathe/recipe/emergency_cell
+	name = "miniature cell"
+	path = /obj/item/weapon/cell/device/emergency_light/empty
+	category = "Engineering"

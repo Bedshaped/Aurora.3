@@ -19,10 +19,10 @@
 	var/const/ROOM_ERR_SPACE = -1
 	var/const/ROOM_ERR_TOOLARGE = -2
 
-/obj/item/blueprints/attack_self(mob/M as mob)
-	if (!istype(M,/mob/living/carbon/human))
-		M << "This stack of blue paper means nothing to you." //monkeys cannot into projecting
+/obj/item/blueprints/attack_self(mob/user as mob)
+	if (use_check(user, USE_DISALLOW_SILICONS))
 		return
+	add_fingerprint(user)
 	interact()
 	return
 
@@ -48,7 +48,7 @@
 	var/area/A = get_area()
 	var/text = {"<HTML><head><title>[src]</title></head><BODY>
 <h2>[station_name()] blueprints</h2>
-<small>Property of Nanotrasen. For heads of staff only. Store in high-secure storage.</small><hr>
+<small>Property of [current_map.company_name]. For heads of staff only. Store in high-secure storage.</small><hr>
 "}
 	switch (get_area_type())
 		if (AREA_SPACE)
@@ -79,19 +79,14 @@ move an amendment</a> to the drawing.</p>
 	return A
 
 /obj/item/blueprints/proc/get_area_type(var/area/A = get_area())
-	if(istype(A, /area/space))
+	if(istype(A, /area/space) || istype(A, /area/mine/unexplored))
 		return AREA_SPACE
 	var/list/SPECIALS = list(
 		/area/shuttle,
-		/area/admin,
-		/area/arrival,
 		/area/centcom,
-		/area/asteroid,
 		/area/tdome,
 		/area/syndicate_station,
-		/area/wizard_station,
-		/area/prison
-		// /area/derelict //commented out, all hail derelict-rebuilders!
+		/area/wizard_station
 	)
 	for (var/type in SPECIALS)
 		if ( istype(A,type) )
@@ -99,31 +94,27 @@ move an amendment</a> to the drawing.</p>
 	return AREA_STATION
 
 /obj/item/blueprints/proc/create_area()
-	//world << "DEBUG: create_area"
 	var/res = detect_room(get_turf(usr))
 	if(!istype(res,/list))
 		switch(res)
 			if(ROOM_ERR_SPACE)
-				usr << "\red The new area must be completely airtight!"
+				usr << "<span class='warning'>The new area must be completely airtight!</span>"
 				return
 			if(ROOM_ERR_TOOLARGE)
-				usr << "\red The new area too large!"
+				usr << "<span class='warning'>The new area too large!</span>"
 				return
 			else
-				usr << "\red Error! Please notify administration!"
+				usr << "<span class='warning'>Error! Please notify administration!</span>"
 				return
 	var/list/turf/turfs = res
 	var/str = sanitizeSafe(input("New area name:","Blueprint Editing", ""), MAX_NAME_LEN)
 	if(!str || !length(str)) //cancel
 		return
 	if(length(str) > 50)
-		usr << "\red Name too long."
+		usr << "<span class='warning'>Name too long.</span>"
 		return
 	var/area/A = new
 	A.name = str
-	//var/ma
-	//ma = A.master ? "[A.master]" : "(null)"
-	//world << "DEBUG: create_area: <br>A.name=[A.name]<br>A.tag=[A.tag]<br>A.master=[ma]"
 	A.power_equip = 0
 	A.power_light = 0
 	A.power_environ = 0
@@ -132,32 +123,31 @@ move an amendment</a> to the drawing.</p>
 
 	A.always_unpowered = 0
 
-	spawn(5)
-		//ma = A.master ? "[A.master]" : "(null)"
-		//world << "DEBUG: create_area(5): <br>A.name=[A.name]<br>A.tag=[A.tag]<br>A.master=[ma]"
-		interact()
+	sorted_add_area(A)
+
+	addtimer(CALLBACK(src, .proc/interact), 5)
 	return
 
 
 /obj/item/blueprints/proc/move_turfs_to_area(var/list/turf/turfs, var/area/A)
 	A.contents.Add(turfs)
 		//oldarea.contents.Remove(usr.loc) // not needed
-		//T.loc = A //error: cannot change constant value
+		//T.forceMove(A) //error: cannot change constant value
 
 
 /obj/item/blueprints/proc/edit_area()
 	var/area/A = get_area()
-	//world << "DEBUG: edit_area"
 	var/prevname = "[A.name]"
 	var/str = sanitizeSafe(input("New area name:","Blueprint Editing", prevname), MAX_NAME_LEN)
 	if(!str || !length(str) || str==prevname) //cancel
 		return
 	if(length(str) > 50)
-		usr << "\red Text too long."
+		usr << "<span class='warning'>Text too long.</span>"
 		return
-	set_area_machinery_title(A,str,prevname)
+	INVOKE_ASYNC(src, .proc/set_area_machinery_title, A, str, prevname)
 	A.name = str
-	usr << "\blue You set the area '[prevname]' title to '[str]'."
+	sortTim(all_areas, /proc/cmp_text_asc)
+	usr << "<span class='notice'>You set the area '[prevname]' title to '[str]'.</span>"
 	interact()
 	return
 
@@ -167,17 +157,19 @@ move an amendment</a> to the drawing.</p>
 	if (!oldtitle) // or replacetext goes to infinite loop
 		return
 
-	for(var/obj/machinery/alarm/M in A)
-		M.name = replacetext(M.name,oldtitle,title)
-	for(var/obj/machinery/power/apc/M in A)
-		M.name = replacetext(M.name,oldtitle,title)
-	for(var/obj/machinery/atmospherics/unary/vent_scrubber/M in A)
-		M.name = replacetext(M.name,oldtitle,title)
-	for(var/obj/machinery/atmospherics/unary/vent_pump/M in A)
-		M.name = replacetext(M.name,oldtitle,title)
-	for(var/obj/machinery/door/M in A)
-		M.name = replacetext(M.name,oldtitle,title)
-	//TODO: much much more. Unnamed airlocks, cameras, etc.
+	var/static/list/types_to_rename = list(
+		/obj/machinery/alarm,
+		/obj/machinery/power/apc,
+		/obj/machinery/atmospherics/unary/vent_scrubber,
+		/obj/machinery/atmospherics/unary/vent_pump,
+		/obj/machinery/door
+	)
+
+	for(var/obj/machinery/M in A)
+		if (is_type_in_list(M, types_to_rename))
+			M.name = replacetext(M.name, oldtitle, title)
+
+		CHECK_TICK
 
 /obj/item/blueprints/proc/check_tile_is_border(var/turf/T2,var/dir)
 	if (istype(T2, /turf/space))

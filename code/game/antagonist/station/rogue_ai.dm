@@ -2,7 +2,6 @@ var/datum/antagonist/rogue_ai/malf
 
 /datum/antagonist/rogue_ai
 	id = MODE_MALFUNCTION
-	role_type = BE_MALF
 	role_text = "Rampant AI"
 	role_text_plural = "Rampant AIs"
 	mob_path = /mob/living/silicon/ai
@@ -50,7 +49,7 @@ var/datum/antagonist/rogue_ai/malf
 		var/mob/living/silicon/ai/A = player.current
 		if(!istype(A))
 			error("Non-AI mob designated malf AI! Report this.")
-			world << "##ERROR: Non-AI mob designated malf AI! Report this."
+			to_world("##ERROR: Non-AI mob designated malf AI! Report this.")
 			return 0
 
 		A.setup_for_malf()
@@ -65,7 +64,8 @@ var/datum/antagonist/rogue_ai/malf
 		sleep(50)
 		malf << "<B>MEMCHCK</B> Corrupted sectors confirmed. Reccomended solution: Delete. Proceed? Y/N: Y"
 		sleep(10)
-		malf << "<span class='notice'>Corrupted files deleted: sys\\core\\users.dat sys\\core\\laws.dat sys\\core\\backups.dat</span>"
+		// this is so Travis doesn't complain about the backslash-B. Fixed at compile time (or should be).
+		malf << "<span class='notice'>Corrupted files deleted: sys\\core\\users.dat sys\\core\\laws.dat sys\\core\\" + "backups.dat</span>"
 		sleep(20)
 		malf << "<span class='notice'><b>CAUTION:</b> Law database not found! User database not found! Unable to restore backups. Activating failsafe AI shutd3wn52&&$#!##</span>"
 		sleep(5)
@@ -97,3 +97,4 @@ var/datum/antagonist/rogue_ai/malf
 	if (newname)
 		player.SetName(newname)
 	if(player.mind) player.mind.name = player.name
+

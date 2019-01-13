@@ -36,7 +36,7 @@
 		data["prime"] = user.pai_law0
 		data["supplemental"] = user.pai_laws
 
-		ui = nanomanager.try_update_ui(user, user, id, ui, data, force_open)
+		ui = SSnanoui.try_update_ui(user, user, id, ui, data, force_open)
 		if(!ui)
 			// Don't copy-paste this unless you're making a pAI software module!
 			ui = new(user, user, id, "pai_directives.tmpl", "pAI Directives", 450, 600)
@@ -101,7 +101,7 @@
 
 		data["channels"] = channels
 
-		ui = nanomanager.try_update_ui(user, user, id, ui, data, force_open)
+		ui = SSnanoui.try_update_ui(user, user, id, ui, data, force_open)
 		if(!ui)
 			ui = new(user, user, id, "pai_radio.tmpl", "Radio Configuration", 300, 150)
 			ui.set_initial_data(data)
@@ -127,7 +127,7 @@
 		// This is dumb, but NanoUI breaks if it has no data to send
 		data["manifest"] = list("__json_cache" = ManifestJSON)
 
-		ui = nanomanager.try_update_ui(user, user, id, ui, data, force_open)
+		ui = SSnanoui.try_update_ui(user, user, id, ui, data, force_open)
 		if(!ui)
 			// Don't copy-paste this unless you're making a pAI software module!
 			ui = new(user, user, id, "pai_manifest.tmpl", "Crew Manifest", 450, 600)
@@ -177,7 +177,7 @@
 
 		data["messages"] = messages
 
-		ui = nanomanager.try_update_ui(user, user, id, ui, data, force_open)
+		ui = SSnanoui.try_update_ui(user, user, id, ui, data, force_open)
 		if(!ui)
 			// Don't copy-paste this unless you're making a pAI software module!
 			ui = new(user, user, id, "pai_messenger.tmpl", "Digital Messenger", 450, 600)
@@ -208,7 +208,7 @@
 					return alert("Communications circuits remain uninitialized.")
 
 				var/target = locate(href_list["target"])
-				P.pda.create_message(P, target, 1)
+				P.pda.create_message(P, target, 0)
 				return 1
 
 /datum/pai_software/med_records
@@ -235,7 +235,7 @@
 		data["medical"] = M ? M.fields : null
 		data["could_not_find"] = user.medical_cannotfind
 
-		ui = nanomanager.try_update_ui(user, user, id, ui, data, force_open)
+		ui = SSnanoui.try_update_ui(user, user, id, ui, data, force_open)
 		if(!ui)
 			// Don't copy-paste this unless you're making a pAI software module!
 			ui = new(user, user, id, "pai_medrecords.tmpl", "Medical Records", 450, 600)
@@ -289,7 +289,7 @@
 		data["security"] = S ? S.fields : null
 		data["could_not_find"] = user.security_cannotfind
 
-		ui = nanomanager.try_update_ui(user, user, id, ui, data, force_open)
+		ui = SSnanoui.try_update_ui(user, user, id, ui, data, force_open)
 		if(!ui)
 			// Don't copy-paste this unless you're making a pAI software module!
 			ui = new(user, user, id, "pai_secrecords.tmpl", "Security Records", 450, 600)
@@ -339,7 +339,7 @@
 		data["progress_b"] = user.hackprogress % 10
 		data["aborted"] = user.hack_aborted
 
-		ui = nanomanager.try_update_ui(user, user, id, ui, data, force_open)
+		ui = SSnanoui.try_update_ui(user, user, id, ui, data, force_open)
 		if(!ui)
 			// Don't copy-paste this unless you're making a pAI software module!
 			ui = new(user, user, id, "pai_doorjack.tmpl", "Door Jack", 300, 150)
@@ -430,7 +430,7 @@
 				gases[++gases.len] = gas
 			data["gas"] = gases
 
-		ui = nanomanager.try_update_ui(user, user, id, ui, data, force_open)
+		ui = SSnanoui.try_update_ui(user, user, id, ui, data, force_open)
 		if(!ui)
 			// Don't copy-paste this unless you're making a pAI software module!
 			ui = new(user, user, id, "pai_atmosphere.tmpl", "Atmosphere Sensor", 350, 300)
@@ -468,17 +468,17 @@
 		// 	Sol Common, Tradeband and Gutter are added with New() and are therefore the current default, always active languages
 		user.translator_on = !user.translator_on
 		if(user.translator_on)
-			user.add_language("Sinta'unathi")
-			user.add_language("Siik'maas")
-			user.add_language("Skrellian")
+			user.add_language(LANGUAGE_UNATHI)
+			user.add_language(LANGUAGE_SIIK_MAAS)
+			user.add_language(LANGUAGE_SKRELLIAN)
 //			user.add_language("Vaurcese")
-			user.add_language("Rootspeak")
+			user.add_language("Rootsong")
 		else
-			user.remove_language("Sinta'unathi")
-			user.remove_language("Siik'maas")
-			user.remove_language("Skrellian")
-			//user.add_language("Hivenet") //I can buy an AI core and its cyborgs having access to the local hivenet for security reasons, but a pAI?
-			user.add_language("Rootspeak")
+			user.remove_language(LANGUAGE_UNATHI)
+			user.remove_language(LANGUAGE_SIIK_MAAS)
+			user.remove_language(LANGUAGE_SKRELLIAN)
+			//user.add_language(LANGUAGE_VAURCA) //I can buy an AI core and its cyborgs having access to the local hivenet for security reasons, but a pAI?
+			user.add_language("Rootsong")
 
 	is_active(mob/living/silicon/pai/user)
 		return user.translator_on
@@ -495,7 +495,7 @@
 		data["frequency"] = format_frequency(user.sradio.frequency)
 		data["code"] = user.sradio.code
 
-		ui = nanomanager.try_update_ui(user, user, id, ui, data, force_open)
+		ui = SSnanoui.try_update_ui(user, user, id, ui, data, force_open)
 		if(!ui)
 			// Don't copy-paste this unless you're making a pAI software module!
 			ui = new(user, user, id, "pai_signaller.tmpl", "Signaller", 320, 150)
@@ -514,7 +514,7 @@
 
 		else if(href_list["freq"])
 			var/new_frequency = (P.sradio.frequency + text2num(href_list["freq"]))
-			if(new_frequency < 1200 || new_frequency > 1600)
+			if(new_frequency < PUBLIC_LOW_FREQ || new_frequency > PUBLIC_HIGH_FREQ)
 				new_frequency = sanitize_frequency(new_frequency)
 			P.sradio.set_frequency(new_frequency)
 			return 1

@@ -1,15 +1,18 @@
 /obj/structure
 	icon = 'icons/obj/structures.dmi'
+	w_class = 10
 
 	var/climbable
 	var/breakable
 	var/parts
-	var/list/climbers = list()
+	var/list/climbers
 
 /obj/structure/Destroy()
 	if(parts)
 		new parts(loc)
-	..()
+	if (smooth)
+		queue_smooth_neighbors(src)
+	return ..()
 
 /obj/structure/attack_hand(mob/user)
 	if(breakable)
@@ -21,19 +24,12 @@
 			if(H.species.can_shred(user))
 				attack_generic(user,1,"slices")
 
-	if(climbers.len && !(user in climbers))
-		user.visible_message("<span class='warning'>[user.name] shakes \the [src].</span>", \
+	if(LAZYLEN(climbers) && !(user in climbers))
+		user.visible_message("<span class='warning'>[user] shakes \the [src].</span>", \
 					"<span class='notice'>You shake \the [src].</span>")
 		structure_shaken()
 
 	return ..()
-
-/obj/structure/blob_act()
-	if(prob(50))
-		qdel(src)
-
-/obj/structure/meteorhit(obj/O as obj)
-	qdel(src)
 
 /obj/structure/attack_tk()
 	return
@@ -50,16 +46,15 @@
 		if(3.0)
 			return
 
-/obj/structure/meteorhit(obj/O as obj)
-	qdel(src)
-
-/obj/structure/New()
-	..()
+/obj/structure/Initialize(mapload)
+	. = ..()
+	if (!mapload)
+		updateVisibility(src)	// No point checking this before visualnet initializes.
 	if(climbable)
 		verbs += /obj/structure/proc/climb_on
-
-/obj/structure/Destroy()
-	..()
+	if (smooth)
+		queue_smooth(src)
+		queue_smooth_neighbors(src)
 
 /obj/structure/proc/climb_on()
 
@@ -109,27 +104,27 @@
 		return
 
 	usr.visible_message("<span class='warning'>[user] starts climbing onto \the [src]!</span>")
-	climbers |= user
+	LAZYADD(climbers, user)
 
 	if(!do_after(user,50))
-		climbers -= user
+		LAZYREMOVE(climbers, user)
 		return
 
 	if (!can_climb(user, post_climb_check=1))
-		climbers -= user
+		LAZYREMOVE(climbers, user)
 		return
 
 	usr.forceMove(get_turf(src))
 
 	if (get_turf(user) == get_turf(src))
 		usr.visible_message("<span class='warning'>[user] climbs onto \the [src]!</span>")
-	climbers -= user
+	LAZYREMOVE(climbers, user)
 
 /obj/structure/proc/structure_shaken()
 	for(var/mob/living/M in climbers)
 		M.Weaken(1)
 		M << "<span class='danger'>You topple as you are shaken off \the [src]!</span>"
-		climbers.Cut(1,2)
+		LAZYREMOVE(climbers, M)
 
 	for(var/mob/living/M in get_turf(src))
 		if(M.lying) return //No spamming this on people.

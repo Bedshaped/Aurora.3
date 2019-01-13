@@ -9,7 +9,7 @@
 		return
 
 	//add wires
-	if(istype(W, /obj/item/stack/cable_coil))
+	if(iscoil(W))
 		var/obj/item/stack/cable_coil/C = W
 		if (clipped)
 			user << "<span class='notice'>The [src] are too badly mangled for wiring.</span>"
@@ -35,8 +35,7 @@
 		if(!wired)
 			user << "<span class='notice'>The [src] need to be wired first.</span>"
 		else if(!cell)
-			user.drop_item()
-			W.loc = src
+			user.drop_from_inventory(W,src)
 			cell = W
 			w_class = 3.0
 			user << "<span class='notice'>You attach the [cell] to the [src].</span>"
@@ -45,13 +44,13 @@
 			user << "<span class='notice'>A [cell] is already attached to the [src].</span>"
 		return
 
-	else if(istype(W, /obj/item/weapon/wirecutters) || istype(W, /obj/item/weapon/scalpel))
+	else if(iswirecutter(W) || istype(W, /obj/item/weapon/scalpel))
 
 		//stunglove stuff
 		if(cell)
 			cell.update_icon()
 			user << "<span class='notice'>You cut the [cell] away from the [src].</span>"
-			cell.loc = get_turf(src.loc)
+			cell.forceMove(get_turf(src.loc))
 			cell = null
 			w_class = 2.0
 			update_icon()
@@ -63,32 +62,12 @@
 			update_icon()
 			return
 
-		//clipping fingertips
-		if(!clipped)
-			playsound(src.loc, 'sound/items/Wirecutter.ogg', 100, 1)
-			user.visible_message("\red [user] cuts the fingertips off of the [src].","\red You cut the fingertips off of the [src].")
-
-			clipped = 1
-			name = "mangled [name]"
-			desc = "[desc]<br>They have had the fingertips cut off of them."
-			if("exclude" in species_restricted)
-				species_restricted -= "Unathi"
-				species_restricted -= "Tajara"
-				species_restricted -= "Vaurca"
-			return
-		else
-			user << "<span class='notice'>The [src] have already been clipped!</span>"
-			update_icon()
-			return
-
-		return
-
 	..()
 
 /obj/item/clothing/gloves/update_icon()
 	..()
-	overlays.Cut()
+	cut_overlays()
 	if(wired)
-		overlays += "gloves_wire"
+		add_overlay("gloves_wire")
 	if(cell)
-		overlays += "gloves_cell"
+		add_overlay("gloves_cell")

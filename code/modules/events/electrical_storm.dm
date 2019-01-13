@@ -1,10 +1,10 @@
 /datum/event/electrical_storm
 	var/lightsoutAmount	= 1
 	var/lightsoutRange	= 25
-
+	ic_name = "an electrical storm"
 
 /datum/event/electrical_storm/announce()
-	command_announcement.Announce("An electrical storm has been detected in your area, please repair potential electronic overloads.", "Electrical Storm Alert")
+	command_announcement.Announce("An electrical storm has been detected in your area, please repair potential electronic overloads.", "Electrical Storm Alert", new_sound = 'sound/AI/electronicoverload.ogg')
 
 
 /datum/event/electrical_storm/start()

@@ -35,13 +35,13 @@ datum/track/New(var/title_name, var/audio)
 		new/datum/track("Trai`Tor", 'sound/music/traitor.ogg'),
 		new/datum/track("Thunderdome", 'sound/music/THUNDERDOME.ogg'),
 		new/datum/track("Space Oddity", 'sound/music/space_oddity.ogg'),
-		new/datum/track("Space Asshole", 'sound/music/space_asshole.ogg'),
+		new/datum/track("Space Asshole", 'sound/music/space_asshole.ogg')
 	)
 
 
 /obj/machinery/media/jukebox/Destroy()
 	StopPlaying()
-	..()
+	return ..()
 
 /obj/machinery/media/jukebox/power_change()
 	if(!powered(power_channel) || !anchored)
@@ -54,7 +54,7 @@ datum/track/New(var/title_name, var/audio)
 	update_icon()
 
 /obj/machinery/media/jukebox/update_icon()
-	overlays.Cut()
+	cut_overlays()
 	if(stat & (NOPOWER|BROKEN) || !anchored)
 		if(stat & BROKEN)
 			icon_state = "[state_base]-broken"
@@ -64,9 +64,9 @@ datum/track/New(var/title_name, var/audio)
 	icon_state = state_base
 	if(playing)
 		if(emagged)
-			overlays += "[state_base]-emagged"
+			add_overlay("[state_base]-emagged")
 		else
-			overlays += "[state_base]-running"
+			add_overlay("[state_base]-running")
 
 /obj/machinery/media/jukebox/Topic(href, href_list)
 	if(..() || !(Adjacent(usr) || istype(usr, /mob/living/silicon)))
@@ -136,7 +136,7 @@ datum/track/New(var/title_name, var/audio)
 		data["tracks"] = nano_tracks
 
 	// update the ui if it exists, returns null if no ui is passed/found
-	ui = nanomanager.try_update_ui(user, src, ui_key, ui, data, force_open)
+	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data, force_open)
 	if (!ui)
 		// the ui does not exist, so we'll create a new() one
         // for a list of parameters and their descriptions see the code docs in \code\modules\nano\nanoui.dm
@@ -154,13 +154,11 @@ datum/track/New(var/title_name, var/audio)
 
 /obj/machinery/media/jukebox/proc/explode()
 	walk_to(src,0)
-	src.visible_message("<span class='danger'>\the [src] blows apart!</span>", 1)
+	visible_message("<span class='danger'>\the [src] blows apart!</span>")
 
 	explosion(src.loc, 0, 0, 1, rand(1,2), 1)
 
-	var/datum/effect/effect/system/spark_spread/s = new /datum/effect/effect/system/spark_spread
-	s.set_up(3, 1, src)
-	s.start()
+	spark(src, 3, alldirs)
 
 	new /obj/effect/decal/cleanable/blood/oil(src.loc)
 	qdel(src)
@@ -168,7 +166,7 @@ datum/track/New(var/title_name, var/audio)
 /obj/machinery/media/jukebox/attackby(obj/item/W as obj, mob/user as mob)
 	src.add_fingerprint(user)
 
-	if(istype(W, /obj/item/weapon/wrench))
+	if(iswrench(W))
 		if(playing)
 			StopPlaying()
 		user.visible_message("<span class='warning'>[user] has [anchored ? "un" : ""]secured \the [src].</span>", "<span class='notice'>You [anchored ? "un" : ""]secure \the [src].</span>")
@@ -177,16 +175,15 @@ datum/track/New(var/title_name, var/audio)
 		power_change()
 		update_icon()
 		return
-	if(istype(W, /obj/item/weapon/card/emag))
-		if(!emagged)
-			emagged = 1
-			StopPlaying()
-			visible_message("<span class='danger'>\the [src] makes a fizzling sound.</span>")
-			log_and_message_admins("emagged \the [src]")
-			update_icon()
-			return
-
 	return ..()
+
+/obj/machinery/media/jukebox/emag_act(var/remaining_charges, var/mob/user)
+	if(!emagged)
+		emagged = 1
+		StopPlaying()
+		visible_message("<span class='danger'>\The [src] makes a fizzling sound.</span>")
+		update_icon()
+		return 1
 
 /obj/machinery/media/jukebox/proc/StopPlaying()
 	var/area/main_area = get_area(src)

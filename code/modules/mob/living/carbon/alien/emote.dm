@@ -16,7 +16,7 @@
 				return
 			if (src.client)
 				if (client.prefs.muted & MUTE_IC)
-					src << "\red You cannot send IC messages (muted)."
+					src << "<span class='warning'>You cannot send IC messages (muted).</span>"
 					return
 			if (stat)
 				return
@@ -116,13 +116,6 @@
 		else
 			src << text("Invalid Emote: []", act)
 	if ((message && src.stat == 0))
-		log_emote("[name]/[key] : [message]")
-		if (m_type & 1)
-			for(var/mob/O in viewers(src, null))
-				O.show_message(message, m_type)
-				//Foreach goto(703)
-		else
-			for(var/mob/O in hearers(src, null))
-				O.show_message(message, m_type)
-				//Foreach goto(746)
+		log_emote("[name]/[key] : [message]",ckey=key_name(key))
+		send_emote(message, m_type)
 	return

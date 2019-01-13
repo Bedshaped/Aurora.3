@@ -27,44 +27,50 @@
 	var/radio_filter_out
 	var/radio_filter_in
 
+	var/welded = 0
+
 /obj/machinery/atmospherics/unary/vent_scrubber/on
 	use_power = 1
 	icon_state = "map_scrubber_on"
 
-/obj/machinery/atmospherics/unary/vent_scrubber/New()
-	..()
+/obj/machinery/atmospherics/unary/vent_scrubber/Initialize()
+	. = ..()
 	air_contents.volume = ATMOS_DEFAULT_VOLUME_FILTER
 
-	icon = null
 	initial_loc = get_area(loc)
 	area_uid = initial_loc.uid
 	if (!id_tag)
 		assign_uid()
 		id_tag = num2text(uid)
 
+	radio_filter_in = frequency==initial(frequency)?(RADIO_FROM_AIRALARM):null
+	radio_filter_out = frequency==initial(frequency)?(RADIO_TO_AIRALARM):null
+	if (frequency)
+		set_frequency(frequency)
+
+/obj/machinery/atmospherics/unary/vent_scrubber/atmos_init()
+	..()
+	broadcast_status()
+
 /obj/machinery/atmospherics/unary/vent_scrubber/Destroy()
 	unregister_radio(src, frequency)
-	..()
-
+	return ..()
 
 /obj/machinery/atmospherics/unary/vent_scrubber/update_icon(var/safety = 0)
-	if(!check_icon_cache())
-		return
-
-	overlays.Cut()
-
-	var/scrubber_icon = "scrubber"
-
 	var/turf/T = get_turf(src)
 	if(!istype(T))
 		return
 
-	if(!powered())
-		scrubber_icon += "off"
-	else
-		scrubber_icon += "[use_power ? "[scrubbing ? "on" : "in"]" : "off"]"
+	if (welded)
+		icon_state = "weld"
+		return
 
-	overlays += icon_manager.get_atmos_icon("device", , , scrubber_icon)
+	if (!powered() || !use_power)
+		icon_state = "off"
+	else if (scrubbing)
+		icon_state = "on"
+	else
+		icon_state = "in"
 
 /obj/machinery/atmospherics/unary/vent_scrubber/update_underlays()
 	if(..())
@@ -72,7 +78,7 @@
 		var/turf/T = get_turf(src)
 		if(!istype(T))
 			return
-		if(T.intact && node && node.level == 1 && istype(node, /obj/machinery/atmospherics/pipe))
+		if(!T.is_plating() && node && node.level == 1 && istype(node, /obj/machinery/atmospherics/pipe))
 			return
 		else
 			if(node)
@@ -81,9 +87,9 @@
 				add_underlay(T,, dir)
 
 /obj/machinery/atmospherics/unary/vent_scrubber/proc/set_frequency(new_frequency)
-	radio_controller.remove_object(src, frequency)
+	SSradio.remove_object(src, frequency)
 	frequency = new_frequency
-	radio_connection = radio_controller.add_object(src, frequency, radio_filter_in)
+	radio_connection = SSradio.add_object(src, frequency, radio_filter_in)
 
 /obj/machinery/atmospherics/unary/vent_scrubber/proc/broadcast_status()
 	if(!radio_connection)
@@ -107,33 +113,29 @@
 		"filter_n2o" = ("sleeping_agent" in scrubbing_gas),
 		"sigtype" = "status"
 	)
-	if(!initial_loc.air_scrub_names[id_tag])
-		var/new_name = "[initial_loc.name] Air Scrubber #[initial_loc.air_scrub_names.len+1]"
-		initial_loc.air_scrub_names[id_tag] = new_name
+	
+	var/area/A = get_area(src)
+	if(!A.air_scrub_names[id_tag])
+		var/new_name = "[A.name] Air Scrubber #[A.air_scrub_names.len+1]"
+		A.air_scrub_names[id_tag] = new_name
 		src.name = new_name
-	initial_loc.air_scrub_info[id_tag] = signal.data
+	A.air_scrub_info[id_tag] = signal.data
 	radio_connection.post_signal(src, signal, radio_filter_out)
 
 	return 1
 
-/obj/machinery/atmospherics/unary/vent_scrubber/initialize()
-	..()
-	radio_filter_in = frequency==initial(frequency)?(RADIO_FROM_AIRALARM):null
-	radio_filter_out = frequency==initial(frequency)?(RADIO_TO_AIRALARM):null
-	if (frequency)
-		set_frequency(frequency)
-		src.broadcast_status()
-
-/obj/machinery/atmospherics/unary/vent_scrubber/process()
+/obj/machinery/atmospherics/unary/vent_scrubber/machinery_process()
 	..()
 
-	if (hibernate)
+	if (hibernate > world.time)
 		return 1
 
 	if (!node)
 		use_power = 0
 	//broadcast_status()
 	if(!use_power || (stat & (NOPOWER|BROKEN)))
+		return 0
+	if(welded)
 		return 0
 
 	var/datum/gas_mixture/environment = loc.return_air()
@@ -150,11 +152,9 @@
 
 		power_draw = pump_gas(src, environment, air_contents, transfer_moles, power_rating)
 
-	if(scrubbing && power_draw < 0 && controller_iteration > 10)	//99% of all scrubbers
+	if(scrubbing && power_draw <= 0)	//99% of all scrubbers
 		//Fucking hibernate because you ain't doing shit.
-		hibernate = 1
-		spawn(rand(100,200))	//hibernate for 10 or 20 seconds randomly
-			hibernate = 0
+		hibernate = world.time + (rand(100,200))
 
 	if (power_draw >= 0)
 		last_power_draw = power_draw
@@ -238,13 +238,11 @@
 		return
 
 	if(signal.data["status"] != null)
-		spawn(2)
-			broadcast_status()
+		addtimer(CALLBACK(src, .proc/broadcast_status), 2, TIMER_UNIQUE)
 		return //do not update_icon
 
-//			log_admin("DEBUG \[[world.timeofday]\]: vent_scrubber/receive_signal: unknown command \"[signal.data["command"]]\"\n[signal.debug_print()]")
-	spawn(2)
-		broadcast_status()
+//			log_debug("DEBUG \[[world.timeofday]\]: vent_scrubber/receive_signal: unknown command \"[signal.data["command"]]\"\n[signal.debug_print()]")
+	addtimer(CALLBACK(src, .proc/broadcast_status), 2, TIMER_UNIQUE)
 	update_icon()
 	return
 
@@ -255,40 +253,66 @@
 		update_icon()
 
 /obj/machinery/atmospherics/unary/vent_scrubber/attackby(var/obj/item/weapon/W as obj, var/mob/user as mob)
-	if (!istype(W, /obj/item/weapon/wrench))
-		return ..()
-	if (!(stat & NOPOWER) && use_power)
-		user << "\red You cannot unwrench this [src], turn it off first."
+	if (iswrench(W))
+		if (!(stat & NOPOWER) && use_power)
+			user << "<span class='warning'>You cannot unwrench \the [src], turn it off first.</span>"
+			return 1
+		var/turf/T = src.loc
+		if (node && node.level==1 && isturf(T) && !T.is_plating())
+			user << "<span class='warning'>You must remove the plating first.</span>"
+			return 1
+		var/datum/gas_mixture/int_air = return_air()
+		var/datum/gas_mixture/env_air = loc.return_air()
+		if ((int_air.return_pressure()-env_air.return_pressure()) > 2*ONE_ATMOSPHERE)
+			user << "<span class='warning'>You cannot unwrench \the [src], it is too exerted due to internal pressure.</span>"
+			add_fingerprint(user)
+			return 1
+		playsound(src.loc, 'sound/items/Ratchet.ogg', 50, 1)
+		user << "<span class='notice'>You begin to unfasten \the [src]...</span>"
+		if (do_after(user, 40, act_target = src))
+			user.visible_message( \
+				"<span class='notice'>\The [user] unfastens \the [src].</span>", \
+				"<span class='notice'>You have unfastened \the [src].</span>", \
+				"You hear a ratchet.")
+			new /obj/item/pipe(loc, make_from=src)
+			qdel(src)
 		return 1
-	var/turf/T = src.loc
-	if (node && node.level==1 && isturf(T) && T.intact)
-		user << "\red You must remove the plating first."
+
+	if(iswelder(W))
+		var/obj/item/weapon/weldingtool/WT = W
+		if (!WT.welding)
+			user << "<span class='danger'>\The [WT] must be turned on!</span>"
+		else if (WT.remove_fuel(0,user))
+			user << "<span class='notice'>Now welding \the [src].</span>"
+			if(do_after(user, 20, act_target = src))
+				if(!src || !WT.isOn()) return
+				playsound(src.loc, 'sound/items/Welder2.ogg', 50, 1)
+				if(!welded)
+					user.visible_message("<span class='danger'>\The [user] welds \the [src] shut.</span>", "<span class='notice'>You weld \the [src] shut.</span>", "You hear welding.")
+					welded = 1
+					update_icon()
+				else
+					user.visible_message("<span class='danger'>[user] unwelds \the [src].</span>", "<span class='notice'>You unweld \the [src].</span>", "You hear welding.")
+					welded = 0
+					update_icon()
+			else
+				user << "<span class='notice'>You fail to complete the welding.</span>"
+		else
+			user << "<span class='warning'>You need more welding fuel to complete this task.</span>"
 		return 1
-	var/datum/gas_mixture/int_air = return_air()
-	var/datum/gas_mixture/env_air = loc.return_air()
-	if ((int_air.return_pressure()-env_air.return_pressure()) > 2*ONE_ATMOSPHERE)
-		user << "\red You cannot unwrench this [src], it too exerted due to internal pressure."
-		add_fingerprint(user)
-		return 1
-	playsound(src.loc, 'sound/items/Ratchet.ogg', 50, 1)
-	user << "\blue You begin to unfasten \the [src]..."
-	if (do_after(user, 40))
-		user.visible_message( \
-			"[user] unfastens \the [src].", \
-			"\blue You have unfastened \the [src].", \
-			"You hear ratchet.")
-		new /obj/item/pipe(loc, make_from=src)
-		qdel(src)
+	return ..()
 
 /obj/machinery/atmospherics/unary/vent_scrubber/examine(mob/user)
 	if(..(user, 1))
 		user << "A small gauge in the corner reads [round(last_flow_rate, 0.1)] L/s; [round(last_power_draw)] W"
 	else
 		user << "You are too far away to read the gauge."
+	if(welded)
+		user << "It seems welded shut."
 
 /obj/machinery/atmospherics/unary/vent_scrubber/Destroy()
 	if(initial_loc)
 		initial_loc.air_scrub_info -= id_tag
 		initial_loc.air_scrub_names -= id_tag
-	..()
-	return
+	
+	return ..()

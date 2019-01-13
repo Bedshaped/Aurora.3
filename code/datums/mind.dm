@@ -33,7 +33,7 @@
 	var/key
 	var/name				//replaces mob/var/original_name
 	var/mob/living/current
-	var/mob/living/original	//TODO: remove.not used in any meaningful way ~Carn. First I'll need to tweak the way silicon-mobs handle minds.
+	var/mob/living/original	//This is being used now, don't remove it
 	var/active = 0
 
 	var/mob/living/admin_mob_placeholder = null
@@ -62,12 +62,26 @@
 	// the world.time since the mob has been brigged, or -1 if not at all
 	var/brigged_since = -1
 
+	// Custom signature data.
+	var/signature
+	var/signfont
+
 	//put this here for easier tracking ingame
 	var/datum/money_account/initial_account
 
+	var/ambitions
+
 /datum/mind/New(var/key)
 	src.key = key
+	..()
 
+/datum/mind/proc/handle_mob_deletion(mob/living/deleted_mob)
+	if (current == deleted_mob)
+		current.spellremove()
+		current = null
+
+	if (original == deleted_mob)
+		original = null
 
 /datum/mind/proc/transfer_to(mob/living/new_character)
 	if(!istype(new_character))
@@ -80,7 +94,12 @@
 			current.remove_vampire_powers()
 		current.mind = null
 
-		nanomanager.user_transferred(current, new_character) // transfer active NanoUI instances to new user
+		SSnanoui.user_transferred(current, new_character) // transfer active NanoUI instances to new user
+		SSvueui.user_transferred(current, new_character)
+		if(current.client && ticket_panels[current.client])
+			var/datum/ticket_panel/tp = ticket_panels[current.client]
+			tp.ticket_panel_window.user = new_character
+
 	if(new_character.mind)		//remove any mind currently in our new body's mind variable
 		new_character.mind.current = null
 
@@ -101,6 +120,9 @@
 	var/output = "<B>[current.real_name]'s Memory</B><HR>"
 	output += memory
 
+	if(ambitions)
+		output += "<HR><B>Ambitions:</B> [ambitions]<br>"
+
 	if(objectives.len>0)
 		output += "<HR><B>Objectives:</B>"
 
@@ -112,7 +134,7 @@
 	recipient << browse(output,"window=memory")
 
 /datum/mind/proc/edit_memory()
-	if(!ticker || !ticker.mode)
+	if(!ROUND_IS_STARTED)
 		alert("Not before round-start!", "Alert")
 		return
 
@@ -143,6 +165,7 @@
 	else
 		out += "None."
 	out += "<br><a href='?src=\ref[src];obj_add=1'>\[add\]</a>"
+	out += "<b>Ambitions:</b> [ambitions ? ambitions : "None"] <a href='?src=\ref[src];amb_edit=\ref[src]'>\[edit\]</a></br>"
 	usr << browse(out, "window=edit_memory[src]")
 
 /datum/mind/Topic(href, href_list)
@@ -152,7 +175,7 @@
 		var/datum/antagonist/antag = all_antag_types[href_list["add_antagonist"]]
 		if(antag)
 			if(antag.add_antagonist(src, 1, 1, 0, 1, 1)) // Ignore equipment and role type for this.
-				log_admin("[key_name_admin(usr)] made [key_name(src)] into a [antag.role_text].")
+				log_admin("[key_name_admin(usr)] made [key_name(src, highlight_special = 1)] into a [antag.role_text].",admin_key=key_name(usr),ckey=key_name(src))
 			else
 				usr << "<span class='warning'>[src] could not be made into a [antag.role_text]!</span>"
 
@@ -181,6 +204,13 @@
 		var/new_memo = sanitize(input("Write new memory", "Memory", memory) as null|message)
 		if (isnull(new_memo)) return
 		memory = new_memo
+
+	else if (href_list["amb_edit"])
+		var/new_ambition = input("Enter a new ambition", "Memory",src.ambitions) as null|message
+		if(isnull(new_ambition))
+			return
+		src.ambitions = sanitize(new_ambition)
+		src.current << "<span class='warning'>Your ambitions have been changed by higher powers, they are now: [src.ambitions]</span>"
 
 	else if (href_list["obj_edit"] || href_list["obj_add"])
 		var/datum/objective/objective
@@ -211,7 +241,7 @@
 				var/objective_type = "[objective_type_capital][objective_type_text]"//Add them together into a text string.
 
 				var/list/possible_targets = list("Free objective")
-				for(var/datum/mind/possible_target in ticker.minds)
+				for(var/datum/mind/possible_target in SSticker.minds)
 					if ((possible_target != src) && istype(possible_target.current, /mob/living/carbon/human))
 						possible_targets += possible_target.current
 
@@ -325,12 +355,12 @@
 						if(I in organs.implants)
 							qdel(I)
 							break
-				H << "<span class='notice'><font size =3><B>Your loyalty implant has been deactivated.</font></span>"
-				log_admin("[key_name_admin(usr)] has de-loyalty implanted [current].")
+				H << "<span class='notice'><font size =3><B>Your loyalty implant has been deactivated.</B></font></span>"
+				log_admin("[key_name_admin(usr)] has de-loyalty implanted [current].",admin_key=key_name(usr),ckey=key_name(usr))
 			if("add")
-				H << "<span class='danger'><font size =3>You somehow have become the recepient of a loyalty transplant, and it just activated!</font>"
+				H << "<span class='danger'><font size =3>You somehow have become the recepient of a loyalty transplant, and it just activated!</font></span>"
 				H.implant_loyalty(H, override = TRUE)
-				log_admin("[key_name_admin(usr)] has loyalty implanted [current].")
+				log_admin("[key_name_admin(usr)] has loyalty implanted [current].",admin_key=key_name(usr),ckey=key_name(usr))
 			else
 	else if (href_list["silicon"])
 		BITSET(current.hud_updateflag, SPECIALROLE_HUD)
@@ -351,7 +381,7 @@
 					else if(R.module_state_3 == R.module.emag)
 						R.module_state_3 = null
 						R.contents -= R.module.emag
-					log_admin("[key_name_admin(usr)] has unemag'ed [R].")
+					log_admin("[key_name_admin(usr)] has unemag'ed [R].",admin_key=key_name(usr),ckey_target=key_name(R))
 
 			if("unemagcyborgs")
 				if (istype(current, /mob/living/silicon/ai))
@@ -370,7 +400,7 @@
 							else if(R.module_state_3 == R.module.emag)
 								R.module_state_3 = null
 								R.contents -= R.module.emag
-					log_admin("[key_name_admin(usr)] has unemag'ed [ai]'s Cyborgs.")
+					log_admin("[key_name_admin(usr)] has unemag'ed [ai]'s Cyborgs.",admin_key=key_name(usr),ckey_target=key_name(ai))
 
 	else if (href_list["common"])
 		switch(href_list["common"])
@@ -393,7 +423,7 @@
 
 	else if (href_list["obj_announce"])
 		var/obj_count = 1
-		current << "\blue Your current objectives:"
+		current << "<span class='notice'>Your current objectives:</span>"
 		for(var/datum/objective/objective in objectives)
 			current << "<B>Objective #[obj_count]</B>: [objective.explanation_text]"
 			obj_count++
@@ -471,11 +501,13 @@
 	else
 		mind = new /datum/mind(key)
 		mind.original = src
-		if(ticker)
-			ticker.minds += mind
-		else
-			world.log << "## DEBUG: mind_initialize(): No ticker ready yet! Please inform Carn"
+		SSticker.minds += mind
 	if(!mind.name)	mind.name = real_name
+	if (client)
+		if (client.prefs.signature)
+			mind.signature = client.prefs.signature
+		if (client.prefs.signfont)
+			mind.signfont = client.prefs.signfont
 	mind.current = src
 
 //HUMAN
@@ -509,14 +541,6 @@
 	mind.special_role = ""
 
 //Animals
-/mob/living/simple_animal/mind_initialize()
-	..()
-	mind.assigned_role = "Animal"
-
-/mob/living/simple_animal/corgi/mind_initialize()
-	..()
-	mind.assigned_role = "Corgi"
-
 /mob/living/simple_animal/shade/mind_initialize()
 	..()
 	mind.assigned_role = "Shade"
@@ -535,3 +559,25 @@
 	..()
 	mind.assigned_role = "Juggernaut"
 	mind.special_role = "Cultist"
+
+/mob/living/carbon/human/voxarmalis/mind_initialize()
+	..()
+	mind.assigned_role = "Armalis"
+	mind.special_role = "Vox Raider"
+
+/mob/living/silicon/robot/syndicate/mind_initialize()
+	..()
+	mind.assigned_role = "Syndicate Robot"
+	mind.special_role = "Mercenary"
+
+/mob/living/simple_animal/hostile/faithless/wizard/mind_initialize()
+	..()
+	mind.assigned_role = "Space Wizard"
+
+/mob/living/simple_animal/familiar/mind_initialize()
+	..()
+	mind.assigned_role = "Familiar"
+
+/mob/living/simple_animal/mouse/familiar/familiar/mind_initialize()
+	..()
+	mind.assigned_role = "Familiar"

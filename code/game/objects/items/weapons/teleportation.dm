@@ -21,8 +21,8 @@
 	item_state = "electronic"
 	throw_speed = 4
 	throw_range = 20
+	origin_tech = list(TECH_MAGNET = 1)
 	matter = list(DEFAULT_WALL_MATERIAL = 400)
-	origin_tech = "magnets=1"
 
 /obj/item/weapon/locator/attack_self(mob/user as mob)
 	user.set_machine(src)
@@ -48,7 +48,7 @@ Frequency:
 	if (usr.stat || usr.restrained())
 		return
 	var/turf/current_location = get_turf(usr)//What turf is the user on?
-	if(!current_location||current_location.z==2)//If turf was not found or they're on z level 2.
+	if(!current_location||current_location.z==1)//If turf was not found or they're on z level 1.
 		usr << "The [src] is malfunctioning."
 		return
 	if ((usr.contents.Find(src) || (in_range(src, usr) && istype(src.loc, /turf))))
@@ -60,7 +60,7 @@ Frequency:
 			if (sr)
 				src.temp += "<B>Located Beacons:</B><BR>"
 
-				for(var/obj/item/device/radio/beacon/W in world)
+				for(var/obj/item/device/radio/beacon/W in teleportbeacons)
 					if (W.frequency == src.frequency)
 						var/turf/tr = get_turf(W)
 						if (tr.z == sr.z && tr)
@@ -78,7 +78,7 @@ Frequency:
 							src.temp += "[W.code]-[dir2text(get_dir(sr, tr))]-[direct]<BR>"
 
 				src.temp += "<B>Extranneous Signals:</B><BR>"
-				for (var/obj/item/weapon/implant/tracking/W in world)
+				for (var/obj/item/weapon/implant/tracking/W in implants)
 					if (!W.implanted || !(istype(W.loc,/obj/item/organ/external) || ismob(W.loc)))
 						continue
 					else
@@ -132,8 +132,8 @@ Frequency:
 	w_class = 2.0
 	throw_speed = 3
 	throw_range = 5
+	origin_tech = list(TECH_MAGNET = 1, TECH_BLUESPACE = 3)
 	matter = list(DEFAULT_WALL_MATERIAL = 10000)
-	origin_tech = "magnets=1;bluespace=3"
 
 /obj/item/weapon/hand_tele/attack_self(mob/user as mob)
 	var/turf/current_location = get_turf(user)//What turf is the user on?
@@ -141,7 +141,7 @@ Frequency:
 		user << "<span class='notice'>\The [src] is malfunctioning.</span>"
 		return
 	var/list/L = list(  )
-	for(var/obj/machinery/teleport/hub/R in world)
+	for(var/obj/machinery/teleport/hub/R in SSmachinery.all_machines)
 		var/obj/machinery/computer/teleporter/com = locate(/obj/machinery/computer/teleporter, locate(R.x - 2, R.y, R.z))
 		if (istype(com, /obj/machinery/computer/teleporter) && com.locked && !com.one_time_use)
 			if(R.icon_state == "tele1")
@@ -149,10 +149,28 @@ Frequency:
 			else
 				L["[com.id] (Inactive)"] = com.locked
 	var/list/turfs = list(	)
+
 	for(var/turf/T in orange(10))
-		if(T.x>world.maxx-8 || T.x<8)	continue	//putting them at the edge is dumb
-		if(T.y>world.maxy-8 || T.y<8)	continue
+		if(T.x>world.maxx-8 || T.x<8)
+			continue	//putting them at the edge is dumb
+
+		if(T.y>world.maxy-8 || T.y<8)
+			continue
+
+		if(T.density)
+			continue
+
+		var/breakcheck = 0
+		for(var/atom/movable/A in T)
+			if(A.density && A.opacity && A.anchored)
+				breakcheck = 1
+				break
+
+		if(breakcheck)
+			continue
+
 		turfs += T
+
 	if(turfs.len)
 		L["None (Dangerous)"] = pick(turfs)
 	var/t1 = input(user, "Please select a teleporter to lock in on.", "Hand Teleporter") in L

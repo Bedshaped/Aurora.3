@@ -18,24 +18,24 @@
 
 /datum/objective/competition/find_target(var/require_synth = 0)
 	var/list/possible_targets = list()
-	for(var/datum/mind/possible_target in ticker.minds)
+	for(var/datum/mind/possible_target in SSticker.minds)
 		if(possible_target != owner && ishuman(possible_target.current) && (possible_target.current.stat != 2))
 			if (require_synth)
-				if (possible_target.current.get_species() == "Machine")
+				if (isipc(possible_target.current))
 					possible_targets += possible_target
 			else
-				if (possible_target.current.get_species() == "Machine")
+				if (isipc(possible_target.current))
 					continue
 				possible_targets += possible_target
 	if(possible_targets.len > 0)
 		target = pick(possible_targets)
 
 /datum/objective/competition/find_target_by_role(role, role_type = 0, var/require_synth = 0)
-	for(var/datum/mind/possible_target in ticker.minds)
+	for(var/datum/mind/possible_target in SSticker.minds)
 		if((possible_target != owner) && ishuman(possible_target.current) && ((role_type ? possible_target.special_role : possible_target.assigned_role) == role))
-			if (require_synth && possible_target.current.get_species() != "Machine")
+			if (require_synth && !(isipc(possible_target.current)))
 				continue
-			if (!require_synth && possible_target.current.get_species() == "Machine")
+			if (!require_synth && !(isipc(possible_target.current)))
 				continue
 			target = possible_target
 			break
@@ -54,16 +54,32 @@
 		error("Unable to establish database connection while logging objective results!")
 		return
 
-	var/DBQuery/get_query = dbcon.NewQuery("SELECT contest_faction FROM ss13_contest_participants WHERE player_ckey = :ckey AND character_id = :char_id")
-	get_query.Execute(list(":ckey" = owner.current.client.ckey, ":char_id" = owner.current.client.prefs.current_character))
+	var/DBQuery/get_query = dbcon.NewQuery("SELECT contest_faction FROM ss13_contest_participants WHERE player_ckey = :ckey: AND character_id = :char_id:")
+	get_query.Execute(list("ckey" = owner.current.client.ckey, "char_id" = owner.current.client.prefs.current_character))
 
-	var/params[] = list(":ckey" = owner.current.client.ckey, ":char_id" = owner.current.client.prefs.current_character, ":char_faction" = INDEP, ":obj_type" = type_name, ":obj_side" = side, ":obj_outcome" = completed)
+	var/params[] = list("ckey" = owner.current.client.ckey, "char_id" = owner.current.client.prefs.current_character, "char_faction" = INDEP, "obj_type" = type_name, "obj_side" = side, "obj_outcome" = completed)
 
-	var/list/faction_data = contest_faction_data(get_query.item[1])
-	params[":char_faction"] = faction_data[1]
+	if (get_query.NextRow())
+		var/list/faction_data = contest_faction_data(get_query.item[1])
+		params["char_faction"] = faction_data[1]
 
-	var/DBQuery/log_query = dbcon.NewQuery("INSERT INTO ss13_contest_reports (id, player_ckey, character_id, character_faction, objective_type, objective_side, objective_outcome, objective_datetime) VALUES (NULL, :ckey, :char_id, :char_faction, :obj_type, :obj_side, :obj_outcome, NOW())")
+	var/DBQuery/log_query = dbcon.NewQuery("INSERT INTO ss13_contest_reports (id, player_ckey, character_id, character_faction, objective_type, objective_side, objective_outcome, objective_datetime) VALUES (NULL, :ckey:, :char_id:, :char_faction:, :obj_type:, :obj_side:, :obj_outcome:, NOW())")
 	log_query.Execute(params)
+
+	if (log_query.ErrorMsg())
+		log_debug("CONTEST: Error uploading results. Datadump: [list2params(params)]")
+
+/*
+ * One flippy objective.
+ */
+/datum/objective/competition/assassinate_supporter/find_target()
+	var/list/possible_targets = list()
+	for(var/datum/mind/possible_target in SSticker.minds)
+		if(possible_target != owner && ishuman(possible_target.current) && (possible_target.current.stat != 2))
+			if (possible_target.current.client && possible_target.current.client.prefs && possible_target.current.client.prefs.antag_contest_side != side)
+				possible_targets += possible_target
+	if(possible_targets.len > 0)
+		target = pick(possible_targets)
 
 /*
  * Pro-synth objectives
@@ -161,6 +177,9 @@
 
 	return ..()
 
+/datum/objective/competition/pro_synth/protect
+	type_name = "pro_synth/protect"
+
 /datum/objective/competition/pro_synth/protect/find_target()
 	..(1)
 	if (target && target.current)
@@ -244,6 +263,9 @@
 			completed = 0
 
 	return ..()
+
+/datum/objective/competition/anti_synth/demote
+	type_name = "anti_synth/demote"
 
 /datum/objective/competition/anti_synth/demote/find_target()
 	..(1)

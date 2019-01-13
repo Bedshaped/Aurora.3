@@ -51,7 +51,6 @@ var/list/event_last_fired = list()
 	// Code/WorkInProgress/Cael_Aislinn/Economy/Economy_Events_Mundane.dm
 
 	possibleEvents[/datum/event/economic_event] = 300
-	possibleEvents[/datum/event/trivial_news] = 400
 	possibleEvents[/datum/event/mundane_news] = 300
 
 	possibleEvents[/datum/event/pda_spam] = max(min(25, player_list.len) * 4, 200)
@@ -76,7 +75,6 @@ var/list/event_last_fired = list()
 		possibleEvents[/datum/event/spacevine] = 10 + 5 * active_with_role["Engineer"]
 	if(minutes_passed >= 30) // Give engineers time to set up engine
 		possibleEvents[/datum/event/meteor_wave] = 10 * active_with_role["Engineer"]
-		possibleEvents[/datum/event/meteor_shower] = 20 * active_with_role["Engineer"]
 		possibleEvents[/datum/event/blob] = 10 * active_with_role["Engineer"]
 
 	if(active_with_role["Medical"] > 0)
@@ -142,7 +140,7 @@ var/list/event_last_fired = list()
 		if("Meteor")
 			command_alert("Meteors have been detected on collision course with the station.", "Meteor Alert")
 			for(var/mob/M in player_list)
-				if(!istype(M,/mob/new_player))
+				if(!istype(M,/mob/abstract/new_player))
 					M << sound('sound/AI/meteors.ogg')
 			spawn(100)
 				meteor_wave(10)

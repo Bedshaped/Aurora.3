@@ -4,12 +4,33 @@
 	icon_state = "cabinet_closed"
 	icon_closed = "cabinet_closed"
 	icon_opened = "cabinet_open"
+	storage_capacity = 45 //such a big closet deserves a little more capacity
 
 /obj/structure/closet/cabinet/update_icon()
 	if(!opened)
 		icon_state = icon_closed
 	else
 		icon_state = icon_opened
+
+/obj/structure/closet/cabinet/attackby(obj/item/weapon/W as obj, mob/user as mob)
+	if(opened)
+		if(istype(W, /obj/item/weapon/grab))
+			var/obj/item/weapon/grab/G = W
+			MouseDrop_T(G.affecting, user)      //act like they were dragged onto the closet
+			return 0
+		if(istype(W,/obj/item/tk_grab))
+			return 0
+		if(!dropsafety(W))
+			return
+		if(W)
+			user.drop_from_inventory(W,loc)
+		else
+			user.drop_item()
+	else if(istype(W, /obj/item/weapon/packageWrap))
+		return
+	else
+		attack_hand(user)
+	return
 
 /obj/structure/closet/acloset
 	name = "strange closet"
@@ -34,8 +55,7 @@
 	icon_closed = "syndicate1"
 	icon_opened = "syndicate1open"
 
-/obj/structure/closet/gimmick/russian/New()
-	..()
+/obj/structure/closet/gimmick/russian/fill()
 	new /obj/item/clothing/head/ushanka(src)
 	new /obj/item/clothing/head/ushanka(src)
 	new /obj/item/clothing/head/ushanka(src)
@@ -55,8 +75,7 @@
 	icon_closed = "syndicate1"
 	icon_opened = "syndicate1open"
 
-/obj/structure/closet/gimmick/tacticool/New()
-	..()
+/obj/structure/closet/gimmick/tacticool/fill()
 	new /obj/item/clothing/glasses/eyepatch(src)
 	new /obj/item/clothing/glasses/sunglasses(src)
 	new /obj/item/clothing/gloves/swat(src)
@@ -81,14 +100,10 @@
 	icon_opened = "syndicateopen"
 	anchored = 1
 
-/obj/structure/closet/thunderdome/New()
-	..()
-
 /obj/structure/closet/thunderdome/tdred
 	name = "red-team Thunderdome closet"
 
-/obj/structure/closet/thunderdome/tdred/New()
-	..()
+/obj/structure/closet/thunderdome/tdred/fill()
 	new /obj/item/clothing/suit/armor/tdome/red(src)
 	new /obj/item/clothing/suit/armor/tdome/red(src)
 	new /obj/item/clothing/suit/armor/tdome/red(src)
@@ -114,8 +129,7 @@
 	icon_closed = "syndicate1"
 	icon_opened = "syndicate1open"
 
-/obj/structure/closet/thunderdome/tdgreen/New()
-	..()
+/obj/structure/closet/thunderdome/tdgreen/fill()
 	new /obj/item/clothing/suit/armor/tdome/green(src)
 	new /obj/item/clothing/suit/armor/tdome/green(src)
 	new /obj/item/clothing/suit/armor/tdome/green(src)

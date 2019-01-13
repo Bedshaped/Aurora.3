@@ -45,10 +45,12 @@
 		else if(loaded_dna)
 			visible_message("<span class='notice'>The printer injects the stored DNA into the biomass.</span>.")
 			O.transplant_data = list()
-			var/mob/living/carbon/C = loaded_dna["donor"]
-			O.transplant_data["species"] =    C.species.name
-			O.transplant_data["blood_type"] = loaded_dna["blood_type"]
-			O.transplant_data["blood_DNA"] =  loaded_dna["blood_DNA"]
+			var/datum/weakref/W = loaded_dna["donor"]
+			var/mob/living/carbon/C = W.resolve()
+			if (C)
+				O.transplant_data["species"] =    C.species.name
+				O.transplant_data["blood_type"] = loaded_dna["blood_type"]
+				O.transplant_data["blood_DNA"] =  loaded_dna["blood_DNA"]
 
 		visible_message("<span class='info'>The bioprinter spits out a new organ.</span>")
 
@@ -68,7 +70,7 @@
 	// Meat for biomass.
 	if(!prints_prosthetics && istype(W, /obj/item/weapon/reagent_containers/food/snacks/meat))
 		stored_matter += 50
-		user.drop_item()
+		user.drop_from_inventory(W,src)
 		user << "<span class='info'>\The [src] processes \the [W]. Levels of stored biomass now: [stored_matter]</span>"
 		qdel(W)
 		return
@@ -76,9 +78,9 @@
 	if(prints_prosthetics && istype(W, /obj/item/stack/material) && W.get_material_name() == DEFAULT_WALL_MATERIAL)
 		var/obj/item/stack/S = W
 		stored_matter += S.amount * 10
-		user.drop_item()
+		user.drop_from_inventory(W,src)
 		user << "<span class='info'>\The [src] processes \the [W]. Levels of stored matter now: [stored_matter]</span>"
 		qdel(W)
 		return
-	
+
 	return..()

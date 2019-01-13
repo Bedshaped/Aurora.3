@@ -3,6 +3,7 @@
 	name = "Gygax"
 	icon_state = "gygax"
 	initial_icon = "gygax"
+	w_class = 15
 	step_in = 3
 	dir_in = 1 //Facing North.
 	health = 300
@@ -14,10 +15,9 @@
 	var/overload_coeff = 2
 	wreckage = /obj/effect/decal/mecha_wreckage/gygax
 	internal_damage_threshold = 35
-	max_equip = 3
 
 /obj/mecha/combat/gygax/dark
-	desc = "A lightweight exosuit used by NanoTrasen Heavy Asset Protection. A significantly upgraded Gygax security mech."
+	desc = "A lightweight exosuit used by Heavy Asset Protection. A significantly upgraded Gygax security mech."
 	name = "Dark Gygax"
 	icon_state = "darkgygax"
 	initial_icon = "darkgygax"
@@ -27,11 +27,10 @@
 	max_temperature = 45000
 	overload_coeff = 1
 	wreckage = /obj/effect/decal/mecha_wreckage/gygax/dark
-	max_equip = 4
 	step_energy_drain = 5
 
-/obj/mecha/combat/gygax/dark/New()
-	..()
+/obj/mecha/combat/gygax/dark/Initialize()
+	.= ..()
 	var/obj/item/mecha_parts/mecha_equipment/ME = new /obj/item/mecha_parts/mecha_equipment/weapon/ballistic/scattershot
 	ME.attach(src)
 	ME = new /obj/item/mecha_parts/mecha_equipment/weapon/ballistic/missile_rack/flashbang/clusterbang
@@ -40,17 +39,12 @@
 	ME.attach(src)
 	ME = new /obj/item/mecha_parts/mecha_equipment/tesla_energy_relay
 	ME.attach(src)
+	ME = new /obj/item/mecha_parts/mecha_equipment/repair_droid
+	ME.attach(src)
 	return
 
-/obj/mecha/combat/gygax/dark/add_cell(var/obj/item/weapon/cell/C=null)
-	if(C)
-		C.forceMove(src)
-		cell = C
-		return
-	cell = new(src)
-	cell.charge = 30000
-	cell.maxcharge = 30000
-
+/obj/mecha/combat/gygax/dark/add_cell()
+	cell = new /obj/item/weapon/cell/hyper(src)
 
 /obj/mecha/combat/gygax/verb/overload()
 	set category = "Exosuit Interface"
@@ -72,7 +66,7 @@
 	src.log_message("Toggled leg actuators overload.")
 	return
 
-/obj/mecha/combat/gygax/dyndomove(direction)
+/obj/mecha/combat/gygax/do_move(direction)
 	if(!..()) return
 	if(overload)
 		health--

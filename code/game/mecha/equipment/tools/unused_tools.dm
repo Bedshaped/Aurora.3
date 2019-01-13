@@ -68,7 +68,7 @@
 			if(chassis.occupant)
 				for(var/obj/effect/speech_bubble/B in range(1, chassis))
 					if(B.parent == chassis.occupant)
-						B.loc = chassis.loc
+						B.forceMove(chassis.loc)
 		if(move_result)
 			wait = 1
 			chassis.use_power(energy_drain)
@@ -84,8 +84,6 @@
 		if(equip_ready || wait)
 			return 0
 		if(energy_drain && !chassis.has_charge(energy_drain))
-			return 0
-		if(crit_fail)
 			return 0
 		if(chassis.check_for_support())
 			return 0

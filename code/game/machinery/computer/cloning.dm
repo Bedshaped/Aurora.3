@@ -1,9 +1,10 @@
 /obj/machinery/computer/cloning
 	name = "cloning control console"
 	icon = 'icons/obj/computer.dmi'
-	icon_state = "dna"
+
+	icon_screen = "dna"
 	light_color = "#315ab4"
-	circuit = "/obj/item/weapon/circuitboard/cloning"
+	circuit = /obj/item/weapon/circuitboard/cloning
 	req_access = list(access_heads) //Only used for record deletion right now.
 	var/obj/machinery/dna_scannernew/scanner = null //Linked scanner. For scanning.
 	var/list/pods = list() //Linked cloning pods.
@@ -15,13 +16,14 @@
 	var/obj/item/weapon/disk/data/diskette = null //Mostly so the geneticist can steal everything.
 	var/loading = 0 // Nice loading text
 
-/obj/machinery/computer/cloning/initialize()
-	..()
+/obj/machinery/computer/cloning/Initialize()
+	. = ..()
+	set_expansion(/datum/expansion/multitool, new/datum/expansion/multitool/cryo(src, list(/proc/is_operable)))
 	updatemodules()
 
 /obj/machinery/computer/cloning/Destroy()
 	releasecloner()
-	..()
+	return ..()
 
 /obj/machinery/computer/cloning/proc/updatemodules()
 	src.scanner = findscanner()
@@ -40,7 +42,7 @@
 	//Then look for a free one in the area
 	if(!scannerf)
 		var/area/A = get_area(src)
-		for(var/obj/machinery/dna_scannernew/S in A.get_contents())
+		for(var/obj/machinery/dna_scannernew/S in A)
 			return S
 
 	return
@@ -51,10 +53,37 @@
 		P.name = initial(P.name)
 	pods.Cut()
 
+/obj/machinery/computer/cloning/proc/connect_pod(var/obj/machinery/clonepod/P)
+	if(P in pods)
+		return 0
+
+	if(P.connected)
+		P.connected.release_pod(P)
+	P.connected = src
+	pods += P
+	rename_pods()
+
+	return 1
+
+/obj/machinery/computer/cloning/proc/release_pod(var/obj/machinery/clonepod/P)
+	if(!(P in pods))
+		return
+
+	P.connected = null
+	P.name = initial(P.name)
+	pods -= P
+	rename_pods()
+	return 1
+
+/obj/machinery/computer/cloning/proc/rename_pods()
+	for(var/i = 1 to pods.len)
+		var/atom/P = pods[i]
+		P.name = "[initial(P.name)] #[i]"
+
 /obj/machinery/computer/cloning/proc/findcloner()
 	var/num = 1
 	var/area/A = get_area(src)
-	for(var/obj/machinery/clonepod/P in A.get_contents())
+	for(var/obj/machinery/clonepod/P in A)
 		if(!P.connected)
 			pods += P
 			P.connected = src
@@ -63,20 +92,11 @@
 /obj/machinery/computer/cloning/attackby(obj/item/W as obj, mob/user as mob)
 	if (istype(W, /obj/item/weapon/disk/data)) //INSERT SOME DISKETTES
 		if (!src.diskette)
-			user.drop_item()
-			W.loc = src
+			user.drop_from_inventory(W,src)
 			src.diskette = W
 			user << "You insert [W]."
 			src.updateUsrDialog()
 			return
-	else if(istype(W, /obj/item/device/multitool))
-		var/obj/item/device/multitool/M = W
-		var/obj/machinery/clonepod/P = M.connecting
-		if(P && !(P in pods))
-			pods += P
-			P.connected = src
-			P.name = "[initial(P.name)] #[pods.len]"
-			user << "<span class='notice'>You connect [P] to [src].</span>"
 	else
 		..()
 	return
@@ -272,7 +292,7 @@
 				src.temp = "Load successful."
 			if("eject")
 				if (!isnull(src.diskette))
-					src.diskette.loc = src.loc
+					src.diskette.forceMove(src.loc)
 					src.diskette = null
 
 	else if (href_list["save_disk"]) //Save to disk!
@@ -329,6 +349,7 @@
 					var/answer = alert(selected,"Do you want to return to life?","Cloning","Yes","No")
 					if(answer != "No" && pod.growclone(C))
 						temp = "Initiating cloning cycle..."
+						playsound(src.loc, 'sound/machines/medbayscanner1.ogg', 100, 1)
 						records.Remove(C)
 						qdel(C)
 						menu = 1
@@ -356,9 +377,6 @@
 				scantemp = "Error: No signs of intelligence detected."
 		else
 			scantemp = "Error: No signs of intelligence detected."
-		return
-	if (subject.suiciding == 1)
-		scantemp = "Error: Subject's brain is not responding to scanning stimuli."
 		return
 	if ((!subject.ckey) || (!subject.client))
 		scantemp = "Error: Mental interface failure."
@@ -408,15 +426,3 @@
 			selected_record = R
 			break
 	return selected_record
-
-/obj/machinery/computer/cloning/update_icon()
-
-	if(stat & BROKEN)
-		icon_state = "commb"
-	else
-		if(stat & NOPOWER)
-			src.icon_state = "c_unpowered"
-			stat |= NOPOWER
-		else
-			icon_state = initial(icon_state)
-			stat &= ~NOPOWER

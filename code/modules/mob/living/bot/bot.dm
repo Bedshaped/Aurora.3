@@ -19,8 +19,8 @@
 	var/list/req_one_access = list()
 	var/master_access = access_robotics
 
-/mob/living/bot/New()
-	..()
+/mob/living/bot/Initialize()
+	. = ..()
 	update_icons()
 
 	botcard = new /obj/item/weapon/card/id(src)
@@ -30,6 +30,11 @@
 	access_scanner.req_access = req_access.Copy()
 	access_scanner.req_one_access = req_one_access.Copy()
 
+/mob/living/bot/Destroy()
+	QDEL_NULL(botcard)
+	QDEL_NULL(access_scanner)
+	return ..()
+
 /mob/living/bot/Life()
 	..()
 	if(health <= 0)
@@ -38,7 +43,6 @@
 	weakened = 0
 	stunned = 0
 	paralysis = 0
-	update_canmove()
 
 /mob/living/bot/updatehealth()
 	if(status_flags & GODMODE)
@@ -61,6 +65,14 @@
 	else
 		return 0
 
+/mob/living/bot/proc/has_ui_access(mob/user)
+	if (access_scanner.allowed(user))
+		return 1
+	if (!locked)
+		return 1
+	if (isAI(user))
+		return 1
+	return 0
 
 /mob/living/bot/attackby(var/obj/item/O, var/mob/user)
 	if(O.GetID())
@@ -75,14 +87,14 @@
 			else
 				user << "<span class='warning'>Access denied.</span>"
 		return
-	else if(istype(O, /obj/item/weapon/screwdriver))
+	else if(isscrewdriver(O))
 		if(!locked)
 			open = !open
 			user << "<span class='notice'>Maintenance panel is now [open ? "opened" : "closed"].</span>"
 		else
 			user << "<span class='notice'>You need to unlock the controls first.</span>"
 		return
-	else if(istype(O, /obj/item/weapon/weldingtool))
+	else if(iswelder(O))
 		if(health < maxHealth)
 			if(open)
 				health = min(maxHealth, health + 10)
@@ -91,9 +103,6 @@
 				user << "<span class='notice'>Unable to repair with the maintenance panel closed.</span>"
 		else
 			user << "<span class='notice'>[src] does not need a repair.</span>"
-		return
-	else if (istype(O, /obj/item/weapon/card/emag) && !emagged)
-		Emag(user)
 		return
 	else
 		..()
@@ -108,17 +117,24 @@
 
 	..(message, null, verb)
 
-/mob/living/bot/Bump(var/atom/A)
+/mob/living/bot/Collide(atom/A)
 	if(on && botcard && istype(A, /obj/machinery/door))
 		var/obj/machinery/door/D = A
 		if(!istype(D, /obj/machinery/door/firedoor) && !istype(D, /obj/machinery/door/blast) && D.check_access(botcard))
 			D.open()
 	else
-		..()
+		. = ..()
 
-/mob/living/bot/proc/Emag(var/mob/user)
-	log_and_message_admins("emagged [src]")
-	return
+/mob/living/bot/emag_act(var/remaining_charges, var/mob/user)
+	return 0
+
+/mob/living/bot/emp_act(severity)
+	switch(severity)
+		if(1)
+			death()
+		else
+			turn_off()
+	..()
 
 /mob/living/bot/proc/turn_on()
 	if(stat)
@@ -135,3 +151,4 @@
 
 /mob/living/bot/proc/explode()
 	qdel(src)
+

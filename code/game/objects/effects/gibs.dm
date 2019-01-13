@@ -10,8 +10,8 @@
 	var/fleshcolor //Used for gibbed humans.
 	var/bloodcolor //Used for gibbed humans.
 
-	New(location, var/list/viruses, var/datum/dna/MobDNA, var/fleshcolor, var/bloodcolor)
-		..()
+	Initialize(mapload, list/viruses, datum/dna/MobDNA, fleshcolor, bloodcolor)
+		. = ..()
 
 		if(fleshcolor) src.fleshcolor = fleshcolor
 		if(bloodcolor) src.bloodcolor = bloodcolor
@@ -19,7 +19,7 @@
 
 	proc/Gib(atom/location, var/list/viruses = list(), var/datum/dna/MobDNA = null)
 		if(gibtypes.len != gibamounts.len || gibamounts.len != gibdirections.len)
-			world << "\red Gib list length mismatch!"
+			to_world("<span class='warning'>Gib list length mismatch!</span>")
 			return
 
 		var/obj/effect/decal/cleanable/blood/gibs/gib = null
@@ -28,9 +28,7 @@
 				qdel(D)
 
 		if(sparks)
-			var/datum/effect/effect/system/spark_spread/s = PoolOrNew(/datum/effect/effect/system/spark_spread)
-			s.set_up(2, 1, get_turf(location)) // Not sure if it's safe to pass an arbitrary object to set_up, todo
-			s.start()
+			spark(location, 2, alldirs)
 
 		for(var/i = 1, i<= gibtypes.len, i++)
 			if(gibamounts[i])

@@ -14,6 +14,7 @@ datum/objective
 		all_objectives |= src
 		if(text)
 			explanation_text = text
+		..()
 
 		if (process)
 			process_objectives |= src
@@ -23,14 +24,14 @@ datum/objective
 
 		if (process)
 			process_objectives -= src
-		..()
+		return ..()
 
 	proc/check_completion()
 		return completed
 
 	proc/find_target()
 		var/list/possible_targets = list()
-		for(var/datum/mind/possible_target in ticker.minds)
+		for(var/datum/mind/possible_target in SSticker.minds)
 			if(possible_target != owner && ishuman(possible_target.current) && (possible_target.current.stat != 2))
 				possible_targets += possible_target
 		if(possible_targets.len > 0)
@@ -38,12 +39,12 @@ datum/objective
 
 
 	proc/find_target_by_role(role, role_type=0)//Option sets either to check assigned role or special role. Default to assigned.
-		for(var/datum/mind/possible_target in ticker.minds)
+		for(var/datum/mind/possible_target in SSticker.minds)
 			if((possible_target != owner) && ishuman(possible_target.current) && ((role_type ? possible_target.special_role : possible_target.assigned_role) == role) )
 				target = possible_target
 				break
 
-	proc/process()
+	process()
 		return
 
 
@@ -136,7 +137,7 @@ datum/objective/anti_revolution/demote
 	find_target()
 		..()
 		if(target && target.current)
-			explanation_text = "[target.current.real_name], the [target.assigned_role]  has been classified as harmful to NanoTrasen's goals. Demote \him[target.current] to assistant."
+			explanation_text = "[target.current.real_name], the [target.assigned_role]  has been classified as harmful to [current_map.company_name]'s goals. Demote \him[target.current] to assistant."
 		else
 			explanation_text = "Free Objective"
 		return target
@@ -144,7 +145,7 @@ datum/objective/anti_revolution/demote
 	find_target_by_role(role, role_type=0)
 		..(role, role_type)
 		if(target && target.current)
-			explanation_text = "[target.current.real_name], the [!role_type ? target.assigned_role : target.special_role] has been classified as harmful to NanoTrasen's goals. Demote \him[target.current] to assistant."
+			explanation_text = "[target.current.real_name], the [!role_type ? target.assigned_role : target.special_role] has been classified as harmful to [current_map.company_name]'s goals. Demote \him[target.current] to assistant."
 		else
 			explanation_text = "Free Objective"
 		return target
@@ -437,7 +438,7 @@ datum/objective/steal
 		"an RCD" = /obj/item/weapon/rcd,
 		"a jetpack" = /obj/item/weapon/tank/jetpack,
 		"a captain's jumpsuit" = /obj/item/clothing/under/rank/captain,
-		"a functional AI" = /obj/item/device/aicard,
+		"a functional AI" = /obj/item/weapon/aicard,
 		"a pair of magboots" = /obj/item/clothing/shoes/magboots,
 		"the station blueprints" = /obj/item/blueprints,
 		"a nasa voidsuit" = /obj/item/clothing/suit/space/void,
@@ -451,7 +452,7 @@ datum/objective/steal
 		"a head of personnel's jumpsuit" = /obj/item/clothing/under/rank/head_of_personnel,
 		"the hypospray" = /obj/item/weapon/reagent_containers/hypospray,
 		"the captain's pinpointer" = /obj/item/weapon/pinpointer,
-		"an ablative armor vest" = /obj/item/clothing/suit/armor/laserproof,
+		"an ablative armor vest" = /obj/item/clothing/suit/armor/laserproof
 	)
 
 	var/global/possible_items_special[] = list(
@@ -462,7 +463,7 @@ datum/objective/steal
 		"hyper-capacity cell" = /obj/item/weapon/cell/hyper,
 		"10 diamonds" = /obj/item/stack/material/diamond,
 		"50 gold bars" = /obj/item/stack/material/gold,
-		"25 refined uranium bars" = /obj/item/stack/material/uranium,
+		"25 refined uranium bars" = /obj/item/stack/material/uranium
 	)
 
 
@@ -524,12 +525,12 @@ datum/objective/steal
 
 			if("a functional AI")
 
-				for(var/obj/item/device/aicard/C in all_items) //Check for ai card
+				for(var/obj/item/weapon/aicard/C in all_items) //Check for ai card
 					for(var/mob/living/silicon/ai/M in C)
 						if(istype(M, /mob/living/silicon/ai) && M.stat != 2) //See if any AI's are alive inside that card.
 							return 1
 
-				for(var/mob/living/silicon/ai/ai in world)
+				for(var/mob/living/silicon/ai/ai in silicon_mob_list)
 					var/turf/T = get_turf(ai)
 					if(istype(T))
 						var/area/check_area = get_area(ai)
@@ -617,17 +618,16 @@ datum/objective/capture
 /datum/objective/absorb
 	proc/gen_amount_goal(var/lowbound = 4, var/highbound = 6)
 		target_amount = rand (lowbound,highbound)
-		if (ticker)
-			var/n_p = 1 //autowin
-			if (ticker.current_state == GAME_STATE_SETTING_UP)
-				for(var/mob/new_player/P in player_list)
-					if(P.client && P.ready && P.mind!=owner)
-						n_p ++
-			else if (ticker.current_state == GAME_STATE_PLAYING)
-				for(var/mob/living/carbon/human/P in player_list)
-					if(P.client && !(P.mind.changeling) && P.mind!=owner)
-						n_p ++
-			target_amount = min(target_amount, n_p)
+		var/n_p = 1 //autowin
+		if (SSticker.current_state == GAME_STATE_SETTING_UP)
+			for(var/mob/abstract/new_player/P in player_list)
+				if(P.client && P.ready && P.mind!=owner)
+					n_p ++
+		else if (SSticker.current_state == GAME_STATE_PLAYING)
+			for(var/mob/living/carbon/human/P in player_list)
+				if(P.client && !(P.mind.changeling) && P.mind!=owner)
+					n_p ++
+		target_amount = min(target_amount, n_p)
 
 		explanation_text = "Absorb [target_amount] compatible genomes."
 		return target_amount
@@ -649,7 +649,7 @@ datum/objective/heist/kidnap
 		var/list/possible_targets = list()
 		var/list/priority_targets = list()
 
-		for(var/datum/mind/possible_target in ticker.minds)
+		for(var/datum/mind/possible_target in SSticker.minds)
 			if(possible_target != owner && ishuman(possible_target.current) && (possible_target.current.stat != 2) && (!possible_target.special_role))
 				possible_targets += possible_target
 				for(var/role in roles)
@@ -716,7 +716,7 @@ datum/objective/heist/loot
 				target_amount = 2
 				loot = "two laser guns"
 			if(8)
-				target = /obj/item/weapon/gun/energy/ionrifle
+				target = /obj/item/weapon/gun/energy/rifle/ionrifle
 				target_amount = 1
 				loot = "an ion gun"
 
@@ -863,7 +863,7 @@ datum/objective/heist/salvage
 	explanation_text = "Summon Nar-Sie via the use of the appropriate rune (Hell join self). It will only work if nine cultists stand on and around it. The convert rune is join blood self."
 
 /datum/objective/cult/eldergod/check_completion()
-	return (locate(/obj/singularity/narsie/large) in machines)
+	return (locate(/obj/singularity/narsie/large) in SSmachinery.all_machines)
 
 /datum/objective/cult/sacrifice
 	explanation_text = "Conduct a ritual sacrifice for the glory of Nar-Sie."

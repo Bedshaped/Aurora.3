@@ -7,8 +7,7 @@ var/list/datum/puddle/puddles = list()
 datum/puddle
 	var/list/obj/effect/liquid/liquid_objects = list()
 
-datum/puddle/proc/process()
-	//world << "DEBUG: Puddle process!"
+datum/puddle/process()
 	for(var/obj/effect/liquid/L in liquid_objects)
 		L.spread()
 
@@ -26,7 +25,7 @@ datum/puddle/Destroy()
 	puddles -= src
 	for(var/obj/O in liquid_objects)
 		qdel(O)
-	..()
+	return ..()
 
 client/proc/splash()
 	var/volume = input("Volume?","Volume?", 0 ) as num
@@ -71,7 +70,6 @@ obj/effect/liquid/New()
 
 obj/effect/liquid/proc/spread()
 
-	//world << "DEBUG: liquid spread!"
 	var/surrounding_volume = 0
 	var/list/spread_directions = list(1,2,4,8)
 	var/turf/loc_turf = loc
@@ -79,7 +77,6 @@ obj/effect/liquid/proc/spread()
 		var/turf/T = get_step(src,direction)
 		if(!T)
 			spread_directions.Remove(direction)
-			//world << "ERROR: Map edge!"
 			continue //Map edge
 		if(!loc_turf.can_leave_liquid(direction)) //Check if this liquid can leave the tile in the direction
 			spread_directions.Remove(direction)
@@ -99,13 +96,11 @@ obj/effect/liquid/proc/spread()
 			controller.liquid_objects.Add(NL)
 
 	if(!spread_directions.len)
-		//world << "ERROR: No candidate to spread to."
 		return //No suitable candidate to spread to
 
 	var/average_volume = (src.volume + surrounding_volume) / (spread_directions.len + 1) //Average amount of volume on this and the surrounding tiles.
 	var/volume_difference = src.volume - average_volume //How much more/less volume this tile has than the surrounding tiles.
 	if(volume_difference <= (spread_directions.len*LIQUID_TRANSFER_THRESHOLD)) //If we have less than the threshold excess liquid - then there is nothing to do as other tiles will be giving us volume.or the liquid is just still.
-		//world << "ERROR: transfer volume lower than THRESHOLD!"
 		return
 
 	var/volume_per_tile = volume_difference / spread_directions.len
@@ -113,7 +108,6 @@ obj/effect/liquid/proc/spread()
 	for(var/direction in spread_directions)
 		var/turf/T = get_step(src,direction)
 		if(!T)
-			//world << "ERROR: Map edge 2!"
 			continue //Map edge
 		var/obj/effect/liquid/L = locate(/obj/effect/liquid) in T
 		if(L)
@@ -133,7 +127,7 @@ obj/effect/liquid/Move()
 
 obj/effect/liquid/Destroy()
 	src.controller.liquid_objects.Remove(src)
-	..()
+	return ..()
 
 obj/effect/liquid/proc/update_icon2()
 	//icon_state = num2text( max(1,min(7,(floor(volume),10)/10)) )

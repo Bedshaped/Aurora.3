@@ -1,11 +1,3 @@
-var/list/spawntypes = list()
-
-/proc/populate_spawn_points()
-	spawntypes = list()
-	for(var/type in typesof(/datum/spawnpoint)-/datum/spawnpoint)
-		var/datum/spawnpoint/S = new type()
-		spawntypes[S.display_name] = S
-
 /datum/spawnpoint
 	var/msg          //Message to display on the arrivals computer.
 	var/list/turfs   //List of turfs to spawn on.
@@ -24,24 +16,18 @@ var/list/spawntypes = list()
 
 /datum/spawnpoint/arrivals
 	display_name = "Arrivals Shuttle"
-	msg = "has arrived on the station"
+	msg = "is inbound from the NTCC Odin"
+	disallow_job = list("Merchant")
 
 /datum/spawnpoint/arrivals/New()
 	..()
+	msg = "is inbound from the [current_map.dock_name]"
 	turfs = latejoin
-
-/datum/spawnpoint/gateway
-	display_name = "Gateway"
-	msg = "has completed translation from offsite gateway"
-
-/datum/spawnpoint/gateway/New()
-	..()
-	turfs = latejoin_gateway
 
 /datum/spawnpoint/cryo
 	display_name = "Cryogenic Storage"
 	msg = "has completed cryogenic revival"
-	disallow_job = list("Cyborg")
+	disallow_job = list("Cyborg", "Merchant")
 
 /datum/spawnpoint/cryo/New()
 	..()

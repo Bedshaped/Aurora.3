@@ -32,9 +32,9 @@
 			if(prob(current_size*5) && hand.w_class >= ((11-current_size)/2) && u_equip(hand))
 				step_towards(hand, src)
 				src << "<span class = 'warning'>The [S] pulls \the [hand] from your grip!</span>"
-	apply_effect(current_size * 3, IRRADIATE)
+	apply_effect(current_size * 3, IRRADIATE, blocked = getarmor(null, "rad"))
 	if(shoes)
-		if(shoes.flags & NOSLIP) return 0
+		if(shoes.item_flags & NOSLIP) return 0
 	..()
 
 /obj/singularity_act()
@@ -100,13 +100,24 @@
 	explosion(src.loc,(dist),(dist*2),(dist*4))
 	return 1000
 
-/turf/singularity_act(S, current_size)
-	if(intact)
+/turf/singularity_act(S, current_size, var/go_down = 1, var/go_up = 1)
+	if(!is_plating())
 		for(var/obj/O in contents)
 			if(O.level != 1)
 				continue
 			if(O.invisibility == 101)
 				O.singularity_act(src, current_size)
+	if(go_up && current_size >= STAGE_FIVE)
+		if(HasAbove(src.z))
+			var/turf/A = GetAbove(src)
+			A.singularity_act(S, current_size, 0, 1)
+	if(go_down && current_size >= STAGE_FIVE)
+		if(HasBelow(src.z))
+			var/turf/B = GetBelow(src)
+			B.singularity_act(S, current_size, 1, 0)
+	if(istype(src,/turf/simulated/mineral))
+		var/turf/simulated/mineral/M = src
+		M.GetDrilled()
 	ChangeTurf(/turf/space)
 	return 2
 
@@ -128,17 +139,11 @@
 /turf/space/singularity_act()
 	return
 
+/turf/simulated/open/singularity_act()
+	return
+
 /*******************
 * Nar-Sie Act/Pull *
 *******************/
 /atom/proc/singuloCanEat()
 	return 1
-
-/mob/dead/singuloCanEat()
-	return 0
-
-/mob/eye/singuloCanEat()
-	return 0
-
-/mob/new_player/singuloCanEat()
-	return 0

@@ -19,16 +19,16 @@
 	density = 1
 	opacity = 1
 
-/obj/structure/bookcase/initialize()
+/obj/structure/bookcase/Initialize()
+	. = ..()
 	for(var/obj/item/I in loc)
 		if(istype(I, /obj/item/weapon/book))
-			I.loc = src
+			I.forceMove(src)
 	update_icon()
 
 /obj/structure/bookcase/attackby(obj/O as obj, mob/user as mob)
 	if(istype(O, /obj/item/weapon/book))
-		user.drop_item()
-		O.loc = src
+		user.drop_from_inventory(O,src)
 		update_icon()
 	else if(istype(O, /obj/item/weapon/pen))
 		var/newname = sanitizeSafe(input("What would you like to title this bookshelf?"), MAX_NAME_LEN)
@@ -36,6 +36,20 @@
 			return
 		else
 			name = ("bookcase ([newname])")
+	else if(iswrench(O))
+		playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
+		user << (anchored ? "<span class='notice'>You unfasten \the [src] from the floor.</span>" : "<span class='notice'>You secure \the [src] to the floor.</span>")
+		anchored = !anchored
+	else if(isscrewdriver(O))
+		playsound(loc, 'sound/items/Screwdriver.ogg', 75, 1)
+		user << "<span class='notice'>You begin dismantling \the [src].</span>"
+		if(do_after(user,25))
+			user << "<span class='notice'>You dismantle \the [src].</span>"
+			new /obj/item/stack/material/wood(get_turf(src), 3)
+			for(var/obj/item/weapon/book/b in contents)
+				b.forceMove((get_turf(src)))
+			qdel(src)
+
 	else
 		..()
 
@@ -49,7 +63,7 @@
 				if(!user.get_active_hand())
 					user.put_in_hands(choice)
 			else
-				choice.loc = get_turf(src)
+				choice.forceMove(get_turf(src))
 			update_icon()
 
 /obj/structure/bookcase/ex_act(severity)
@@ -61,14 +75,14 @@
 			return
 		if(2.0)
 			for(var/obj/item/weapon/book/b in contents)
-				if (prob(50)) b.loc = (get_turf(src))
+				if (prob(50)) b.forceMove(get_turf(src))
 				else qdel(b)
 			qdel(src)
 			return
 		if(3.0)
 			if (prob(50))
 				for(var/obj/item/weapon/book/b in contents)
-					b.loc = (get_turf(src))
+					b.forceMove(get_turf(src))
 				qdel(src)
 			return
 		else
@@ -80,6 +94,59 @@
 	else
 		icon_state = "book-5"
 
+
+/obj/structure/bookcase/libraryspawn
+	var/spawn_category
+	var/spawn_amount = 3
+
+/obj/structure/bookcase/libraryspawn/Initialize()
+	. = ..()
+	name = "[initial(name)] ([spawn_category])"
+
+	addtimer(CALLBACK(src, .proc/populate_shelves), 0)
+
+/obj/structure/bookcase/libraryspawn/proc/populate_shelves()
+	if (!establish_db_connection(dbcon))
+		return
+
+	var/query_str = "SELECT author, title, content FROM ss13_library ORDER BY RAND() LIMIT :amount:"
+	var/list/query_data = list("amount" = spawn_amount)
+
+	if (spawn_category)
+		query_str = "SELECT author, title, content FROM ss13_library WHERE category = :cat: ORDER BY RAND() LIMIT :amount:"
+		query_data["cat"] = spawn_category
+
+	var/DBQuery/query_books = dbcon.NewQuery(query_str)
+	query_books.Execute(query_data)
+
+	while (query_books.NextRow())
+		CHECK_TICK
+		var/author = query_books.item[1]
+		var/title = query_books.item[2]
+		var/content = query_books.item[3]
+		var/obj/item/weapon/book/B = new(src)
+		B.name = "Book: [title]"
+		B.title = title
+		B.author = author
+		B.dat = content
+		B.icon_state = "book[rand(1,7)]"
+
+	update_icon()
+
+/obj/structure/bookcase/libraryspawn/fiction
+	spawn_category = "Fiction"
+
+/obj/structure/bookcase/libraryspawn/nonfiction
+	spawn_category = "Non-Fiction"
+
+/obj/structure/bookcase/libraryspawn/adult
+	spawn_category = "Adult"
+
+/obj/structure/bookcase/libraryspawn/reference
+	spawn_category = "Reference"
+
+/obj/structure/bookcase/libraryspawn/religion
+	spawn_category = "Religion"
 
 /obj/structure/bookcase/manuals/medical
 	name = "Medical Manuals bookcase"
@@ -139,7 +206,7 @@
 	if(carved)
 		if(store)
 			user << "<span class='notice'>[store] falls out of [title]!</span>"
-			store.loc = get_turf(src.loc)
+			store.forceMove(get_turf(src.loc))
 			store = null
 			return
 		else
@@ -156,8 +223,7 @@
 	if(carved)
 		if(!store)
 			if(W.w_class < 3)
-				user.drop_item()
-				W.loc = src
+				user.drop_from_inventory(W,src)
 				store = W
 				user << "<span class='notice'>You put [W] in [title].</span>"
 				return
@@ -226,7 +292,7 @@
 							return
 					scanner.computer.inventory.Add(src)
 					user << "[W]'s screen flashes: 'Book stored in buffer. Title added to general inventory.'"
-	else if(istype(W, /obj/item/weapon/material/knife) || istype(W, /obj/item/weapon/wirecutters))
+	else if(istype(W, /obj/item/weapon/material/knife) || iswirecutter(W))
 		if(carved)	return
 		user << "<span class='notice'>You begin to carve out [title].</span>"
 		if(do_after(user, 30))
@@ -236,11 +302,12 @@
 	else
 		..()
 
-/obj/item/weapon/book/attack(mob/living/carbon/M as mob, mob/living/carbon/user as mob)
-	if(user.zone_sel.selecting == "eyes")
+/obj/item/weapon/book/attack(mob/living/carbon/M as mob, mob/living/carbon/user as mob, var/target_zone)
+	if(target_zone == "eyes")
 		user.visible_message("<span class='notice'>You open up the book and show it to [M]. </span>", \
 			"<span class='notice'> [user] opens up a book and shows it to [M]. </span>")
 		M << browse("<TT><I>Penned by [author].</I></TT> <BR>" + "[dat]", "window=book")
+		user.setClickCooldown(DEFAULT_QUICK_COOLDOWN) //to prevent spam
 
 
 /*

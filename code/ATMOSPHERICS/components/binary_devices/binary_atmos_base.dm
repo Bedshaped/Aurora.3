@@ -6,14 +6,10 @@ obj/machinery/atmospherics/binary
 	var/datum/gas_mixture/air1
 	var/datum/gas_mixture/air2
 
-	var/obj/machinery/atmospherics/node1
-	var/obj/machinery/atmospherics/node2
-
 	var/datum/pipe_network/network1
 	var/datum/pipe_network/network2
 
-	New()
-		..()
+	Initialize()
 		switch(dir)
 			if(NORTH)
 				initialize_directions = NORTH|SOUTH
@@ -28,6 +24,7 @@ obj/machinery/atmospherics/binary
 
 		air1.volume = 200
 		air2.volume = 200
+		. = ..()
 
 // Housekeeping and pipe network stuff below
 	network_expand(datum/pipe_network/new_network, obj/machinery/atmospherics/pipe/reference)
@@ -45,21 +42,22 @@ obj/machinery/atmospherics/binary
 		return null
 
 	Destroy()
-		loc = null
+		QDEL_NULL(air1)
+		QDEL_NULL(air2)
 
 		if(node1)
 			node1.disconnect(src)
-			qdel(network1)
+			QDEL_NULL(network1)
 		if(node2)
 			node2.disconnect(src)
-			qdel(network2)
+			QDEL_NULL(network2)
 
 		node1 = null
 		node2 = null
 
-		..()
+		return ..()
 
-	initialize()
+	atmos_init()
 		if(node1 && node2) return
 
 		var/node2_connect = dir

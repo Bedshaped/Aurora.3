@@ -9,6 +9,7 @@
 	var/mob/attacher = null
 	var/valve_open = 0
 	var/toggle = 1
+	flags = PROXMOVE
 
 /obj/item/device/transfer_valve/proc/process_activation(var/obj/item/device/D)
 
@@ -24,19 +25,17 @@
 
 		if(!tank_one)
 			tank_one = item
-			user.drop_item()
-			item.loc = src
+			user.drop_from_inventory(item,src)
 			user << "<span class='notice'>You attach the tank to the transfer valve.</span>"
 		else if(!tank_two)
 			tank_two = item
-			user.drop_item()
-			item.loc = src
+			user.drop_from_inventory(item,src)
 			user << "<span class='notice'>You attach the tank to the transfer valve.</span>"
 			message_admins("[key_name_admin(user)] attached both tanks to a transfer valve. (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[location.x];Y=[location.y];Z=[location.z]'>JMP</a>)")
-			log_game("[key_name_admin(user)] attached both tanks to a transfer valve.")
+			log_game("[key_name_admin(user)] attached both tanks to a transfer valve.",ckey=key_name(user))
 
 		update_icon()
-		nanomanager.update_uis(src) // update all UIs attached to src
+		SSnanoui.update_uis(src) // update all UIs attached to src
 //TODO: Have this take an assemblyholder
 	else if(isassembly(item))
 		var/obj/item/device/assembly/A = item
@@ -48,16 +47,16 @@
 			return
 		user.remove_from_mob(item)
 		attached_device = A
-		A.loc = src
+		A.forceMove(src)
 		user << "<span class='notice'>You attach the [item] to the valve controls and secure it.</span>"
 		A.holder = src
 		A.toggle_secure()	//this calls update_icon(), which calls update_icon() on the holder (i.e. the bomb).
 
 		bombers += "[key_name(user)] attached a [item] to a transfer valve."
 		message_admins("[key_name_admin(user)] attached a [item] to a transfer valve. (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[location.x];Y=[location.y];Z=[location.z]'>JMP</a>)")
-		log_game("[key_name_admin(user)] attached a [item] to a transfer valve.")
+		log_game("[key_name_admin(user)] attached a [item] to a transfer valve.",ckey=key_name(user))
 		attacher = user
-		nanomanager.update_uis(src) // update all UIs attached to src
+		SSnanoui.update_uis(src) // update all UIs attached to src
 	return
 
 
@@ -69,7 +68,7 @@
 
 /obj/item/device/transfer_valve/attack_self(mob/user as mob)
 	ui_interact(user)
-	
+
 /obj/item/device/transfer_valve/ui_interact(mob/user, ui_key = "main", var/datum/nanoui/ui = null, var/force_open = 1)
 
 	// this is the data which will be sent to the ui
@@ -80,7 +79,7 @@
 	data["valveOpen"] = valve_open ? 1 : 0
 
 	// update the ui if it exists, returns null if no ui is passed/found
-	ui = nanomanager.try_update_ui(user, src, ui_key, ui, data, force_open)	
+	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data, force_open)
 	if (!ui)
 		// the ui does not exist, so we'll create a new() one
         // for a list of parameters and their descriptions see the code docs in \code\modules\nano\nanoui.dm
@@ -106,7 +105,7 @@
 		toggle_valve()
 	else if(attached_device)
 		if(href_list["rem_device"])
-			attached_device.loc = get_turf(src)
+			attached_device.forceMove(get_turf(src))
 			attached_device:holder = null
 			attached_device = null
 			update_icon()
@@ -123,7 +122,7 @@
 			toggle = 1
 
 /obj/item/device/transfer_valve/update_icon()
-	overlays.Cut()
+	cut_overlays()
 	underlays = null
 
 	if(!tank_one && !tank_two && !attached_device)
@@ -132,13 +131,13 @@
 	icon_state = "valve"
 
 	if(tank_one)
-		overlays += "[tank_one.icon_state]"
+		add_overlay("[tank_one.icon_state]")
 	if(tank_two)
 		var/icon/J = new(icon, icon_state = "[tank_two.icon_state]")
 		J.Shift(WEST, 13)
 		underlays += J
 	if(attached_device)
-		overlays += "device"
+		add_overlay("device")
 
 /obj/item/device/transfer_valve/proc/remove_tank(obj/item/weapon/tank/T)
 	if(tank_one == T)
@@ -149,8 +148,8 @@
 		tank_two = null
 	else
 		return
-	
-	T.loc = get_turf(src)
+
+	T.forceMove(get_turf(src))
 	update_icon()
 
 /obj/item/device/transfer_valve/proc/merge_gases()
@@ -165,18 +164,18 @@
 /obj/item/device/transfer_valve/proc/split_gases()
 	if(!valve_open)
 		return
-	
+
 	valve_open = 0
-	
-	if(deleted(tank_one) || deleted(tank_two))
+
+	if(QDELETED(tank_one) || QDELETED(tank_two) || !tank_one.air_contents || !tank_two.air_contents)
 		return
-	
+
 	var/ratio1 = tank_one.air_contents.volume/tank_two.air_contents.volume
 	var/datum/gas_mixture/temp
 	temp = tank_two.air_contents.remove_ratio(ratio1)
 	tank_one.air_contents.merge(temp)
 	tank_two.air_contents.volume -=  tank_one.air_contents.volume
-	
+
 
 	/*
 	Exadv1: I know this isn't how it's going to work, but this was just to check

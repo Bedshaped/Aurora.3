@@ -20,7 +20,7 @@
 	add_req_access = 0
 	internal_damage_threshold = 25
 	force = 45
-	max_equip = 4
+	w_class = 35
 
 /obj/mecha/combat/marauder/seraph
 	desc = "Heavy-duty, command-type exosuit. This is a custom model, utilized only by high-ranking military personnel."
@@ -40,29 +40,30 @@
 	name = "Mauler"
 	icon_state = "mauler"
 	initial_icon = "mauler"
+	w_class = 40
 	operation_req_access = list(access_syndicate)
 	wreckage = /obj/effect/decal/mecha_wreckage/mauler
 
-/obj/mecha/combat/marauder/New()
-	..()
+/obj/mecha/combat/marauder/Initialize()
+	.= ..()
 	var/obj/item/mecha_parts/mecha_equipment/ME = new /obj/item/mecha_parts/mecha_equipment/weapon/energy/pulse
 	ME.attach(src)
 	ME = new /obj/item/mecha_parts/mecha_equipment/weapon/ballistic/missile_rack/explosive
 	ME.attach(src)
 	ME = new /obj/item/mecha_parts/mecha_equipment/tesla_energy_relay(src)
 	ME.attach(src)
-	ME = new /obj/item/mecha_parts/mecha_equipment/antiproj_armor_booster(src)
+	ME = new /obj/item/mecha_parts/mecha_equipment/armor_booster/antiproj_armor_booster(src)
 	ME.attach(src)
 	src.smoke_system.set_up(3, 0, src)
 	src.smoke_system.attach(src)
 	return
 
-/obj/mecha/combat/marauder/seraph/New()
-	..()//Let it equip whatever is needed.
+/obj/mecha/combat/marauder/seraph/Initialize()
+	.= ..()
 	var/obj/item/mecha_parts/mecha_equipment/ME
 	if(equipment.len)//Now to remove it and equip anew.
 		for(ME in equipment)
-			equipment -= ME
+			ME.detach(src)
 			qdel(ME)
 	ME = new /obj/item/mecha_parts/mecha_equipment/weapon/ballistic/scattershot(src)
 	ME.attach(src)
@@ -72,17 +73,17 @@
 	ME.attach(src)
 	ME = new /obj/item/mecha_parts/mecha_equipment/tesla_energy_relay(src)
 	ME.attach(src)
-	ME = new /obj/item/mecha_parts/mecha_equipment/antiproj_armor_booster(src)
+	ME = new /obj/item/mecha_parts/mecha_equipment/armor_booster/antiproj_armor_booster(src)
 	ME.attach(src)
 	return
 
 /obj/mecha/combat/marauder/Destroy()
 	qdel(smoke_system)
-	..()
+	return ..()
 
 /obj/mecha/combat/marauder/relaymove(mob/user,direction)
 	if(user != src.occupant) //While not "realistic", this piece is player friendly.
-		user.loc = get_turf(src)
+		user.forceMove(get_turf(src))
 		user << "You climb out from [src]"
 		return 0
 	if(!can_move)
@@ -97,7 +98,7 @@
 			src.occupant_message("Unable to move while connected to the air system port")
 			last_message = world.time
 		return 0
-	if(!thrusters && src.pr_inertial_movement.active())
+	if(!thrusters && (current_processes & MECHA_PROC_MOVEMENT))
 		return 0
 	if(state || !has_charge(step_energy_drain))
 		return 0
@@ -113,9 +114,9 @@
 	if(move_result)
 		if(istype(src.loc, /turf/space))
 			if(!src.check_for_support())
-				src.pr_inertial_movement.start(list(src,direction))
+				start_process(MECHA_PROC_MOVEMENT)
+				float_direction = direction
 				if(thrusters)
-					src.pr_inertial_movement.set_process_args(list(src,direction))
 					tmp_step_energy_drain = step_energy_drain*2
 
 		can_move = 0
@@ -136,7 +137,7 @@
 		if(get_charge() > 0)
 			thrusters = !thrusters
 			src.log_message("Toggled thrusters.")
-			src.occupant_message("<font color='[src.thrusters?"blue":"red"]'>Thrusters [thrusters?"en":"dis"]abled.")
+			src.occupant_message("<font color='[src.thrusters?"blue":"red"]'>Thrusters [thrusters?"en":"dis"]abled.</font>")
 	return
 
 

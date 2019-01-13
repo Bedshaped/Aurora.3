@@ -25,6 +25,16 @@ LINEN BINS
 	add_fingerprint(user)
 	return
 
+/obj/item/weapon/bedsheet/attackby(obj/item/I, mob/user)
+	if(is_sharp(I))
+		user.visible_message("<span class='notice'>\The [user] begins cutting up [src] with [I].</span>", "<span class='notice'>You begin cutting up [src] with [I].</span>")
+		if(do_after(user, 50))
+			user << "<span class='notice'>You cut [src] into pieces!</span>"
+			for(var/i in 1 to rand(2,5))
+				new /obj/item/weapon/reagent_containers/glass/rag(get_turf(src))
+			qdel(src)
+		return
+	..()
 
 /obj/item/weapon/bedsheet/blue
 	icon_state = "sheetblue"
@@ -107,14 +117,12 @@ LINEN BINS
 
 /obj/structure/bedsheetbin/attackby(obj/item/I as obj, mob/user as mob)
 	if(istype(I, /obj/item/weapon/bedsheet))
-		user.drop_item()
-		I.loc = src
+		user.drop_from_inventory(I,src)
 		sheets.Add(I)
 		amount++
 		user << "<span class='notice'>You put [I] in [src].</span>"
 	else if(amount && !hidden && I.w_class < 4)	//make sure there's sheets to hide it among, make sure nothing else is hidden in there.
-		user.drop_item()
-		I.loc = src
+		user.drop_from_inventory(I,src)
 		hidden = I
 		user << "<span class='notice'>You hide [I] among the sheets.</span>"
 
@@ -130,12 +138,12 @@ LINEN BINS
 		else
 			B = new /obj/item/weapon/bedsheet(loc)
 
-		B.loc = user.loc
+		B.forceMove(user.loc)
 		user.put_in_hands(B)
 		user << "<span class='notice'>You take [B] out of [src].</span>"
 
 		if(hidden)
-			hidden.loc = user.loc
+			hidden.forceMove(user.loc)
 			user << "<span class='notice'>[hidden] falls out of [B]!</span>"
 			hidden = null
 
@@ -154,12 +162,12 @@ LINEN BINS
 		else
 			B = new /obj/item/weapon/bedsheet(loc)
 
-		B.loc = loc
+		B.forceMove(loc)
 		user << "<span class='notice'>You telekinetically remove [B] from [src].</span>"
 		update_icon()
 
 		if(hidden)
-			hidden.loc = loc
+			hidden.forceMove(loc)
 			hidden = null
 
 

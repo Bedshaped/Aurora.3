@@ -7,7 +7,8 @@
 	name = "Power Monitoring Console"
 	desc = "Computer designed to remotely monitor power levels around the station"
 	icon = 'icons/obj/computer.dmi'
-	icon_state = "power"
+
+	icon_screen = "power"
 	light_color = "#ffcc33"
 
 	//computer stuff
@@ -18,10 +19,10 @@
 	use_power = 1
 	idle_power_usage = 300
 	active_power_usage = 300
-	var/obj/nano_module/power_monitor/power_monitor
+	var/datum/nano_module/power_monitor/power_monitor
 
 // Checks the sensors for alerts. If change (alerts cleared or detected) occurs, calls for icon update.
-/obj/machinery/computer/power_monitor/process()
+/obj/machinery/computer/power_monitor/machinery_process()
 	var/alert = check_warnings()
 	if(alert != alerting)
 		alerting = !alerting
@@ -29,20 +30,19 @@
 
 // Updates icon of this computer according to current status.
 /obj/machinery/computer/power_monitor/update_icon()
-	if(stat & BROKEN)
-		icon_state = "powerb"
-		return
 	if(stat & NOPOWER)
-		icon_state = "power0"
+		icon_screen = null
 		return
 	if(alerting)
-		icon_state = "power_alert"
+		icon_screen = "power_alert"
 		return
-	icon_state = "power"
+	icon_screen = "power"
+
+	..()
 
 // On creation automatically connects to active sensors. This is delayed to ensure sensors already exist.
-/obj/machinery/computer/power_monitor/New()
-	..()
+/obj/machinery/computer/power_monitor/Initialize()
+	. = ..()
 	power_monitor = new(src)
 
 // On user click opens the UI of this computer.

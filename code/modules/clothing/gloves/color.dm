@@ -85,9 +85,15 @@
 	icon_state = "brown"
 	item_state = "browngloves"
 
+/obj/item/clothing/gloves/white
+	name = "white gloves"
+	desc = "These look pretty fancy."
+	icon_state = "latex"
+	item_state = "lgloves"
+
 /obj/item/clothing/gloves/yellow/specialt
 	desc = "These gloves will protect the wearer from electric shock. Made special for Tajaran use."
-	name = "Tajaran electrical gloves"
+	name = "tajaran electrical gloves"
 	icon_state = "yellow"
 	item_state = "ygloves"
 	siemens_coefficient = 0
@@ -96,7 +102,7 @@
 
 /obj/item/clothing/gloves/yellow/specialu
 	desc = "These gloves will protect the wearer from electric shock. Made special for Unathi use."
-	name = "Unathi electrical gloves"
+	name = "unathi electrical gloves"
 	icon_state = "yellow"
 	item_state = "ygloves"
 	siemens_coefficient = 0
@@ -105,12 +111,12 @@
 
 /obj/item/clothing/gloves/black/unathi
 	name = "black gloves"
-	desc = "black gloves made for Unathi use."
+	desc = "Black gloves made for Unathi use."
 	species_restricted = list("Unathi")
 
 /obj/item/clothing/gloves/black/tajara
 	name = "black gloves"
-	desc = "black gloves made for Tajara use."
+	desc = "Black gloves made for Tajara use."
 	species_restricted = list("Tajara")
 
 //more snowflake gloves for the custom loadout
@@ -119,7 +125,7 @@
  	name = "red gloves"
  	desc = "Red gloves made for Unathi use."
  	species_restricted = list("Unathi")
- 
+
 /obj/item/clothing/gloves/red/tajara
 	name = "red gloves"
 	desc = "Red gloves made for Tajaran use."
@@ -129,27 +135,27 @@
  	name = "blue gloves"
  	desc = "Blue gloves made for Unathi use."
  	species_restricted = list("Unathi")
- 
+
 /obj/item/clothing/gloves/blue/tajara
  	name = "blue gloves"
  	desc = "Blue gloves made for Tajaran use."
  	species_restricted = list("Tajara")
- 
+
 /obj/item/clothing/gloves/orange/unathi
  	name = "orange gloves"
  	desc = "Orange gloves made for Unathi use."
  	species_restricted = list("Unathi")
- 
+
 /obj/item/clothing/gloves/orange/tajara
  	name = "orange gloves"
  	desc = "Orange gloves made for Tajaran use."
  	species_restricted = list("Tajara")
- 
+
 /obj/item/clothing/gloves/purple/unathi
  	name = "purple gloves"
  	desc = "Purple gloves made for Unathi use."
  	species_restricted = list("Unathi")
- 
+
 /obj/item/clothing/gloves/purple/tajara
  	name = "purple gloves"
  	desc = "Purple gloves made for Tajaran use."
@@ -159,28 +165,42 @@
  	name = "brown gloves"
  	desc = "Brown gloves made for Unathi use."
  	species_restricted = list("Unathi")
- 
+
 /obj/item/clothing/gloves/brown/tajara
  	name = "brown gloves"
  	desc = "Brown gloves made for Tajaran use."
  	species_restricted = list("Tajara")
- 
+
 /obj/item/clothing/gloves/green/unathi
  	name = "green gloves"
  	desc = "Green gloves made for Unathi use."
  	species_restricted = list("Unathi")
- 
+
 /obj/item/clothing/gloves/green/tajara
  	name = "green gloves"
  	desc = "Green gloves made for Tajaran use."
  	species_restricted = list("Tajara")
- 
+
 /obj/item/clothing/gloves/white/unathi
  	name = "white gloves"
  	desc = "White gloves made for Unathi use."
  	species_restricted = list("Unathi")
- 
+
 /obj/item/clothing/gloves/white/tajara
  	name = "white gloves"
  	desc = "White gloves made for Tajaran use."
  	species_restricted = list ("Tajara")
+
+/obj/item/clothing/gloves/evening
+	name = "evening gloves"
+	desc = "A pair of gloves that reach past the elbow."
+	icon_state = "evening_gloves"
+
+/obj/item/clothing/gloves/fingerless
+	desc = "A pair of gloves that don't actually cover the fingers."
+	name = "fingerless gloves"
+	icon_state = "fingerlessgloves"
+	item_state = "fingerlessgloves"
+	fingerprint_chance = 100
+	clipped = 1
+	species_restricted = list("exclude","Golem","Vaurca Breeder","Vaurca Warform")

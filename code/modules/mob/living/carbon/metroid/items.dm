@@ -8,7 +8,7 @@
 	throwforce = 0
 	throw_speed = 3
 	throw_range = 6
-	origin_tech = "biotech=4"
+	origin_tech = list(TECH_BIO = 4)
 	var/Uses = 1 // uses before it goes inert
 	var/enhanced = 0 //has it been enhanced before?
 	flags = OPENCONTAINER
@@ -16,10 +16,10 @@
 	attackby(obj/item/O as obj, mob/user as mob)
 		if(istype(O, /obj/item/weapon/slimesteroid2))
 			if(enhanced == 1)
-				user << "<span class='warning'> This extract has already been enhanced!</span>"
+				user << "<span class='warning'>This extract has already been enhanced!</span>"
 				return ..()
 			if(Uses == 0)
-				user << "<span class='warning'> You can't enhance a used extract!</span>"
+				user << "<span class='warning'>You can't enhance a used extract!</span>"
 				return ..()
 			user <<"You apply the enhancer. It now has triple the amount of uses."
 			Uses = 3
@@ -129,16 +129,16 @@
 
 	attack(mob/living/carbon/slime/M as mob, mob/user as mob)
 		if(!istype(M, /mob/living/carbon/slime))//If target is not a slime.
-			user << "<span class='warning'> The potion only works on baby slimes!</span>"
+			user << "<span class='warning'>The potion only works on baby slimes!</span>"
 			return ..()
 		if(M.is_adult) //Can't tame adults
-			user << "<span class='warning'> Only baby slimes can be tamed!</span>"
+			user << "<span class='warning'>Only baby slimes can be tamed!</span>"
 			return..()
 		if(M.stat)
-			user << "<span class='warning'> The slime is dead!</span>"
+			user << "<span class='warning'>The slime is dead!</span>"
 			return..()
 		if(M.mind)
-			user << "<span class='warning'> The slime resists!</span>"
+			user << "<span class='warning'>The slime resists!</span>"
 			return ..()
 		var/mob/living/simple_animal/slime/pet = new /mob/living/simple_animal/slime(M.loc)
 		pet.icon_state = "[M.colour] baby slime"
@@ -163,13 +163,13 @@
 
 	attack(mob/living/carbon/slime/M as mob, mob/user as mob)
 		if(!istype(M, /mob/living/carbon/slime/))//If target is not a slime.
-			user << "<span class='warning'> The potion only works on slimes!</span>"
+			user << "<span class='warning'>The potion only works on slimes!</span>"
 			return ..()
 		if(M.stat)
-			user << "<span class='warning'> The slime is dead!</span>"
+			user << "<span class='warning'>The slime is dead!</span>"
 			return..()
 		if(M.mind)
-			user << "<span class='warning'> The slime resists!</span>"
+			user << "<span class='warning'>The slime resists!</span>"
 			return ..()
 		var/mob/living/simple_animal/adultslime/pet = new /mob/living/simple_animal/adultslime(M.loc)
 		pet.icon_state = "[M.colour] adult slime"
@@ -195,16 +195,16 @@
 
 	attack(mob/living/carbon/slime/M as mob, mob/user as mob)
 		if(!istype(M, /mob/living/carbon/slime))//If target is not a slime.
-			user << "<span class='warning'> The steroid only works on baby slimes!</span>"
+			user << "<span class='warning'>The steroid only works on baby slimes!</span>"
 			return ..()
 		if(M.is_adult) //Can't tame adults
-			user << "<span class='warning'> Only baby slimes can use the steroid!</span>"
+			user << "<span class='warning'>Only baby slimes can use the steroid!</span>"
 			return..()
 		if(M.stat)
-			user << "<span class='warning'> The slime is dead!</span>"
+			user << "<span class='warning'>The slime is dead!</span>"
 			return..()
 		if(M.cores == 3)
-			user <<"<span class='warning'> The slime already has the maximum amount of extract!</span>"
+			user <<"<span class='warning'>The slime already has the maximum amount of extract!</span>"
 			return..()
 
 		user <<"You feed the slime the steroid. It now has triple the amount of extract."
@@ -220,10 +220,10 @@
 	/*afterattack(obj/target, mob/user , flag)
 		if(istype(target, /obj/item/slime_extract))
 			if(target.enhanced == 1)
-				user << "<span class='warning'> This extract has already been enhanced!</span>"
+				user << "<span class='warning'>This extract has already been enhanced!</span>"
 				return ..()
 			if(target.Uses == 0)
-				user << "<span class='warning'> You can't enhance a used extract!</span>"
+				user << "<span class='warning'>You can't enhance a used extract!</span>"
 				return ..()
 			user <<"You apply the enhancer. It now has triple the amount of uses."
 			target.Uses = 3
@@ -238,131 +238,71 @@
 	icon_state = "golem"
 	unacidable = 1
 	layer = TURF_LAYER
+	var/wizardy = FALSE //if this rune can only be used by a wizard or not
 
-	New()
-		..()
-		processing_objects.Add(src)
+/obj/effect/golemrune/Initialize()
+	. = ..()
+	START_PROCESSING(SSprocessing, src)
+	announce_to_ghosts()
 
-	process()
-		var/mob/dead/observer/ghost
-		for(var/mob/dead/observer/O in src.loc)
-			if(!O.client)	continue
-			if(O.mind && O.mind.current && O.mind.current.stat != DEAD)	continue
-			ghost = O
-			break
-		if(ghost)
-			icon_state = "golem2"
-		else
-			icon_state = "golem"
+/obj/effect/golemrune/process()
+	var/mob/abstract/observer/ghost
+	for(var/mob/abstract/observer/O in src.loc)
+		if(!O.client)	continue
+		if(O.mind && O.mind.current && O.mind.current.stat != DEAD)	continue
+		ghost = O
+		break
+	if(ghost && !(ghost.has_enabled_antagHUD && config.antag_hud_restricted))
+		icon_state = "golem2"
+	else
+		icon_state = "golem"
 
-	attack_hand(mob/living/user as mob)
-		var/mob/dead/observer/ghost
-		for(var/mob/dead/observer/O in src.loc)
-			if(!O.client)	continue
-			if(O.mind && O.mind.current && O.mind.current.stat != DEAD)	continue
-			ghost = O
-			break
-		if(!ghost)
-			user << "The rune fizzles uselessly. There is no spirit nearby."
+/obj/effect/golemrune/attack_hand(mob/living/user as mob)
+	var/mob/abstract/observer/ghost
+	for(var/mob/abstract/observer/O in src.loc)
+		if(!O.client)	continue
+		if(O.mind && O.mind.current && O.mind.current.stat != DEAD)	continue
+		ghost = O
+		break
+
+	if(wizardy)
+		if(!user.is_wizard())
+			to_chat(user, "<span class='notice'>The rune lies silent.</span>")
 			return
-		var/mob/living/carbon/human/G = new(src.loc)
-		G.set_species("Golem")
-		G.key = ghost.key
-		G << "You are an adamantine golem. You move slowly, but are highly resistant to heat and cold as well as blunt trauma. You are unable to wear clothes, but can still use most tools. Serve [user], and assist them in completing their goals at any cost."
-		qdel(src)
 
+	if(!ghost)
+		to_chat(user, "<span class='warning'>The rune fizzles uselessly. There is no spirit nearby.</span>")
+		return
+	if(ghost.has_enabled_antagHUD && config.antag_hud_restricted)
+		to_chat(ghost, "<span class='warning'>You can not join as a golem with antagHUD on!</span>")
+		to_chat(user, "<span class='warning'>The rune fizzles uselessly. There is no spirit nearby.</span>")
+		return
 
-	proc/announce_to_ghosts()
-		for(var/mob/dead/observer/G in player_list)
-			if(G.client)
-				var/area/A = get_area(src)
-				if(A)
-					G << "Golem rune created in [A.name]."
+	var/golem_type = "Adamantine Golem"
+
+	var/obj/item/stack/material/O = (locate(/obj/item/stack/material) in src.loc)
+	if(O && O.amount>=10)
+		if(O.material.golem)
+			golem_type = O.material.golem
+			qdel(O)
+
+	var/mob/living/carbon/human/G = new(src.loc)
+
+	G.key = ghost.key
+	G.set_species(golem_type)
+	G.name = G.species.get_random_name()
+	G.real_name = G.species.get_random_name()
+	to_chat(G, "<span class='notice'>You are a golem. Serve [user], and assist them in completing their goals at any cost.</span>")
+	qdel(src)
+
+/obj/effect/golemrune/proc/announce_to_ghosts()
+	var/area/A = get_area(src)
+	if(A)
+		say_dead_direct("Golem rune created in [A.name]")
+
+/obj/effect/golemrune/wizard
+	wizardy = TRUE
 
 /mob/living/carbon/slime/has_eyes()
 	return 0
 
-//////////////////////////////Old shit from metroids/RoRos, and the old cores, would not take much work to re-add them////////////////////////
-
-/*
-// Basically this slime Core catalyzes reactions that normally wouldn't happen anywhere
-/obj/item/slime_core
-	name = "slime extract"
-	desc = "Goo extracted from a slime. Legends claim these to have \"magical powers\"."
-	icon = 'icons/mob/slimes.dmi'
-	icon_state = "slime extract"
-	force = 1.0
-	w_class = 1.0
-	throwforce = 1.0
-	throw_speed = 2
-	throw_range = 6
-	origin_tech = "biotech=4"
-	var/POWERFLAG = 0 // sshhhhhhh
-	var/Flush = 30
-	var/Uses = 5 // uses before it goes inert
-
-/obj/item/slime_core/New()
-		..()
-		create_reagents(100)
-		POWERFLAG = rand(1,10)
-		Uses = rand(7, 25)
-		//flags |= NOREACT
-/*
-		spawn()
-			Life()
-
-	proc/Life()
-		while(src)
-			sleep(25)
-			Flush--
-			if(Flush <= 0)
-				reagents.clear_reagents()
-				Flush = 30
-*/
-
-
-
-/obj/item/weapon/reagent_containers/food/snacks/egg/slime
-	name = "slime egg"
-	desc = "A small, gelatinous egg."
-	icon = 'icons/mob/mob.dmi'
-	icon_state = "slime egg-growing"
-	bitesize = 12
-	origin_tech = "biotech=4"
-	var/grown = 0
-
-/obj/item/weapon/reagent_containers/food/snacks/egg/slime/New()
-	..()
-	reagents.add_reagent("nutriment", 4)
-	reagents.add_reagent("slimejelly", 1)
-	spawn(rand(1200,1500))//the egg takes a while to "ripen"
-		Grow()
-
-/obj/item/weapon/reagent_containers/food/snacks/egg/slime/proc/Grow()
-	grown = 1
-	icon_state = "slime egg-grown"
-	processing_objects.Add(src)
-	return
-
-/obj/item/weapon/reagent_containers/food/snacks/egg/slime/proc/Hatch()
-	processing_objects.Remove(src)
-	var/turf/T = get_turf(src)
-	src.visible_message("<span class='warning'> The [name] pulsates and quivers!</span>")
-	spawn(rand(50,100))
-		src.visible_message("<span class='warning'> The [name] bursts open!</span>")
-		new/mob/living/carbon/slime(T)
-		qdel(src)
-
-
-/obj/item/weapon/reagent_containers/food/snacks/egg/slime/process()
-	var/turf/location = get_turf(src)
-	var/datum/gas_mixture/environment = location.return_air()
-	if (environment.phoron > MOLES_PHORON_VISIBLE)//phoron exposure causes the egg to hatch
-		src.Hatch()
-
-/obj/item/weapon/reagent_containers/food/snacks/egg/slime/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(istype( W, /obj/item/weapon/pen/crayon ))
-		return
-	else
-		..()
-*/

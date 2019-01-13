@@ -16,8 +16,11 @@
 	var/time_of_birth
 	var/language
 	var/death_msg = "lets out a waning guttural screech, green blood bubbling from its maw."
+	var/meat_amount = 0
+	var/meat_type
 
-/mob/living/carbon/alien/New()
+/mob/living/carbon/alien/Initialize()
+	. = ..()
 
 	time_of_birth = world.time
 
@@ -32,8 +35,6 @@
 		add_language(language)
 
 	gender = NEUTER
-
-	..()
 
 /mob/living/carbon/alien/u_equip(obj/item/W as obj)
 	return
@@ -50,3 +51,5 @@
 
 /mob/living/carbon/alien/cannot_use_vents()
 	return
+
+

@@ -97,7 +97,7 @@
 		if (src.occupant.client)
 			src.occupant.client.eye = src.occupant.client.mob
 			src.occupant.client.perspective = MOB_PERSPECTIVE
-		src.occupant.loc = src.loc
+		src.occupant.forceMove(src.loc)
 		if(injecting)
 			implant(src.occupant)
 			injecting = 0
@@ -108,16 +108,16 @@
 
 	put_mob(mob/living/carbon/M as mob)
 		if(!iscarbon(M))
-			usr << "\red <B>The [src.name] cannot hold this!</B>"
+			usr << "<span class='warning'>\The [src] cannot hold this!</span>"
 			return
 		if(src.occupant)
-			usr << "\red <B>The [src.name] is already occupied!</B>"
+			usr << "<span class='warning'>\The [src] is already occupied!</span>"
 			return
 		if(M.client)
 			M.client.perspective = EYE_PERSPECTIVE
 			M.client.eye = src
 		M.stop_pulling()
-		M.loc = src
+		M.forceMove(src)
 		src.occupant = M
 		src.add_fingerprint(usr)
 		icon_state = "implantchair_on"
@@ -132,10 +132,10 @@
 			if(!imp)	continue
 			if(istype(imp, /obj/item/weapon/implant/loyalty))
 				for (var/mob/O in viewers(M, null))
-					O.show_message("\red [M] has been implanted by the [src.name].", 1)
+					O.show_message("<span class='warning'>\The [M] has been implanted by \the [src].</span>", 1)
 
 				if(imp.implanted(M))
-					imp.loc = M
+					imp.forceMove(M)
 					imp.imp_in = M
 					imp.implanted = 1
 				implant_list -= imp

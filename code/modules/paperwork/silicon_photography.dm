@@ -16,7 +16,7 @@
 	name = "Drone photo camera"
 
 /obj/item/device/camera/siliconcam/proc/injectaialbum(obj/item/weapon/photo/p, var/sufix = "") //stores image information to a list similar to that of the datacore
-	p.loc = src
+	p.forceMove(src)
 	photos_taken++
 	p.name = "Image [photos_taken][sufix]"
 	aipictures += p
@@ -39,7 +39,7 @@
 	var/list/nametemp = list()
 	var/find
 	if(cam.aipictures.len == 0)
-		usr << "<span class='userdanger'>No images saved</span>"
+		usr << "<span class='notice'>No images saved</span>"
 		return
 	for(var/obj/item/weapon/photo/t in cam.aipictures)
 		nametemp += t.name
@@ -69,8 +69,9 @@
 	aipictures -= selection
 	usr << "<span class='unconscious'>Local image deleted</span>"
 
-/obj/item/device/camera/siliconcam/ai_camera/can_capture_turf(turf/T, mob/user)
-	var/mob/living/silicon/ai = user
+//Capture Proc for AI / Robot
+/mob/living/silicon/ai/can_capture_turf(turf/T)
+	var/mob/living/silicon/ai = src
 	return ai.TurfAdjacent(T)
 
 /obj/item/device/camera/siliconcam/proc/toggle_camera_mode()

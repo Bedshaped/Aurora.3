@@ -30,13 +30,14 @@ FLOOR SAFES
 	tumbler_2_open = rand(0, 72)
 
 
-/obj/structure/safe/initialize()
+/obj/structure/safe/Initialize()
+	. = ..()
 	for(var/obj/item/I in loc)
 		if(space >= maxspace)
 			return
 		if(I.w_class + space <= maxspace)
 			space += I.w_class
-			I.loc = src
+			I.forceMove(src)
 
 
 /obj/structure/safe/proc/check_unlocked(mob/user as mob, canhear)
@@ -146,8 +147,7 @@ FLOOR SAFES
 	if(open)
 		if(I.w_class + space <= maxspace)
 			space += I.w_class
-			user.drop_item()
-			I.loc = src
+			user.drop_from_inventory(I,src)
 			user << "<span class='notice'>You put [I] in [src].</span>"
 			updateUsrDialog()
 			return
@@ -160,17 +160,8 @@ FLOOR SAFES
 			return
 
 
-obj/structure/safe/blob_act()
-	return
-
-
 obj/structure/safe/ex_act(severity)
 	return
-
-
-obj/structure/safe/meteorhit(obj/O as obj)
-	return
-
 
 //FLOOR SAFES
 /obj/structure/safe/floor
@@ -180,12 +171,26 @@ obj/structure/safe/meteorhit(obj/O as obj)
 	level = 1	//underfloor
 	layer = 2.5
 
-
-/obj/structure/safe/floor/initialize()
-	..()
+/obj/structure/safe/floor/Initialize()
+	. = ..()
 	var/turf/T = loc
-	hide(T.intact)
-
+	if(istype(T) && !T.is_plating())
+		hide(1)
+	update_icon()
 
 /obj/structure/safe/floor/hide(var/intact)
 	invisibility = intact ? 101 : 0
+
+/obj/structure/safe/floor/hides_under_flooring()
+	return 1
+
+//random station safe, may come with some different loot
+/obj/structure/safe/station
+	name = "corporate safe"
+	
+/obj/structure/safe/station/Initialize()
+	. = ..()
+	new /obj/random/highvalue(src)
+	new /obj/random/highvalue(src)
+	new /obj/random/highvalue(src)
+	new /obj/random/highvalue(src)

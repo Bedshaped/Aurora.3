@@ -6,20 +6,12 @@
 	density = 1
 	anchored = 1
 	flags = CONDUCT
-	pressure_resistance = 5*ONE_ATMOSPHERE
 	layer = 2.9
 	explosion_resistance = 1
 	var/health = 10
 	var/destroyed = 0
 
-
 /obj/structure/grille/ex_act(severity)
-	qdel(src)
-
-/obj/structure/grille/blob_act()
-	qdel(src)
-
-/obj/structure/grille/meteorhit(var/obj/M)
 	qdel(src)
 
 /obj/structure/grille/update_icon()
@@ -28,11 +20,13 @@
 	else
 		icon_state = initial(icon_state)
 
-/obj/structure/grille/Bumped(atom/user)
-	if(ismob(user)) shock(user, 70)
+/obj/structure/grille/CollidedWith(atom/user)
+	if(ismob(user))
+		shock(user, 70)
 
 /obj/structure/grille/attack_hand(mob/user as mob)
 
+	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 	playsound(loc, 'sound/effects/grillehit.ogg', 80, 1)
 	user.do_attack_animation(src)
 
@@ -67,13 +61,11 @@
 /obj/structure/grille/bullet_act(var/obj/item/projectile/Proj)
 	if(!Proj)	return
 
-	//Tasers and the like should not damage grilles.
-	if(!(Proj.damage_type == BRUTE || Proj.damage_type == BURN))
-		return
-
 	//Flimsy grilles aren't so great at stopping projectiles. However they can absorb some of the impact
-	var/damage = Proj.damage
+	var/damage = Proj.get_structure_damage()
 	var/passthrough = 0
+
+	if(!damage) return
 
 	//20% chance that the grille provides a bit more cover than usual. Support structure for example might take up 20% of the grille's area.
 	//If they click on the grille itself then we assume they are aiming at the grille itself and the extra cover behaviour is always used.
@@ -104,7 +96,7 @@
 	if(iswirecutter(W))
 		if(!shock(user, 100))
 			playsound(loc, 'sound/items/Wirecutter.ogg', 100, 1)
-			PoolOrNew(/obj/item/stack/rods, list(get_turf(src), destroyed ? 1 : 2))
+			new /obj/item/stack/rods(get_turf(src), destroyed ? 1 : 2)
 			qdel(src)
 	else if((isscrewdriver(W)) && (istype(loc, /turf/simulated) || anchored))
 		if(!shock(user, 90))
@@ -112,6 +104,16 @@
 			anchored = !anchored
 			user.visible_message("<span class='notice'>[user] [anchored ? "fastens" : "unfastens"] the grille.</span>", \
 								 "<span class='notice'>You have [anchored ? "fastened the grille to" : "unfastened the grill from"] the floor.</span>")
+	else if(istype(W,/obj/item/stack/rods) && destroyed == 1)
+		if(!shock(user, 90))
+			var/obj/item/stack/rods/ROD = W
+			health = 10
+			density = 1
+			destroyed = 0
+			icon_state = "grille"
+			ROD.use(1)
+			user.visible_message("<span class='notice'>[user] repairs the grille.</span>", \
+								 "<span class='notice'>You have repaired the grille.</span>")
 			return
 
 //window placing begin //TODO CONVERT PROPERLY TO MATERIAL DATUM
@@ -158,6 +160,7 @@
 //window placing end
 
 	else if(!(W.flags & CONDUCT) || !shock(user, 70))
+		user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 		user.do_attack_animation(src)
 		playsound(loc, 'sound/effects/grillehit.ogg', 80, 1)
 		switch(W.damtype)
@@ -176,11 +179,11 @@
 			density = 0
 			destroyed = 1
 			update_icon()
-			PoolOrNew(/obj/item/stack/rods, get_turf(src))
+			new /obj/item/stack/rods(get_turf(src))
 
 		else
 			if(health <= -6)
-				PoolOrNew(/obj/item/stack/rods, get_turf(src))
+				new /obj/item/stack/rods(get_turf(src))
 				qdel(src)
 				return
 	return
@@ -202,9 +205,7 @@
 		if(electrocute_mob(user, C, src))
 			if(C.powernet)
 				C.powernet.trigger_warning()
-			var/datum/effect/effect/system/spark_spread/s = new /datum/effect/effect/system/spark_spread
-			s.set_up(3, 1, src)
-			s.start()
+			spark(src, 3, alldirs)
 			if(user.stunned)
 				return 1
 		else
@@ -240,6 +241,7 @@
 	desc = "A matrice built out of an unknown material, with some sort of force field blocking air around it"
 	icon_state = "grillecult"
 	health = 40 //Make it strong enough to avoid people breaking in too easily
+	appearance_flags = NO_CLIENT_COLOR
 
 /obj/structure/grille/cult/CanPass(atom/movable/mover, turf/target, height = 1.5, air_group = 0)
 	if(air_group)

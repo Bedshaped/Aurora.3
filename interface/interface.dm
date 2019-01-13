@@ -8,7 +8,7 @@
 			return
 		src << link(config.wikiurl)
 	else
-		src << "\red The wiki URL is not set in the server configuration."
+		src << "<span class='warning'>The wiki URL is not set in the server configuration.</span>"
 	return
 
 /client/verb/forum()
@@ -20,7 +20,7 @@
 			return
 		src << link(config.forumurl)
 	else
-		src << "\red The forum URL is not set in the server configuration."
+		src << "<span class='warning'>The forum URL is not set in the server configuration.</span>"
 	return
 
 /client/verb/reportbug()
@@ -32,7 +32,7 @@
 			return
 		src << link(config.githuburl + "/issues")
 	else
-		src << "\red The issue tracker URL is not set in the server configuration."
+		src << span("warning", "The issue tracker URL is not set in the server configuration.")
 	return
 
 #define RULES_FILE "config/rules.html"
@@ -40,7 +40,7 @@
 	set name = "Rules"
 	set desc = "Show Server Rules."
 	set hidden = 1
-	src << browse(file(RULES_FILE), "window=rules;size=480x320")
+	src << browse(file(RULES_FILE), "window=rules;size=640x500")
 #undef RULES_FILE
 
 /client/verb/hotkeys_help()
@@ -62,6 +62,8 @@ Hotkey-Mode: (hotkey-mode must be on)
 \ts = down
 \td = right
 \tw = up
+\t, = move-upwards
+\t. = move-down
 \tq = drop
 \te = equip
 \tr = throw
@@ -175,5 +177,20 @@ Any-Mode: (hotkey doesn't need to be on)
 			return
 		src << link(config.webint_url)
 	else
-		src << "\red The web interface URL is not set in the server configuration."
+		src << span("warning", "The web interface URL is not set in the server configuration.")
 	return
+
+/client/verb/open_discord()
+	set name = "open_discord"
+	set desc = "Get a link to the Discord server."
+	set hidden = 1
+
+	if (discord_bot && discord_bot.active)
+		if(alert("This will open Discord in your browser or directly. Are you sure?",, "Yes", "No") == "Yes")
+			var/url_link = discord_bot.retreive_invite()
+			if (url_link)
+				src << link(url_link)
+			else
+				src << span("danger", "An error occured retreiving the invite.")
+	else
+		src << span("warning", "The serverside Discord bot is not set up.")

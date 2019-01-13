@@ -32,11 +32,10 @@
 	anchored = 1
 	icon = 'icons/obj/cloning.dmi'
 	icon_state = "pod_0"
-	req_access = list(access_genetics) //For premature unlocking.
+	req_access = list(access_medical_equip) //since we have no genetics for now
 	var/mob/living/occupant
 	var/heal_level = 20 //The clone is released once its health reaches this level.
 	var/heal_rate = 1
-	var/notoxin = 0
 	var/locked = 0
 	var/obj/machinery/computer/cloning/connected = null //So we remember the connected clone machine.
 	var/mess = 0 //Need to clean out it if it's full of exploded clone.
@@ -44,32 +43,33 @@
 	var/eject_wait = 0 //Don't eject them as soon as they are created fuckkk
 	var/biomass = CLONE_BIOMASS * 3
 
-/obj/machinery/clonepod/New()
-	..()
-	component_parts = list()
-	component_parts += new /obj/item/weapon/circuitboard/clonepod(src)
-	component_parts += new /obj/item/weapon/stock_parts/manipulator(src)
-	component_parts += new /obj/item/weapon/stock_parts/manipulator(src)
-	component_parts += new /obj/item/weapon/stock_parts/scanning_module(src)
-	component_parts += new /obj/item/weapon/stock_parts/scanning_module(src)
-	component_parts += new /obj/item/weapon/stock_parts/console_screen(src)
-	component_parts += new /obj/item/stack/cable_coil(src, 2)
+	component_types = list(
+		/obj/item/weapon/circuitboard/clonepod,
+		/obj/item/weapon/stock_parts/manipulator = 2,
+		/obj/item/weapon/stock_parts/scanning_module = 2,
+		/obj/item/weapon/stock_parts/console_screen,
+		/obj/item/stack/cable_coil{amount = 2}
+	)
 
-	RefreshParts()
+/obj/machinery/clonepod/Initialize()
+	. = ..()
 	update_icon()
+	set_expansion(/datum/expansion/multitool, new/datum/expansion/multitool/store(src))
+
+/obj/machinery/clonepod/Destroy()
+	if(connected)
+		connected.release_pod(src)
+	return ..()
 
 /obj/machinery/clonepod/attack_ai(mob/user as mob)
 
 	add_hiddenprint(user)
 	return attack_hand(user)
 
-/obj/machinery/clonepod/attack_hand(mob/user as mob)
-	if((isnull(occupant)) || (stat & NOPOWER))
+/obj/machinery/clonepod/attack_hand(var/mob/user)
+	if((stat & NOPOWER) || !occupant || occupant.stat == DEAD)
 		return
-	if((!isnull(occupant)) && (occupant.stat != 2))
-		var/completion = (100 * ((occupant.health + 50) / (heal_level + 100))) // Clones start at -150 health
-		user << "Current clone cycle is [round(completion)]% complete."
-	return
+	user << "Current clone cycle is [round(GetCloneReadiness())]% complete."
 
 //Clonepod
 
@@ -87,7 +87,7 @@
 		if(ckey(clonemind.key) != R.ckey)
 			return 0
 	else
-		for(var/mob/dead/observer/G in player_list)
+		for(var/mob/abstract/observer/G in player_list)
 			if(G.ckey == R.ckey)
 				if(G.can_reenter_corpse)
 					break
@@ -109,8 +109,8 @@
 	H.real_name = R.dna.real_name
 
 	//Get the clone body ready
-	H.adjustCloneLoss(150) // New damage var so you can't eject a clone early then stab them to abuse the current damage system --NeoFite
-	H.adjustBrainLoss(80) // Even if healed to full health, it will have some brain damage
+	H.setCloneLoss(H.maxHealth * (100 - config.health_threshold_crit) / 100) // We want to put them exactly at the crit level, so we deal this much clone damage
+	H.adjustBrainLoss(50, 55) // Even if healed to full health, it will have some brain damage
 	H.Paralyse(4)
 
 	//Here let's calculate their health so the pod doesn't immediately eject them!!!
@@ -131,6 +131,7 @@
 	else
 		H.dna = R.dna
 	H.UpdateAppearance()
+	H.sync_organ_dna()
 	if(heal_level < 60)
 		randmutb(H) //Sometimes the clones come out wrong.
 		H.dna.UpdateSE()
@@ -142,13 +143,29 @@
 
 	for(var/datum/language/L in R.languages)
 		H.add_language(L.name)
+
+	for(var/obj/item/organ/I in H.internal_organs)
+		if(I.robotic)
+			qdel(I) //cloner can't clone inorganic organs
+	for(var/obj/item/organ/external/E in H.organs)
+		if(E.status & ORGAN_ROBOT)
+			qdel(E) //cloner can't clone inorganic organs
+
 	H.flavor_texts = R.flavor.Copy()
-	H.suiciding = 0
 	attempting = 0
 	return 1
 
+/obj/machinery/clonepod/proc/GetCloneReadiness() // Returns a number between 0 and 100
+	if(!occupant)
+		return
+
+	if(occupant.getCloneLoss() == 0) // Rare case, but theoretically possible
+		return 100
+
+	return between(0, 100 * (occupant.health - occupant.maxHealth * config.health_threshold_crit / 100) / (occupant.maxHealth * (heal_level - config.health_threshold_crit) / 100), 100)
+
 //Grow clones to maturity then kick them out.  FREELOADERS
-/obj/machinery/clonepod/process()
+/obj/machinery/clonepod/machinery_process()
 
 	if(stat & NOPOWER) //Autoeject if power is lost
 		if(occupant)
@@ -157,36 +174,34 @@
 		return
 
 	if((occupant) && (occupant.loc == src))
-		if((occupant.stat == DEAD) || (occupant.suiciding) || !occupant.key)  //Autoeject corpses and suiciding dudes.
+		if((occupant.stat == DEAD))  //Autoeject corpses
 			locked = 0
 			go_out()
 			connected_message("Clone Rejected: Deceased.")
 			return
 
-		else if(occupant.health < heal_level && occupant.getCloneLoss() > 0)
-			occupant.Paralyse(4)
-
-			 //Slowly get that clone healed and finished.
-			occupant.adjustCloneLoss(-2 * heal_rate)
-
-			//Premature clones may have brain damage.
-			occupant.adjustBrainLoss(-1 * heal_rate)
-
-			//So clones don't die of oxyloss in a running pod.
-			if(occupant.reagents.get_reagent_amount("inaprovaline") < 30)
-				occupant.reagents.add_reagent("inaprovaline", 60)
-			occupant.Sleeping(30)
-			//Also heal some oxyloss ourselves because inaprovaline is so bad at preventing it!!
-			occupant.adjustOxyLoss(-4)
-
-			use_power(7500) //This might need tweaking.
-			return
-
-		else if((occupant.health >= heal_level) && (!eject_wait))
+		if(GetCloneReadiness() >= 100 && !eject_wait)
+			playsound(src.loc, 'sound/machines/ding.ogg', 50, 1)
+			src.audible_message("\The [src] signals that the cloning process is complete.")
 			connected_message("Cloning Process Complete.")
 			locked = 0
 			go_out()
 			return
+
+		occupant.Paralyse(4)
+
+		//Slowly get that clone healed and finished.
+		occupant.adjustCloneLoss(-2 * heal_rate)
+
+		//So clones don't die of oxyloss in a running pod.
+		if(occupant.reagents.get_reagent_amount("inaprovaline") < 30)
+			occupant.reagents.add_reagent("inaprovaline", 60)
+		occupant.Sleeping(30)
+		//Also heal some oxyloss ourselves because inaprovaline is so bad at preventing it!!
+		occupant.adjustOxyLoss(-4)
+
+		use_power(7500) //This might need tweaking.
+		return
 
 	else if((!occupant) || (occupant.loc != src))
 		occupant = null
@@ -217,20 +232,13 @@
 		else
 			locked = 0
 			user << "System unlocked."
-	else if(istype(W, /obj/item/weapon/card/emag))
-		if(isnull(occupant))
-			return
-		user << "You force an emergency ejection."
-		locked = 0
-		go_out()
-		return
 	else if(istype(W, /obj/item/weapon/reagent_containers/food/snacks/meat))
 		user << "<span class='notice'>\The [src] processes \the [W].</span>"
 		biomass += 50
-		user.drop_item()
+		user.drop_from_inventory(W,src)
 		qdel(W)
 		return
-	else if(istype(W, /obj/item/weapon/wrench))
+	else if(iswrench(W))
 		if(locked && (anchored || occupant))
 			user << "<span class='warning'>Can not do that while [src] is in use.</span>"
 		else
@@ -245,13 +253,16 @@
 				user.visible_message("[user] secures [src] to the floor.", "You secure [src] to the floor.")
 			else
 				user.visible_message("[user] unsecures [src] from the floor.", "You unsecure [src] from the floor.")
-	else if(istype(W, /obj/item/device/multitool))
-		var/obj/item/device/multitool/M = W
-		M.connecting = src
-		user << "<span class='notice'>You load connection data from [src] to [M].</span>"
-		return
 	else
 		..()
+
+/obj/machinery/clonepod/emag_act(var/remaining_charges, var/mob/user)
+	if(isnull(occupant))
+		return NO_EMAG_ACT
+	user << "You force an emergency ejection."
+	locked = 0
+	go_out()
+	return 1
 
 //Put messages in the connected computer's temp var for display.
 /obj/machinery/clonepod/proc/connected_message(var/message)
@@ -267,16 +278,13 @@
 /obj/machinery/clonepod/RefreshParts()
 	..()
 	var/rating = 0
+
 	for(var/obj/item/weapon/stock_parts/P in component_parts)
-		if(istype(P, /obj/item/weapon/stock_parts/scanning_module) || istype(P, /obj/item/weapon/stock_parts/manipulator))
+		if(isscanner(P) || ismanipulator(P))
 			rating += P.rating
 
 	heal_level = rating * 10 - 20
 	heal_rate = round(rating / 4)
-	if(rating >= 8)
-		notoxin = 1
-	else
-		notoxin = 0
 
 /obj/machinery/clonepod/verb/eject()
 	set name = "Eject Cloner"
@@ -305,9 +313,9 @@
 	if(occupant.client)
 		occupant.client.eye = occupant.client.mob
 		occupant.client.perspective = MOB_PERSPECTIVE
-	occupant.loc = loc
+	occupant.forceMove(loc)
 	eject_wait = 0 //If it's still set somehow.
-	domutcheck(occupant) //Waiting until they're out before possible monkeyizing.
+	domutcheck(occupant) //Waiting until they're out before possible transforming.
 	occupant = null
 
 	biomass -= CLONE_BIOMASS
@@ -339,21 +347,21 @@
 	switch(severity)
 		if(1.0)
 			for(var/atom/movable/A as mob|obj in src)
-				A.loc = loc
+				A.forceMove(loc)
 				ex_act(severity)
 			qdel(src)
 			return
 		if(2.0)
 			if(prob(50))
 				for(var/atom/movable/A as mob|obj in src)
-					A.loc = loc
+					A.forceMove(loc)
 					ex_act(severity)
 				qdel(src)
 				return
 		if(3.0)
 			if(prob(25))
 				for(var/atom/movable/A as mob|obj in src)
-					A.loc = loc
+					A.forceMove(loc)
 					ex_act(severity)
 				qdel(src)
 				return
@@ -406,6 +414,7 @@
 	read_only = 1
 
 	New()
+		..()
 		initializeDisk()
 		buf.types=DNA2_BUF_UE|DNA2_BUF_UI
 		//data = "066000033000000000AF00330660FF4DB002690"
@@ -421,6 +430,7 @@
 	read_only = 1
 
 	New()
+		..()
 		initializeDisk()
 		buf.types=DNA2_BUF_SE
 		var/list/new_SE=list(0x098,0x3E8,0x403,0x44C,0x39F,0x4B0,0x59D,0x514,0x5FC,0x578,0x5DC,0x640,0x6A4)
@@ -451,8 +461,7 @@
 	name = "Diskette Box"
 	icon_state = "disk_kit"
 
-/obj/item/weapon/storage/box/disks/New()
-	..()
+/obj/item/weapon/storage/box/disks/fill()
 	new /obj/item/weapon/disk/data(src)
 	new /obj/item/weapon/disk/data(src)
 	new /obj/item/weapon/disk/data(src)

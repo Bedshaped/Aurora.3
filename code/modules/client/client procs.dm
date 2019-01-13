@@ -1,7 +1,6 @@
 	////////////
 	//SECURITY//
 	////////////
-#define TOPIC_SPAM_DELAY	2		//2 ticks is about 2/10ths of a second; it was 4 ticks, but that caused too many clicks to be lost due to lag
 #define UPLOAD_LIMIT		10485760	//Restricts client uploads to the server to 10MB //Boosted this thing. What's the worst that can happen?
 #define MIN_CLIENT_VERSION	0		//Just an ambiguously low version for now, I don't want to suddenly stop people playing.
 									//I would just like the code ready should it ever need to be used.
@@ -24,10 +23,24 @@
 	if(!usr || usr != mob)	//stops us calling Topic for somebody else's client. Also helps prevent usr=null
 		return
 
-	//Reduces spamming of links by dropping calls that happen during the delay period
-	if(next_allowed_topic_time > world.time)
+	// asset_cache
+	if(href_list["asset_cache_confirm_arrival"])
+		//to_chat(src, "ASSET JOB [href_list["asset_cache_confirm_arrival"]] ARRIVED.")
+		var/job = text2num(href_list["asset_cache_confirm_arrival"])
+		//because we skip the limiter, we have to make sure this is a valid arrival and not somebody tricking us
+		//	into letting append to a list without limit.
+		if (job && job <= last_asset_job && !(job in completed_asset_jobs))
+			completed_asset_jobs += job
+			return
+
+	if (href_list["EMERG"] && href_list["EMERG"] == "action")
+		if (!info_sent)
+			handle_connection_info(src, href_list["data"])
+			info_sent = 1
+		else
+			server_greeting.close_window(src, "Your greeting window has malfunctioned and has been shut down.")
+
 		return
-	next_allowed_topic_time = world.time + TOPIC_SPAM_DELAY
 
 	//search the href for script injection
 	if( findtext(href,"<script",1,0) )
@@ -39,11 +52,25 @@
 	//Admin PM
 	if(href_list["priv_msg"])
 		var/client/C = locate(href_list["priv_msg"])
+		var/datum/ticket/ticket = locate(href_list["ticket"])
+
+		if (!isnull(ticket) && !istype(ticket))
+			return
+
 		if(ismob(C)) 		//Old stuff can feed-in mobs instead of clients
 			var/mob/M = C
 			C = M.client
-		cmd_admin_pm(C,null)
+
+		cmd_admin_pm(C, null, ticket)
 		return
+
+	if(href_list["close_ticket"])
+		var/datum/ticket/ticket = locate(href_list["close_ticket"])
+
+		if(!istype(ticket))
+			return
+
+		ticket.close(src)
 
 	if(href_list["discord_msg"])
 		if(!holder && received_discord_pm < world.time - 6000) //Worse they can do is spam IRC for 10 minutes
@@ -54,8 +81,6 @@
 			return
 		cmd_admin_discord_pm(href_list["discord_msg"])
 		return
-
-
 
 	//Logs all hrefs
 	if(config && config.log_hrefs && href_logfile)
@@ -71,6 +96,10 @@
 		var/queryid = text2num(href_list["warnacknowledge"])
 		warnings_acknowledge(queryid)
 
+	if(href_list["notifacknowledge"])
+		var/queryid = text2num(href_list["notifacknowledge"])
+		notifications_acknowledge(queryid)
+
 	if(href_list["warnview"])
 		warnings_check()
 
@@ -85,39 +114,39 @@
 
 		establish_db_connection(dbcon)
 		if (!dbcon.IsConnected())
-			src << "\red Action failed! Database link could not be established!"
+			src << "<span class='warning'>Action failed! Database link could not be established!</span>"
 			return
 
 
-		var/DBQuery/check_query = dbcon.NewQuery("SELECT player_ckey, status FROM ss13_player_linking WHERE id = :id")
-		check_query.Execute(list(":id" = request_id))
+		var/DBQuery/check_query = dbcon.NewQuery("SELECT player_ckey, status FROM ss13_player_linking WHERE id = :id:")
+		check_query.Execute(list("id" = request_id))
 
 		if (!check_query.NextRow())
-			src << "\red No request found!"
+			src << "<span class='warning'>No request found!</span>"
 			return
 
 		if (ckey(check_query.item[1]) != ckey || check_query.item[2] != "new")
-			src << "\red Request authentication failed!"
+			src << "<span class='warning'>Request authentication failed!</span>"
 			return
 
 		var/query_contents = ""
-		var/list/query_details = list(":new_status", ":id")
+		var/list/query_details = list("new_status", "id")
 		var/feedback_message = ""
 		switch (href_list["linkingaction"])
 			if ("accept")
-				query_contents = "UPDATE ss13_player_linking SET status = :new_status, updated_at = NOW() WHERE id = :id"
-				query_details[":new_status"] = "confirmed"
-				query_details[":id"] = request_id
+				query_contents = "UPDATE ss13_player_linking SET status = :new_status:, updated_at = NOW() WHERE id = :id:"
+				query_details["new_status"] = "confirmed"
+				query_details["id"] = request_id
 
 				feedback_message = "<font color='green'><b>Account successfully linked!</b></font>"
 			if ("deny")
-				query_contents = "UPDATE ss13_player_linking SET status = :new_status, deleted_at = NOW() WHERE id = :id"
-				query_details[":new_status"] = "rejected"
-				query_details[":id"] = request_id
+				query_contents = "UPDATE ss13_player_linking SET status = :new_status:, deleted_at = NOW() WHERE id = :id:"
+				query_details["new_status"] = "rejected"
+				query_details["id"] = request_id
 
 				feedback_message = "<font color='red'><b>Link request rejected!</b></font>"
 			else
-				src << "\red Invalid command sent."
+				src << "<span class='warning'>Invalid command sent.</span>"
 				return
 
 		var/DBQuery/update_query = dbcon.NewQuery(query_contents)
@@ -138,54 +167,114 @@
 	// JSlink switch.
 	if (href_list["JSlink"])
 		switch (href_list["JSlink"])
+			// Warnings panel for each user.
 			if ("warnings")
 				src.warnings_check()
 
+			// Linking request handling.
 			if ("linking")
 				src.check_linking_requests()
 
+			// Notification dismissal from the server greeting.
 			if ("dismiss")
 				if (href_list["notification"])
 					var/datum/client_notification/a = locate(href_list["notification"])
-					if (a && isnull(a.gcDestroyed))
+					if (!QDELETED(a))
 						a.dismiss()
 
+			// Forum link from various panels.
 			if ("github")
 				if (!config.githuburl)
 					src << "<span class='danger'>Github URL not set in the config. Unable to open the site.</span>"
-				else if (alert("This will open the issue tracker in your browser. Are you sure?",, "Yes", "No") == "Yes")
-					src << link(config.githuburl)
+				else if (alert("This will open the Github page in your browser. Are you sure?",, "Yes", "No") == "Yes")
+					if (href_list["pr"])
+						var/pr_link = "[config.githuburl]pull/[href_list["pr"]]"
+						src << link(pr_link)
+					else
+						src << link(config.githuburl)
 
+			// Forum link from various panels.
 			if ("forums")
 				src.forum()
 
+			// Wiki link from various panels.
 			if ("wiki")
 				src.wiki()
 
+			// Web interface href link from various panels.
 			if ("webint")
 				src.open_webint()
 
-	// Antag contest shit
-	if (href_list["contest_action"] && config.antag_contest_enabled)
-		src.process_contest_topic(href_list)
+			// Forward appropriate topics to the server greeting datum.
+			if ("greeting")
+				if (server_greeting)
+					server_greeting.handle_call(href_list, src)
+
+			// Handle the updating of MotD and Memo tabs upon click.
+			if ("updateHashes")
+				var/save = 0
+				if (href_list["#motd-tab"])
+					src.prefs.motd_hash = href_list["#motd-tab"]
+					save = 1
+				if (href_list["#memo-tab"])
+					src.prefs.memo_hash = href_list["#memo-tab"]
+					save = 1
+
+				if (save)
+					src.prefs.save_preferences()
+
+		return
+
+	if (href_list["view_jobban"])
+		var/reason = jobban_isbanned(ckey, href_list["view_jobban"])
+		if (!reason)
+			to_chat(src, span("notice", "You do not appear jobbanned from this job. If you are still stopped from entering the role however, please adminhelp."))
+			return
+
+		var/data = "<center>Jobbanned from: <b>[href_list["view_jobban"]]</b><br>"
+		data += "Reason:<br>"
+		data += reason
+		data += "</center>"
+
+		show_browser(src, data, "jobban_reason")
 		return
 
 	..()	//redirect to hsrc.()
 
+/proc/client_by_ckey(ckey)
+	return directory[ckey]
+
 /client/proc/handle_spam_prevention(var/message, var/mute_type)
-	if(config.automute_on && !holder && src.last_message == message)
-		src.last_message_count++
-		if(src.last_message_count >= SPAM_TRIGGER_AUTOMUTE)
-			src << "\red You have exceeded the spam filter limit for identical messages. An auto-mute was applied."
-			cmd_admin_mute(src.mob, mute_type, 1)
-			return 1
-		if(src.last_message_count >= SPAM_TRIGGER_WARNING)
-			src << "\red You are nearing the spam filter limit for identical messages."
-			return 0
-	else
-		last_message = message
-		src.last_message_count = 0
-		return 0
+	if (config.automute_on && !holder && length(message))
+		if (last_message_time)
+			if (world.time - last_message_time < config.macro_trigger)
+				spam_alert++
+				if (spam_alert > 3)
+					if (!(prefs.muted & mute_type))
+						cmd_admin_mute(src.mob, mute_type, 1)
+
+					src << "<span class='danger'>You have tripped the macro filter. An auto-mute was applied.</span>"
+					last_message_time = world.time
+					spam_alert = 4
+					return 1
+			else
+				spam_alert = max(0, spam_alert--)
+
+		last_message_time = world.time
+
+		if(last_message == message)
+			last_message_count++
+			if(last_message_count >= SPAM_TRIGGER_AUTOMUTE)
+				src << "<span class='danger'>You have exceeded the spam filter limit for identical messages. An auto-mute was applied.</span>"
+				cmd_admin_mute(src.mob, mute_type, 1)
+				return 1
+			if(last_message_count >= SPAM_TRIGGER_WARNING)
+				src << "<span class='danger'>You are nearing the spam filter limit for identical messages.</span>"
+				return 0
+
+	last_message = message
+	last_message_count = 0
+	return 0
 
 //This stops files larger than UPLOAD_LIMIT being sent from client to server via input(), client.Import() etc.
 /client/AllowUpload(filename, filelength)
@@ -218,12 +307,7 @@
 		del(src)
 		return
 
-	// Change the way they should download resources.
-	if(config.resource_urls)
-		src.preload_rsc = pick(config.resource_urls)
-	else src.preload_rsc = 1 // If config.resource_urls is not set, preload like normal.
-
-	src << "\red If the title screen is black, resources are still downloading. Please be patient until the title screen appears."
+	src << "<span class='alert'>If the title screen is black, resources are still downloading. Please be patient until the title screen appears.</span>"
 
 
 	clients += src
@@ -237,17 +321,22 @@
 
 	log_client_to_db()
 
-	//preferences datum - also holds some persistant data for the client (because we may as well keep these datums to a minimum)
-	prefs = preferences_datums[ckey]
-	if(!prefs)
-		prefs = new /datum/preferences(src)
-		preferences_datums[ckey] = prefs
+	// New player, and we don't want any.
+	if (!holder)
+		if (config.access_deny_new_players && player_age == -1)
+			log_access("Failed Login: [key] [computer_id] [address] - New player attempting connection during panic bunker.", ckey = ckey)
+			message_admins("Failed Login: [key] [computer_id] [address] - New player attempting connection during panic bunker.")
+			to_chat(src, "<span class='danger'>Apologies, but the server is currently not accepting connections from never before seen players.</span>")
+			del(src)
+			return 0
 
-		prefs.gather_notifications(src)
-	prefs.last_ip = address				//these are gonna be used for banning
-	prefs.last_id = computer_id			//these are gonna be used for banning
-
-	. = ..()	//calls mob.Login()
+		// Check if the account is too young.
+		if (config.access_deny_new_accounts != -1 && account_age != -1 && account_age <= config.access_deny_new_accounts)
+			log_access("Failed Login: [key] [computer_id] [address] - Account too young to play. [account_age] days.", ckey = ckey)
+			message_admins("Failed Login: [key] [computer_id] [address] - Account too young to play. [account_age] days.")
+			to_chat(src, "<span class='danger'>Apologies, but the server is currently not accepting connections from BYOND accounts this young.</span>")
+			del(src)
+			return 0
 
 	if (byond_version < config.client_error_version)
 		src << "<span class='danger'><b>Your version of BYOND is too old!</b></span>"
@@ -258,12 +347,32 @@
 		if (holder)
 			src << "Admins get a free pass. However, <b>please</b> update your BYOND as soon as possible. Certain things may cause crashes if you play with your present version."
 		else
+			log_access("Failed Login: [key] [computer_id] [address] - Outdated BYOND major version: [byond_version].")
 			del(src)
 			return 0
 
-	if( (world.address == address || !address) && !host )
-		host = key
-		world.update_status()
+	if (LAZYLEN(config.client_blacklist_version))
+		var/client_version = "[byond_version].[byond_build]"
+		if (client_version in config.client_blacklist_version)
+			src << "<span class='danger'><b>Your version of BYOND is explicitly blacklisted from joining this server!</b></span>"
+			src << "Your current version: [client_version]."
+			src << "Visit http://www.byond.com/download/ to download a different version. Try looking for a newer one, or go one lower."
+			log_access("Failed Login: [key] [computer_id] [address] - Blacklisted BYOND version: [client_version].")
+			del(src)
+			return 0
+
+	//preferences datum - also holds some persistant data for the client (because we may as well keep these datums to a minimum)
+	prefs = preferences_datums[ckey]
+	if(!prefs)
+		prefs = new /datum/preferences(src)
+		preferences_datums[ckey] = prefs
+
+		prefs.gather_notifications(src)
+	prefs.client = src					// Safety reasons here.
+	prefs.last_ip = address				//these are gonna be used for banning
+	prefs.last_id = computer_id			//these are gonna be used for banning
+
+	. = ..()	//calls mob.Login()
 
 	if(holder)
 		add_admin_verbs()
@@ -277,25 +386,27 @@
 			winset(src, null, "command=\".configure graphics-hwmode on\"")
 
 	send_resources()
-	nanomanager.send_resources(src)
 
-	var/outdated_greeting_info = server_greeting.find_outdated_info(src)
-
-	if (outdated_greeting_info)
-		server_greeting.display_to_client(src, outdated_greeting_info)
+	// Server greeting shenanigans.
+	if (server_greeting.find_outdated_info(src, 1))
+		server_greeting.display_to_client(src)
 
 	// Check code/modules/admin/verbs/antag-ooc.dm for definition
 	add_aooc_if_necessary()
+
+	check_ip_intel()
 
 	//////////////
 	//DISCONNECT//
 	//////////////
 /client/Del()
+	ticket_panels -= src
 	if(holder)
 		holder.owner = null
 		admins -= src
 	directory -= ckey
 	clients -= src
+	SSassets.handle_disconnect(src)
 	return ..()
 
 
@@ -308,10 +419,8 @@
 	if(!dbcon.IsConnected())
 		return null
 
-	var/sql_ckey = sql_sanitize_text(ckey(key))
-
-	var/DBQuery/query = dbcon.NewQuery("SELECT datediff(Now(),firstseen) as age FROM ss13_player WHERE ckey = '[sql_ckey]'")
-	query.Execute()
+	var/DBQuery/query = dbcon.NewQuery("SELECT datediff(Now(),firstseen) as age FROM ss13_player WHERE ckey = :ckey:")
+	query.Execute(list("ckey"=ckey(key)))
 
 	if(query.NextRow())
 		return text2num(query.item[1])
@@ -319,26 +428,36 @@
 		return -1
 
 /client/proc/log_client_to_db()
-
-	if ( IsGuestKey(src.key) )
+	if (IsGuestKey(src.key))
 		return
 
-	establish_db_connection(dbcon)
-	if(!dbcon.IsConnected())
+	if(!establish_db_connection(dbcon))
 		return
 
-	var/sql_ckey = sql_sanitize_text(src.ckey)
+	var/DBQuery/query = dbcon.NewQuery("SELECT datediff(Now(),firstseen) as age, whitelist_status, account_join_date, DATEDIFF(NOW(), account_join_date) FROM ss13_player WHERE ckey = :ckey:")
 
-	var/DBQuery/query = dbcon.NewQuery("SELECT id, datediff(Now(),firstseen) as age, whitelist_status, migration_status FROM ss13_player WHERE ckey = '[sql_ckey]'")
-	query.Execute()
-	var/sql_id = 0
+	if(!query.Execute(list("ckey"=ckey(key))))
+		return
+
+	var/found = 0
 	player_age = 0	// New players won't have an entry so knowing we have a connection we set this to zero to be updated if their is a record.
-	while(query.NextRow())
-		sql_id = query.item[1]
-		player_age = text2num(query.item[2])
-		whitelist_status = text2num(query.item[3])
-		need_saves_migrated = text2num(query.item[4])
-		break
+
+	if (query.NextRow())
+		found = 1
+		player_age = text2num(query.item[1])
+		whitelist_status = text2num(query.item[2])
+		account_join_date = query.item[3]
+		account_age = text2num(query.item[4])
+		if (!account_age)
+			account_join_date = sanitizeSQL(findJoinDate())
+			if (!account_join_date)
+				account_age = -1
+			else
+				var/DBQuery/query_datediff = dbcon.NewQuery("SELECT DATEDIFF(NOW(), [account_join_date])")
+				if (!query_datediff.Execute())
+					return
+				if (query_datediff.NextRow())
+					account_age = text2num(query_datediff.item[1])
 
 	var/DBQuery/query_ip = dbcon.NewQuery("SELECT ckey FROM ss13_player WHERE ip = '[address]'")
 	query_ip.Execute()
@@ -354,38 +473,30 @@
 		related_accounts_cid += "[query_cid.item[1]], "
 		break
 
-	//Just the standard check to see if it's actually a number
-	if(sql_id)
-		if(istext(sql_id))
-			sql_id = text2num(sql_id)
-		if(!isnum(sql_id))
-			return
-
 	var/admin_rank = "Player"
 	if(src.holder)
 		admin_rank = src.holder.rank
 
-	var/sql_ip = sql_sanitize_text(src.address)
-	var/sql_computerid = sql_sanitize_text(src.computer_id)
-	var/sql_admin_rank = sql_sanitize_text(admin_rank)
-
-
-	if(sql_id)
-		//Player already identified previously, we need to just update the 'lastseen', 'ip' and 'computer_id' variables
-		var/DBQuery/query_update = dbcon.NewQuery("UPDATE ss13_player SET lastseen = Now(), ip = '[sql_ip]', computerid = '[sql_computerid]', lastadminrank = '[sql_admin_rank]' WHERE id = [sql_id]")
-		query_update.Execute()
-	else
+	if(found)
+		//Player already identified previously, we need to just update the 'lastseen', 'ip', 'computer_id', 'byond_version' and 'byond_build' variables
+		var/DBQuery/query_update = dbcon.NewQuery("UPDATE ss13_player SET lastseen = Now(), ip = :ip:, computerid = :computerid:, lastadminrank = :lastadminrank:, account_join_date = :account_join_date:, byond_version = :byond_version:, byond_build = :byond_build: WHERE ckey = :ckey:")
+		query_update.Execute(list("ckey"=ckey(key),"ip"=src.address,"computerid"=src.computer_id,"lastadminrank"=admin_rank,"account_join_date"=account_join_date,"byond_version"=byond_version,"byond_build"=byond_build))
+	else if (!config.access_deny_new_players)
 		//New player!! Need to insert all the stuff
-		var/DBQuery/query_insert = dbcon.NewQuery("INSERT INTO ss13_player (id, ckey, firstseen, lastseen, ip, computerid, lastadminrank) VALUES (null, '[sql_ckey]', Now(), Now(), '[sql_ip]', '[sql_computerid]', '[sql_admin_rank]')")
-		query_insert.Execute()
+		var/DBQuery/query_insert = dbcon.NewQuery("INSERT INTO ss13_player (ckey, firstseen, lastseen, ip, computerid, lastadminrank, account_join_date, byond_version, byond_build) VALUES (:ckey:, Now(), Now(), :ip:, :computerid:, :lastadminrank:, :account_join_date:, :byond_version:, :byond_build:)")
+		query_insert.Execute(list("ckey"=ckey(key),"ip"=src.address,"computerid"=src.computer_id,"lastadminrank"=admin_rank,"account_join_date"=account_join_date,"byond_version"=byond_version,"byond_build"=byond_build))
+	else
+		// Flag as -1 to know we have to kiiick them.
+		player_age = -1
+
+	if (!account_join_date)
+		account_join_date = "Error"
 
 	//Logging player access
-	var/serverip = "[world.internet_address]:[world.port]"
-	var/DBQuery/query_accesslog = dbcon.NewQuery("INSERT INTO `ss13_connection_log`(`id`,`datetime`,`serverip`,`ckey`,`ip`,`computerid`) VALUES(null,Now(),'[serverip]','[sql_ckey]','[sql_ip]','[sql_computerid]');")
-	query_accesslog.Execute()
+	var/DBQuery/query_accesslog = dbcon.NewQuery("INSERT INTO `ss13_connection_log`(`datetime`,`serverip`,`ckey`,`ip`,`computerid`,`byond_version`,`byond_build`,`game_id`) VALUES(Now(), :serverip:, :ckey:, :ip:, :computerid:, :byond_version:, :byond_build:, :game_id:);")
+	query_accesslog.Execute(list("serverip"="[world.internet_address]:[world.port]","ckey"=ckey(key),"ip"=src.address,"computerid"=src.computer_id,"byond_version"=byond_version,"byond_build"=byond_build,"game_id"=game_id))
 
 
-#undef TOPIC_SPAM_DELAY
 #undef UPLOAD_LIMIT
 #undef MIN_CLIENT_VERSION
 
@@ -397,57 +508,7 @@
 
 //send resources to the client. It's here in its own proc so we can move it around easiliy if need be
 /client/proc/send_resources()
-
-	getFiles(
-		'html/search.js',
-		'html/panels.css',
-		'html/images/loading.gif',
-		'html/images/ntlogo.png',
-		'html/images/talisman.png',
-		'html/bootstrap/css/bootstrap.min.css',
-		'html/bootstrap/js/bootstrap.min.js',
-		'html/bootstrap/js/html5shiv.min.js',
-		'html/bootstrap/js/respond.min.js',
-		'html/jquery/jquery-2.0.0.min.js',
-		'icons/pda_icons/pda_atmos.png',
-		'icons/pda_icons/pda_back.png',
-		'icons/pda_icons/pda_bell.png',
-		'icons/pda_icons/pda_blank.png',
-		'icons/pda_icons/pda_boom.png',
-		'icons/pda_icons/pda_bucket.png',
-		'icons/pda_icons/pda_crate.png',
-		'icons/pda_icons/pda_cuffs.png',
-		'icons/pda_icons/pda_eject.png',
-		'icons/pda_icons/pda_exit.png',
-		'icons/pda_icons/pda_flashlight.png',
-		'icons/pda_icons/pda_honk.png',
-		'icons/pda_icons/pda_mail.png',
-		'icons/pda_icons/pda_medical.png',
-		'icons/pda_icons/pda_menu.png',
-		'icons/pda_icons/pda_mule.png',
-		'icons/pda_icons/pda_notes.png',
-		'icons/pda_icons/pda_power.png',
-		'icons/pda_icons/pda_rdoor.png',
-		'icons/pda_icons/pda_reagent.png',
-		'icons/pda_icons/pda_refresh.png',
-		'icons/pda_icons/pda_scanner.png',
-		'icons/pda_icons/pda_signaler.png',
-		'icons/pda_icons/pda_status.png',
-		'icons/spideros_icons/sos_1.png',
-		'icons/spideros_icons/sos_2.png',
-		'icons/spideros_icons/sos_3.png',
-		'icons/spideros_icons/sos_4.png',
-		'icons/spideros_icons/sos_5.png',
-		'icons/spideros_icons/sos_6.png',
-		'icons/spideros_icons/sos_7.png',
-		'icons/spideros_icons/sos_8.png',
-		'icons/spideros_icons/sos_9.png',
-		'icons/spideros_icons/sos_10.png',
-		'icons/spideros_icons/sos_11.png',
-		'icons/spideros_icons/sos_12.png',
-		'icons/spideros_icons/sos_13.png',
-		'icons/spideros_icons/sos_14.png'
-		)
+	SSassets.handle_connect(src)
 
 /mob/proc/MayRespawn()
 	return 0
@@ -458,6 +519,12 @@
 
 	// Something went wrong, client is usually kicked or transfered to a new mob at this point
 	return 0
+
+/client/verb/character_setup()
+	set name = "Character Setup"
+	set category = "Preferences"
+	if(prefs)
+		prefs.ShowChoices(usr)
 
 //I honestly can't find a good place for this atm.
 //If the webint interaction gets more features, I'll move it. - Skull132
@@ -476,9 +543,9 @@
 		return
 
 	var/list/requests = list()
-	var/list/query_details = list(":ckey" = ckey)
+	var/list/query_details = list("ckey" = ckey)
 
-	var/DBQuery/select_query = dbcon.NewQuery("SELECT id, forum_id, forum_username, datediff(Now(), created_at) as request_age FROM ss13_player_linking WHERE status = 'new' AND player_ckey = :ckey AND deleted_at IS NULL")
+	var/DBQuery/select_query = dbcon.NewQuery("SELECT id, forum_id, forum_username, datediff(Now(), created_at) as request_age FROM ss13_player_linking WHERE status = 'new' AND player_ckey = :ckey: AND deleted_at IS NULL")
 	select_query.Execute(query_details)
 
 	while (select_query.NextRow())
@@ -513,8 +580,8 @@
 	if (!dbcon.IsConnected())
 		return
 
-	var/DBQuery/select_query = dbcon.NewQuery("SELECT COUNT(*) AS request_count FROM ss13_player_linking WHERE status = 'new' AND player_ckey = :ckey AND deleted_at IS NULL")
-	select_query.Execute(list(":ckey" = ckey))
+	var/DBQuery/select_query = dbcon.NewQuery("SELECT COUNT(*) AS request_count FROM ss13_player_linking WHERE status = 'new' AND player_ckey = :ckey: AND deleted_at IS NULL")
+	select_query.Execute(list("ckey" = ckey))
 
 	if (select_query.NextRow())
 		if (text2num(select_query.item[1]) > 0)
@@ -569,4 +636,47 @@
 	set name = "Open Greeting"
 	set category = "OOC"
 
-	server_greeting.display_to_client(src, server_greeting.find_outdated_info(src))
+	// Update the information just in case.
+	server_greeting.find_outdated_info(src, 1)
+
+	server_greeting.display_to_client(src)
+
+/client/proc/check_ip_intel()
+	set waitfor = 0 //we sleep when getting the intel, no need to hold up the client connection while we sleep
+	if (config.ipintel_email)
+		var/datum/ipintel/res = get_ip_intel(address)
+		if (config.ipintel_rating_kick && res.intel >= config.ipintel_rating_kick)
+			if (!holder)
+				message_admins("Proxy Detection: [key_name_admin(src)] IP intel rated [res.intel*100]% likely to be a proxy/VPN. They are being kicked because of this.")
+				log_admin("Proxy Detection: [key_name_admin(src)] IP intel rated [res.intel*100]% likely to be a proxy/VPN. They are being kicked because of this.")
+				to_chat(src, "<span class='danger'>Usage of proxies is not permitted by the rules. You are being kicked because of this.</span>")
+				del(src)
+			else
+				message_admins("Proxy Detection: [key_name_admin(src)] IP intel rated [res.intel*100]% likely to be a Proxy/VPN.")
+		else if (res.intel >= config.ipintel_rating_bad)
+			message_admins("Proxy Detection: [key_name_admin(src)] IP intel rated [res.intel*100]% likely to be a Proxy/VPN.")
+		ip_intel = res.intel
+
+/client/proc/findJoinDate()
+	var/list/http = world.Export("http://byond.com/members/[ckey]?format=text")
+	if(!http)
+		log_debug("ACCESS CONTROL: Failed to connect to byond age check for [ckey]")
+		return
+	var/F = file2text(http["CONTENT"])
+	if(F)
+		var/regex/R = regex("joined = \"(\\d{4}-\\d{2}-\\d{2})\"")
+		if(R.Find(F))
+			. = R.group[1]
+		else
+			CRASH("Age check regex failed for [src.ckey]")
+
+// Byond seemingly calls stat, each tick.
+// Calling things each tick can get expensive real quick.
+// So we slow this down a little.
+// See: http://www.byond.com/docs/ref/info.html#/client/proc/Stat
+/client/Stat()
+	. = ..()
+	if (holder)
+		sleep(1)
+	else
+		stoplag(5)

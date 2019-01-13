@@ -8,6 +8,7 @@
 	response_disarm = "prods"
 	response_harm   = "stomps on"
 	icon_state = "brainslug"
+	item_state = "brainslug"
 	icon_living = "brainslug"
 	icon_dead = "brainslug_dead"
 	speed = 5
@@ -17,9 +18,12 @@
 	attacktext = "nipped"
 	friendly = "prods"
 	wander = 0
+	maxHealth = 40
+	health = 40
 	pass_flags = PASSTABLE
 	universal_understand = 1
 	holder_type = /obj/item/weapon/holder/borer
+	mob_size = 1
 
 	var/used_dominate
 	var/chemicals = 10                      // Chemicals used for reproduction and spitting neurotoxin.
@@ -39,8 +43,8 @@
 	if(mind)
 		borers.add_antagonist(mind)
 
-/mob/living/simple_animal/borer/New()
-	..()
+/mob/living/simple_animal/borer/Initialize()
+	. = ..()
 
 	add_language("Cortical Link")
 	verbs += /mob/living/proc/ventcrawl
@@ -60,16 +64,16 @@
 			if(host.reagents.has_reagent("sugar"))
 				if(!docile)
 					if(controlling)
-						host << "\blue You feel the soporific flow of sugar in your host's blood, lulling you into docility."
+						host << "<span class='notice'>You feel the soporific flow of sugar in your host's blood, lulling you into docility.</span>"
 					else
-						src << "\blue You feel the soporific flow of sugar in your host's blood, lulling you into docility."
+						src << "<span class='notice'>You feel the soporific flow of sugar in your host's blood, lulling you into docility.</span>"
 					docile = 1
 			else
 				if(docile)
 					if(controlling)
-						host << "\blue You shake off your lethargy as the sugar leaves your host's blood."
+						host << "<span class='notice'>You shake off your lethargy as the sugar leaves your host's blood.</span>"
 					else
-						src << "\blue You shake off your lethargy as the sugar leaves your host's blood."
+						src << "<span class='notice'>You shake off your lethargy as the sugar leaves your host's blood.</span>"
 					docile = 0
 
 			if(chemicals < 250)
@@ -77,14 +81,14 @@
 			if(controlling)
 
 				if(docile)
-					host << "\blue You are feeling far too docile to continue controlling your host..."
+					host << "<span class='notice'>You are feeling far too docile to continue controlling your host...</span>"
 					host.release_control()
 					return
 
 				if(prob(5))
-					host.adjustBrainLoss(rand(1,2))
+					host.adjustBrainLoss(rand(1,2), 55)
 
-				if(prob(host.brainloss/20))
+				if(prob(host.getBrainLoss()/20))
 					host.say("*[pick(list("blink","blink_r","choke","aflap","drool","twitch","twitch_s","gasp"))]")
 
 /mob/living/simple_animal/borer/Stat()
@@ -157,7 +161,7 @@
 	if(host.mind)
 		borers.remove_antagonist(host.mind)
 
-	src.loc = get_turf(host)
+	src.forceMove(get_turf(host))
 
 	reset_view(null)
 	machine = null
@@ -172,41 +176,8 @@
 
 //Procs for grabbing players.
 /mob/living/simple_animal/borer/proc/request_player()
-	for(var/mob/dead/observer/O in player_list)
-		if(jobban_isbanned(O, "Borer"))
-			continue
-		if(O.client)
-			if(O.client.prefs.be_special & BE_ALIEN)
-				question(O.client)
-
-/mob/living/simple_animal/borer/proc/question(var/client/C)
-	spawn(0)
-		if(!C)	return
-		var/response = alert(C, "A cortical borer needs a player. Are you interested?", "Cortical borer request", "Yes", "No", "Never for this round")
-		if(!C || ckey)
-			return
-		if(response == "Yes")
-			transfer_personality(C)
-		else if (response == "Never for this round")
-			C.prefs.be_special ^= BE_ALIEN
-
-/mob/living/simple_animal/borer/proc/transfer_personality(var/client/candidate)
-
-	if(!candidate || !candidate.mob || !candidate.mob.mind)
-		return
-
-	src.mind = candidate.mob.mind
-	candidate.mob.mind.current = src
-	src.ckey = candidate.ckey
-
-	if(src.mind)
-		src.mind.assigned_role = "Cortical Borer"
-		src.mind.special_role = "Cortical Borer"
-
-	src << "<span class='notice'>You are a cortical borer!</span> You are a brain slug that worms its way \
-	into the head of its victim. Use stealth, persuasion and your powers of mind control to keep you, \
-	your host and your eventual spawn safe and warm."
-	src << "You can speak to your victim with <b>say</b>, to other borers with <b>say :x</b>, and use your Abilities tab to access powers."
+	var/datum/ghosttrap/G = get_ghost_trap("cortical borer")
+	G.request_player(src, "A cortical borer needs a player.")
 
 /mob/living/simple_animal/borer/cannot_use_vents()
 	return

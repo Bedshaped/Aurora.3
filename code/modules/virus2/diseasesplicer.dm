@@ -1,7 +1,8 @@
 /obj/machinery/computer/diseasesplicer
 	name = "disease splicer"
 	icon = 'icons/obj/computer.dmi'
-	icon_state = "crew"
+
+	icon_screen = "crew"
 
 	var/datum/disease2/effectholder/memorybank = null
 	var/list/species_buffer = null
@@ -12,7 +13,7 @@
 	var/scanning = 0
 
 /obj/machinery/computer/diseasesplicer/attackby(var/obj/I as obj, var/mob/user as mob)
-	if(istype(I, /obj/item/weapon/screwdriver))
+	if(isscrewdriver(I))
 		return ..(I,user)
 
 	if(istype(I,/obj/item/weapon/virusdish))
@@ -22,8 +23,7 @@
 			return
 
 		dish = I
-		c.drop_item()
-		I.loc = src
+		c.drop_from_inventory(I,src)
 
 	if(istype(I,/obj/item/weapon/diseasedisk))
 		user << "You upload the contents of the disk onto the buffer."
@@ -51,7 +51,7 @@
 	if (memorybank)
 		data["buffer"] = list("name" = (analysed ? memorybank.effect.name : "Unknown Symptom"), "stage" = memorybank.effect.stage)
 	if (species_buffer)
-		data["species_buffer"] = analysed ? list2text(species_buffer, ", ") : "Unknown Species"
+		data["species_buffer"] = analysed ? jointext(species_buffer, ", ") : "Unknown Species"
 
 	if (splicing)
 		data["busy"] = "Splicing..."
@@ -64,7 +64,7 @@
 
 		if (dish.virus2)
 			if (dish.virus2.affected_species)
-				data["affected_species"] = dish.analysed ? list2text(dish.virus2.affected_species, ", ") : "Unknown"
+				data["affected_species"] = dish.analysed ? jointext(dish.virus2.affected_species, ", ") : "Unknown"
 
 			if (dish.growth >= 50)
 				var/list/effects[0]
@@ -78,54 +78,46 @@
 	else
 		data["info"] = "No dish loaded."
 
-	ui = nanomanager.try_update_ui(user, src, ui_key, ui, data, force_open)
+	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data, force_open)
 	if (!ui)
 		ui = new(user, src, ui_key, "disease_splicer.tmpl", src.name, 400, 600)
 		ui.set_initial_data(data)
 		ui.open()
 
-/obj/machinery/computer/diseasesplicer/process()
-	if(stat & (NOPOWER|BROKEN))
+/obj/machinery/computer/diseasesplicer/machinery_process()
+	if (inoperable())
 		return
 
 	if(scanning)
 		scanning -= 1
 		if(!scanning)
 			ping("\The [src] pings, \"Analysis complete.\"")
-			nanomanager.update_uis(src)
+			SSnanoui.update_uis(src)
 	if(splicing)
 		splicing -= 1
 		if(!splicing)
 			ping("\The [src] pings, \"Splicing operation complete.\"")
-			nanomanager.update_uis(src)
+			SSnanoui.update_uis(src)
 	if(burning)
 		burning -= 1
 		if(!burning)
 			var/obj/item/weapon/diseasedisk/d = new /obj/item/weapon/diseasedisk(src.loc)
 			d.analysed = analysed
-			if(analysed)
-				if (memorybank)
-					d.name = "[memorybank.effect.name] GNA disk (Stage: [memorybank.effect.stage])"
-					d.effect = memorybank
-				else if (species_buffer)
-					d.name = "[list2text(species_buffer, ", ")] GNA disk"
-					d.species = species_buffer
-			else
-				if (memorybank)
-					d.name = "Unknown GNA disk (Stage: [memorybank.effect.stage])"
-					d.effect = memorybank
-				else if (species_buffer)
-					d.name = "Unknown Species GNA disk"
-					d.species = species_buffer
+			if (memorybank)
+				d.name = "[analysed ? memorybank.effect.name : "Unknown"] GNA disk (Stage: [memorybank.effect.stage])"
+				d.effect = memorybank
+			else if (species_buffer)
+				d.name = "[analysed ? jointext(species_buffer, ", ") : "Unknown"] GNA disk"
+				d.species = species_buffer
 
 			ping("\The [src] pings, \"Backup disk saved.\"")
-			nanomanager.update_uis(src)
+			SSnanoui.update_uis(src)
 
 /obj/machinery/computer/diseasesplicer/Topic(href, href_list)
 	if(..()) return 1
 
 	var/mob/user = usr
-	var/datum/nanoui/ui = nanomanager.get_open_ui(user, src, "main")
+	var/datum/nanoui/ui = SSnanoui.get_open_ui(user, src, "main")
 
 	src.add_fingerprint(user)
 
@@ -154,7 +146,7 @@
 
 	if(href_list["eject"])
 		if (dish)
-			dish.loc = src.loc
+			dish.forceMove(src.loc)
 			dish = null
 		return 1
 

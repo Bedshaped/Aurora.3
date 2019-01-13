@@ -16,11 +16,6 @@
 	unbreakable = 1 //It's already broken.
 	drops_debris = 0
 
-/obj/item/weapon/material/shard/suicide_act(mob/user)
-	viewers(user) << pick("\red <b>[user] is slitting \his wrists with \the [src]! It looks like \he's trying to commit suicide.</b>", \
-						"\red <b>[user] is slitting \his throat with \the [src]! It looks like \he's trying to commit suicide.</b>")
-	return (BRUTELOSS)
-
 /obj/item/weapon/material/shard/set_material(var/new_material)
 	..(new_material)
 	if(!istype(material))
@@ -52,39 +47,58 @@
 		alpha = 255
 
 /obj/item/weapon/material/shard/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(istype(W, /obj/item/weapon/weldingtool) && material.shard_can_repair)
+	if(iswelder(W) && material.shard_can_repair)
 		var/obj/item/weapon/weldingtool/WT = W
 		if(WT.remove_fuel(0, user))
-			material.place_sheet(loc)
+			material.place_sheet(user.loc)
 			qdel(src)
 			return
 	return ..()
 
 /obj/item/weapon/material/shard/Crossed(AM as mob|obj)
+	..()
 	if(isliving(AM))
 		var/mob/M = AM
+
+		if(M.buckled) //wheelchairs, office chairs, rollerbeds
+			return
+
 		M << "<span class='danger'>You step on \the [src]!</span>"
 		playsound(src.loc, 'sound/effects/glass_step.ogg', 50, 1) // not sure how to handle metal shards with sounds
 		if(ishuman(M))
 			var/mob/living/carbon/human/H = M
 
-			if(H.species.flags & IS_SYNTHETIC || (H.species.siemens_coefficient<0.5) || (H.species.name == "Vaurca")) //Thick skin.
+			if(H.species.siemens_coefficient<0.5 || isvaurca(H) || (H.species.flags & (NO_EMBED))) //Thick skin.
 				return
 
-			if( !H.shoes && ( !H.wear_suit || !(H.wear_suit.body_parts_covered & FEET) ) )
-				var/obj/item/organ/external/affecting = H.get_organ(pick("l_foot", "r_foot"))
-				if(affecting.status & ORGAN_ROBOT)
+			if( H.shoes || ( H.wear_suit && (H.wear_suit.body_parts_covered & FEET) ) )
+				return
+
+			var/list/check = list("l_foot", "r_foot")
+			while(check.len)
+				var/picked = pick(check)
+				var/obj/item/organ/external/affecting = H.get_organ(picked)
+				if(affecting)
+					if(affecting.status & ORGAN_ROBOT)
+						return
+					if(affecting.take_damage(5, 0))
+						H.UpdateDamageIcon()
+					H.updatehealth()
+					if(!(H.species.flags & NO_PAIN))
+						H.Weaken(3)
 					return
-				if(affecting.take_damage(5, 0))
-					H.UpdateDamageIcon()
-				H.updatehealth()
-				if(!(H.species && (H.species.flags & NO_PAIN)))
-					H.Weaken(3)
-	..()
+				check -= picked
+			return
 
 // Preset types - left here for the code that uses them
 /obj/item/weapon/material/shard/shrapnel/New(loc)
 	..(loc, "steel")
 
+/obj/item/weapon/material/shard/shrapnel/flechette/New(loc)
+	..(loc, "titanium")
+
 /obj/item/weapon/material/shard/phoron/New(loc)
 	..(loc, "phglass")
+
+/obj/item/weapon/material/shard/wood/New(loc)
+	..(loc, "wood")

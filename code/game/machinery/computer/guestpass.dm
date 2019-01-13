@@ -5,7 +5,6 @@
 	name = "guest pass"
 	desc = "Allows temporary access to station areas."
 	icon_state = "guest"
-	light_color = "#0099ff"
 
 	var/temp_access = list() //to prevent agent cards stealing access as permanent
 	var/expiration_time = 0
@@ -36,15 +35,27 @@
 	usr << "<span class='notice'>Issuing reason: [reason].</span>"
 	return
 
+/obj/item/weapon/card/id/guest/Initialize(mapload, duration)
+	. = ..(mapload)
+	expiration_time = duration + world.time
+	addtimer(CALLBACK(src, .proc/expire), duration)
+
+/obj/item/weapon/card/id/guest/proc/expire()
+	icon_state += "_invalid"
+
 /////////////////////////////////////////////
 //Guest pass terminal////////////////////////
 /////////////////////////////////////////////
 
 /obj/machinery/computer/guestpass
 	name = "guest pass terminal"
+	desc = "Allows issuing temporary access to an area."
 	icon_state = "guest"
-	density = 0
 
+	light_color = LIGHT_COLOR_BLUE
+	icon_screen = "pass"
+	is_holographic = FALSE
+	density = 0
 
 	var/obj/item/weapon/card/id/giver
 	var/list/accesses = list()
@@ -55,19 +66,20 @@
 	var/list/internal_log = list()
 	var/mode = 0  // 0 - making pass, 1 - viewing logs
 
-/obj/machinery/computer/guestpass/New()
-	..()
+/obj/machinery/computer/guestpass/Initialize()
+	. = ..()
 	uid = "[rand(100,999)]-G[rand(10,99)]"
 
 /obj/machinery/computer/guestpass/attackby(obj/O, mob/user)
 	if(istype(O, /obj/item/weapon/card/id))
-		if(!giver)
-			user.drop_item()
-			O.loc = src
+		if(!giver && user.unEquip(O))
+			O.forceMove(src)
 			giver = O
 			updateUsrDialog()
-		else
+		else if(giver)
 			user << "<span class='warning'>There is already ID card inside.</span>"
+		return
+	..()
 
 /obj/machinery/computer/guestpass/attack_ai(var/mob/user as mob)
 	return attack_hand(user)
@@ -140,19 +152,18 @@
 			if ("id")
 				if (giver)
 					if(ishuman(usr))
-						giver.loc = usr.loc
+						giver.forceMove(usr.loc)
 						if(!usr.get_active_hand())
 							usr.put_in_hands(giver)
 						giver = null
 					else
-						giver.loc = src.loc
+						giver.forceMove(src.loc)
 						giver = null
 					accesses.Cut()
 				else
 					var/obj/item/I = usr.get_active_hand()
-					if (istype(I, /obj/item/weapon/card/id))
-						usr.drop_item()
-						I.loc = src
+					if (istype(I, /obj/item/weapon/card/id) && usr.unEquip(I))
+						I.forceMove(src)
 						giver = I
 				updateUsrDialog()
 
@@ -163,8 +174,7 @@
 				//usr << "Printing the log, standby..."
 				//sleep(50)
 				var/obj/item/weapon/paper/P = new/obj/item/weapon/paper( loc )
-				P.name = "activity log"
-				P.info = dat
+				P.set_content_unsafe("activity log", dat)
 
 			if ("issue")
 				if (giver)
@@ -178,13 +188,12 @@
 					entry += ". Expires at [worldtime2text(world.time + duration*10*60)]."
 					internal_log.Add(entry)
 
-					var/obj/item/weapon/card/id/guest/pass = new(src.loc)
+					var/obj/item/weapon/card/id/guest/pass = new(loc, duration MINUTES)
 					pass.temp_access = accesses.Copy()
 					pass.registered_name = giv_name
-					pass.expiration_time = world.time + duration*10*60
 					pass.reason = reason
 					pass.name = "guest pass #[number]"
 				else
-					usr << "\red Cannot issue pass without issuing ID."
+					usr << "<span class='warning'>Cannot issue pass without issuing ID.</span>"
 	updateUsrDialog()
 	return

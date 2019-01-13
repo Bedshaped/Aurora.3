@@ -12,8 +12,8 @@
 	var/perunit
 	var/apply_colour //temp pending icon rewrite
 
-/obj/item/stack/material/New()
-	..()
+/obj/item/stack/material/Initialize()
+	. = ..()
 	pixel_x = rand(0,4)-4
 	pixel_y = rand(0,4)-4
 
@@ -22,12 +22,13 @@
 	material = get_material_by_name("[default_type]")
 	if(!material)
 		qdel(src)
-		return 0
+		return
 
 	recipes = material.get_recipes()
 	stacktype = material.stack_type
-	origin_tech = material.stack_origin_tech
-	perunit = material.stack_per_sheet
+	if(islist(material.stack_origin_tech))
+		origin_tech = material.stack_origin_tech.Copy()
+	perunit = SHEET_MATERIAL_AMOUNT
 
 	if(apply_colour)
 		color = material.icon_colour
@@ -37,7 +38,6 @@
 
 	matter = material.get_matter()
 	update_strings()
-	return 1
 
 /obj/item/stack/material/get_material()
 	return material
@@ -74,7 +74,7 @@
 		..()
 
 /obj/item/stack/material/attackby(var/obj/item/W, var/mob/user)
-	if(istype(W,/obj/item/stack/cable_coil))
+	if(iscoil(W))
 		material.build_wired_product(user, W, src)
 		return
 	else if(istype(W, /obj/item/stack/rods))
@@ -92,6 +92,7 @@
 	name = "sandstone brick"
 	icon_state = "sheet-sandstone"
 	default_type = "sandstone"
+	icon_has_variants = TRUE
 
 /obj/item/stack/material/marble
 	name = "marble brick"
@@ -112,27 +113,32 @@
 	name = "solid phoron"
 	icon_state = "sheet-phoron"
 	default_type = "phoron"
+	icon_has_variants = TRUE
 
 /obj/item/stack/material/plastic
 	name = "plastic"
 	icon_state = "sheet-plastic"
 	default_type = "plastic"
+	icon_has_variants = TRUE
 
 /obj/item/stack/material/gold
 	name = "gold"
 	icon_state = "sheet-gold"
 	default_type = "gold"
+	icon_has_variants = TRUE
 
 /obj/item/stack/material/silver
 	name = "silver"
 	icon_state = "sheet-silver"
 	default_type = "silver"
+	icon_has_variants = TRUE
 
 //Valuable resource, cargo can sell it.
 /obj/item/stack/material/platinum
 	name = "platinum"
 	icon_state = "sheet-adamantine"
 	default_type = "platinum"
+	icon_has_variants = TRUE
 
 //Extremely valuable to Research.
 /obj/item/stack/material/mhydrogen
@@ -157,12 +163,14 @@
 	name = DEFAULT_WALL_MATERIAL
 	icon_state = "sheet-metal"
 	default_type = DEFAULT_WALL_MATERIAL
+	icon_has_variants = TRUE
 
 /obj/item/stack/material/plasteel
 	name = "plasteel"
 	icon_state = "sheet-plasteel"
 	item_state = "sheet-metal"
 	default_type = "plasteel"
+	icon_has_variants = TRUE
 
 /obj/item/stack/material/wood
 	name = "wooden plank"
@@ -173,6 +181,7 @@
 	name = "cloth"
 	icon_state = "sheet-cloth"
 	default_type = "cloth"
+	icon_has_variants = TRUE
 
 /obj/item/stack/material/cardboard
 	name = "cardboard"
@@ -184,11 +193,13 @@
 	desc = "The by-product of mob grinding."
 	icon_state = "sheet-leather"
 	default_type = "leather"
+	icon_has_variants = TRUE
 
 /obj/item/stack/material/glass
 	name = "glass"
 	icon_state = "sheet-glass"
 	default_type = "glass"
+	icon_has_variants = TRUE
 
 /obj/item/stack/material/glass/reinforced
 	name = "reinforced glass"
@@ -196,12 +207,27 @@
 	default_type = "rglass"
 
 /obj/item/stack/material/glass/phoronglass
-	name = "phoron glass"
-	singular_name = "phoron glass sheet"
+	name = "borosilicate glass"
+	desc = "This sheet is special platinum-glass alloy designed to withstand large temperatures"
+	singular_name = "borosilicate glass sheet"
 	icon_state = "sheet-phoronglass"
-	default_type = "phglass"
+	default_type = "borosilicate glass"
 
 /obj/item/stack/material/glass/phoronrglass
-	name = "reinforced phoron glass"
+	name = "reinforced borosilicate glass"
+	desc = "This sheet is special platinum-glass alloy designed to withstand large temperatures. It is reinforced with few rods."
+	singular_name = "reinforced borosilicate glass sheet"
 	icon_state = "sheet-phoronrglass"
-	default_type = "rphglass"
+	default_type = "reinforced borosilicate glass"
+
+/obj/item/stack/material/bronze
+	name = "bronze"
+	icon_state = "sheet-brass"
+	default_type = "bronze"
+	icon_has_variants = TRUE
+
+/obj/item/stack/material/titanium
+	name = "titanium"
+	icon_state = "sheet-titanium"
+	default_type = "titanium"
+	icon_has_variants = TRUE

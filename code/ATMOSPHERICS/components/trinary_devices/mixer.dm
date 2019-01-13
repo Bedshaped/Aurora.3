@@ -63,16 +63,16 @@
 	if(old_stat != stat)
 		update_icon()
 
-/obj/machinery/atmospherics/trinary/mixer/New()
-	..()
+/obj/machinery/atmospherics/trinary/mixer/Initialize()
+	. = ..()
 	air1.volume = ATMOS_DEFAULT_VOLUME_MIXER
 	air2.volume = ATMOS_DEFAULT_VOLUME_MIXER
 	air3.volume = ATMOS_DEFAULT_VOLUME_MIXER * 1.5
-	
+
 	if (!mixing_inputs)
 		mixing_inputs = list(src.air1 = node1_concentration, src.air2 = node2_concentration)
 
-/obj/machinery/atmospherics/trinary/mixer/process()
+/obj/machinery/atmospherics/trinary/mixer/machinery_process()
 	..()
 
 	last_power_draw = 0
@@ -104,20 +104,20 @@
 	return 1
 
 /obj/machinery/atmospherics/trinary/mixer/attackby(var/obj/item/weapon/W as obj, var/mob/user as mob)
-	if (!istype(W, /obj/item/weapon/wrench))
+	if (!iswrench(W))
 		return ..()
 	var/datum/gas_mixture/int_air = return_air()
 	var/datum/gas_mixture/env_air = loc.return_air()
 	if ((int_air.return_pressure()-env_air.return_pressure()) > 2*ONE_ATMOSPHERE)
-		user << "\red You cannot unwrench this [src], it too exerted due to internal pressure."
+		user << "<span class='warning'>You cannot unwrench \the [src], it too exerted due to internal pressure.</span>"
 		add_fingerprint(user)
 		return 1
 	playsound(src.loc, 'sound/items/Ratchet.ogg', 50, 1)
-	user << "\blue You begin to unfasten \the [src]..."
-	if (do_after(user, 40))
+	user << "<span class='notice'>You begin to unfasten \the [src]...</span>"
+	if (do_after(user, 40, act_target = src))
 		user.visible_message( \
-			"[user] unfastens \the [src].", \
-			"\blue You have unfastened \the [src].", \
+			"<span class='notice'>\The [user] unfastens \the [src].</span>", \
+			"<span class='notice'>You have unfastened \the [src].</span>", \
 			"You hear ratchet.")
 		new /obj/item/pipe(loc, make_from=src)
 		qdel(src)
@@ -127,7 +127,7 @@
 		return
 	src.add_fingerprint(usr)
 	if(!src.allowed(user))
-		user << "\red Access denied."
+		user << "<span class='warning'>Access denied.</span>"
 		return
 	usr.set_machine(src)
 	var/dat = {"<b>Power: </b><a href='?src=\ref[src];power=1'>[use_power?"On":"Off"]</a><br>
@@ -183,8 +183,15 @@ obj/machinery/atmospherics/trinary/mixer/t_mixer
 
 	//node 3 is the outlet, nodes 1 & 2 are intakes
 
-obj/machinery/atmospherics/trinary/mixer/t_mixer/New()
-	..()
+obj/machinery/atmospherics/trinary/mixer/t_mixer/north
+	icon_state = "tmap"
+
+	dir = NORTH
+	initialize_directions = NORTH|EAST|WEST
+
+	//node 3 is the outlet, nodes 1 & 2 are intakes
+
+obj/machinery/atmospherics/trinary/mixer/t_mixer/Initialize()
 	switch(dir)
 		if(NORTH)
 			initialize_directions = EAST|NORTH|WEST
@@ -194,8 +201,9 @@ obj/machinery/atmospherics/trinary/mixer/t_mixer/New()
 			initialize_directions = EAST|NORTH|SOUTH
 		if(WEST)
 			initialize_directions = WEST|NORTH|SOUTH
+	. = ..()
 
-obj/machinery/atmospherics/trinary/mixer/t_mixer/initialize()
+obj/machinery/atmospherics/trinary/mixer/t_mixer/atmos_init()
 	..()
 	if(node1 && node2 && node3) return
 
@@ -229,8 +237,7 @@ obj/machinery/atmospherics/trinary/mixer/m_mixer
 
 	//node 3 is the outlet, nodes 1 & 2 are intakes
 
-obj/machinery/atmospherics/trinary/mixer/m_mixer/New()
-	..()
+obj/machinery/atmospherics/trinary/mixer/m_mixer/Initialize()
 	switch(dir)
 		if(NORTH)
 			initialize_directions = WEST|NORTH|SOUTH
@@ -240,8 +247,9 @@ obj/machinery/atmospherics/trinary/mixer/m_mixer/New()
 			initialize_directions = EAST|WEST|NORTH
 		if(WEST)
 			initialize_directions = WEST|SOUTH|EAST
+	. = ..()
 
-obj/machinery/atmospherics/trinary/mixer/m_mixer/initialize()
+obj/machinery/atmospherics/trinary/mixer/m_mixer/atmos_init()
 	..()
 	if(node1 && node2 && node3) return
 

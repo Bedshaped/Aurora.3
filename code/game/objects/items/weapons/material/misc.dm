@@ -18,9 +18,17 @@
 	w_class = 2
 	sharp = 1
 	edge = 1
-	origin_tech = "materials=2;combat=1"
+	origin_tech = list(TECH_MATERIAL = 2, TECH_COMBAT = 1)
 	attack_verb = list("chopped", "torn", "cut")
 	applies_material_colour = 0
+
+/obj/item/weapon/material/hatchet/butch
+	name = "butcher's cleaver"
+	icon = 'icons/obj/kitchen.dmi'
+	icon_state = "butch"
+	desc = "A huge thing used for chopping and chopping up meat."
+	force_divisor = 0.25 // 15 when wielded with hardness 60 (steel)
+	attack_verb = list("cleaved", "slashed", "stabbed", "sliced", "torn", "ripped", "diced", "cut")
 
 /obj/item/weapon/material/hatchet/unathiknife
 	name = "duelling knife"
@@ -29,14 +37,13 @@
 	icon_state = "unathiknife"
 	attack_verb = list("ripped", "torn", "cut")
 
-/obj/item/weapon/material/hatchet/tacknife
-	name = "tactical knife"
-	desc = "You'd be killing loads of people if this was Medal of Valor: Heroes of Nyx."
-	icon = 'icons/obj/weapons.dmi'
-	icon_state = "tacknife"
-	item_state = "knife"
-	attack_verb = list("stabbed", "chopped", "cut")
-	applies_material_colour = 1
+/obj/item/weapon/material/hook
+	name = "meat hook"
+	sharp = 1
+	edge = 1
+	desc = "A sharp, metal hook that sticks into things."
+	icon_state = "hook_knife"
+	item_state = "hook_knife"
 
 /obj/item/weapon/material/minihoe // -- Numbers
 	name = "mini hoe"
@@ -44,7 +51,6 @@
 	icon = 'icons/obj/weapons.dmi'
 	icon_state = "hoe"
 	item_state = "hoe"
-	flags = CONDUCT | NOBLUDGEON
 	force_divisor = 0.25 // 5 with weight 20 (steel)
 	thrown_force_divisor = 0.25 // as above
 	w_class = 2
@@ -61,7 +67,6 @@
 	throw_speed = 1
 	throw_range = 3
 	w_class = 4
-	flags = NOSHIELD
 	slot_flags = SLOT_BACK
-	origin_tech = "materials=2;combat=2"
+	origin_tech = list(TECH_MATERIAL = 2, TECH_COMBAT = 2)
 	attack_verb = list("chopped", "sliced", "cut", "reaped")

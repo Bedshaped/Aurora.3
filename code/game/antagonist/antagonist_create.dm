@@ -35,20 +35,23 @@
 
 	var/obj/item/weapon/card/id/W = new id_type(player)
 	if(!W) return
-	W.name = "[player.real_name]'s ID Card"
 	W.access |= default_access
 	W.assignment = "[assignment]"
-	W.registered_name = player.real_name
+	player.set_id_info(W)
 	if(equip) player.equip_to_slot_or_del(W, slot_wear_id)
 	return W
 
 /datum/antagonist/proc/create_radio(var/freq, var/mob/living/carbon/human/player)
 	var/obj/item/device/radio/R
 
-	if(freq == SYND_FREQ)
-		R = new/obj/item/device/radio/headset/syndicate(player)
-	else
-		R = new/obj/item/device/radio/headset(player)
+	switch(freq)
+		if(SYND_FREQ)
+			R = new/obj/item/device/radio/headset/syndicate(player)
+		if(RAID_FREQ)
+			R = new/obj/item/device/radio/headset/raider(player)
+		else
+			R = new/obj/item/device/radio/headset(player)
+			R.set_frequency(freq)
 
 	R.set_frequency(freq)
 	player.equip_to_slot_or_del(R, slot_l_ear)
@@ -75,8 +78,7 @@
 		if(paper_spawn_loc)
 			// Create and pass on the bomb code paper.
 			var/obj/item/weapon/paper/P = new(paper_spawn_loc)
-			P.info = "The nuclear authorization code is: <b>[code]</b>"
-			P.name = "nuclear bomb code"
+			P.set_content_unsafe("nuclear bomb code", "The nuclear authorization code is: <b>[code]</b>")
 			if(leader && leader.current)
 				if(get_turf(P) == get_turf(leader.current) && !(leader.current.l_hand && leader.current.r_hand))
 					leader.current.put_in_hands(P)
@@ -107,11 +109,6 @@
 
 	show_objectives(player)
 
-	// Clown clumsiness check, I guess downstream might use it.
-	if (player.current.mind)
-		if (player.current.mind.assigned_role == "Clown")
-			player.current << "You have evolved beyond your clownish nature, allowing you to wield weapons without harming yourself."
-			player.current.mutations.Remove(CLUMSY)
 	return 1
 
 /datum/antagonist/proc/set_antag_name(var/mob/living/player)

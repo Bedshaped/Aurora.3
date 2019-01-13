@@ -13,17 +13,28 @@ var/list/admin_datums = list()
 	var/admincaster_screen = 0	//See newscaster.dm under machinery for a full description
 	var/datum/feed_message/admincaster_feed_message = new /datum/feed_message   //These two will act as holders.
 	var/datum/feed_channel/admincaster_feed_channel = new /datum/feed_channel
+	var/datum/feed_message/admincaster_viewing_message = null
 	var/admincaster_signature	//What you'll sign the newsfeeds as
+
+	var/list/watched_processes	// Processes marked to be shown in Status instead of just Processes.
 
 /datum/admins/New(initial_rank = "Temporary Admin", initial_rights = 0, ckey)
 	if(!ckey)
 		error("Admin datum created without a ckey argument. Datum has been deleted")
 		qdel(src)
 		return
-	admincaster_signature = "Nanotrasen Officer #[rand(0,9)][rand(0,9)][rand(0,9)]"
+
+	if (!current_map)
+		SSatlas.OnMapload(CALLBACK(src, .proc/update_newscaster_sig))
+	else
+		update_newscaster_sig()
+
 	rank = initial_rank
 	rights = initial_rights
 	admin_datums[ckey] = src
+
+	if (rights & R_DEBUG)
+		world.SetConfig("APP/admin", ckey, "role=admin")
 
 /datum/admins/proc/associate(client/C)
 	if(istype(C))
@@ -46,6 +57,9 @@ var/list/admin_datums = list()
 		owner.deadmin_holder = null
 		owner.add_admin_verbs()
 
+/datum/admins/proc/update_newscaster_sig()
+	if (!admincaster_signature)
+		admincaster_signature = "[current_map.company_name] Officer #[rand(0,9)][rand(0,9)][rand(0,9)]"
 
 /*
 checks if usr is an admin with at least ONE of the flags in rights_required. (Note, they don't need all the flags)
@@ -55,7 +69,7 @@ generally it would be used like so:
 
 proc/admin_proc()
 	if(!check_rights(R_ADMIN)) return
-	world << "you have enough rights!"
+	to_world("you have enough rights!")
 
 NOTE: It checks usr by default. Supply the "user" argument if you wish to check for a specific mob.
 */

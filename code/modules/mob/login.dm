@@ -3,7 +3,7 @@
 	//Multikey checks and logging
 	lastKnownIP	= client.address
 	computer_id	= client.computer_id
-	log_access("Login: [key_name(src)] from [lastKnownIP ? lastKnownIP : "localhost"]-[computer_id] || BYOND v[client.byond_version]")
+	log_access("Login: [key_name(src)] from [lastKnownIP ? lastKnownIP : "localhost"]-[computer_id] || BYOND v[client.byond_version]",ckey=key_name(src))
 	if(config.log_access)
 		for(var/mob/M in player_list)
 			if(M == src)	continue
@@ -17,25 +17,27 @@
 					spawn() alert("You have logged in already with another key this round, please log out of this one NOW or risk being banned!")
 				if(matches)
 					if(M.client)
-						message_admins("<font color='red'><B>Notice: </B><font color='blue'><A href='?src=\ref[usr];priv_msg=\ref[src]'>[key_name_admin(src)]</A> has the same [matches] as <A href='?src=\ref[usr];priv_msg=\ref[M]'>[key_name_admin(M)]</A>.</font>", 1)
-						log_access("Notice: [key_name(src)] has the same [matches] as [key_name(M)].")
+						message_admins("<font color='red'><B>Notice: </B></font><font color='blue'><A href='?src=\ref[usr];priv_msg=\ref[src]'>[key_name_admin(src)]</A> has the same [matches] as <A href='?src=\ref[usr];priv_msg=\ref[M]'>[key_name_admin(M)]</A>.</font>", 1)
+						log_access("Notice: [key_name(src)] has the same [matches] as [key_name(M)].",ckey=key_name(src))
 					else
-						message_admins("<font color='red'><B>Notice: </B><font color='blue'><A href='?src=\ref[usr];priv_msg=\ref[src]'>[key_name_admin(src)]</A> has the same [matches] as [key_name_admin(M)] (no longer logged in). </font>", 1)
-						log_access("Notice: [key_name(src)] has the same [matches] as [key_name(M)] (no longer logged in).")
+						message_admins("<font color='red'><B>Notice: </B></font><font color='blue'><A href='?src=\ref[usr];priv_msg=\ref[src]'>[key_name_admin(src)]</A> has the same [matches] as [key_name_admin(M)] (no longer logged in). </font>", 1)
+						log_access("Notice: [key_name(src)] has the same [matches] as [key_name(M)] (no longer logged in).",ckey=key_name(src))
 
 /mob/Login()
-
 	player_list |= src
 	update_Login_details()
-	world.update_status()
+	SSfeedback.update_status()
 
-	client.images = null				//remove the images such as AIs being unable to see runes
-	client.screen = null				//remove hud items just in case
-	if(hud_used)	qdel(hud_used)		//remove the hud objects
+	client.images.Cut()				//remove the images such as AIs being unable to see runes
+	client.screen.Cut()				//remove hud items just in case
+	if(hud_used)
+		qdel(hud_used)		//remove the hud objects
 	hud_used = new /datum/hud(src)
 
+	disconnect_time = null
 	next_move = 1
 	sight |= SEE_SELF
+	disconnect_time = null
 	..()
 
 	if(loc && !isturf(loc))
@@ -47,3 +49,6 @@
 
 	//set macro to normal incase it was overriden (like cyborg currently does)
 	winset(src, null, "mainwindow.macro=macro hotkey_toggle.is-checked=false input.focus=true input.background-color=#D3B5B5")
+	MOB_STOP_THINKING(src)
+
+	update_client_color()

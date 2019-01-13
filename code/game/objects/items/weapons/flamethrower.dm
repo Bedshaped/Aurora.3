@@ -10,8 +10,8 @@
 	throw_speed = 1
 	throw_range = 5
 	w_class = 3.0
+	origin_tech = list(TECH_COMBAT = 1, TECH_PHORON = 1)
 	matter = list(DEFAULT_WALL_MATERIAL = 500)
-	origin_tech = "combat=1;phorontech=1"
 	var/status = 0
 	var/throw_amount = 100
 	var/lit = 0	//on or off
@@ -29,13 +29,13 @@
 		qdel(igniter)
 	if(ptank)
 		qdel(ptank)
-	..()
-	return
+	
+	return ..()
 
 
 /obj/item/weapon/flamethrower/process()
 	if(!lit)
-		processing_objects.Remove(src)
+		STOP_PROCESSING(SSprocessing, src)
 		return null
 	var/turf/location = loc
 	if(istype(location, /mob/))
@@ -48,13 +48,13 @@
 
 
 /obj/item/weapon/flamethrower/update_icon()
-	overlays.Cut()
+	cut_overlays()
 	if(igniter)
-		overlays += "+igniter[status]"
+		add_overlay("+igniter[status]")
 	if(ptank)
-		overlays += "+ptank"
+		add_overlay("+ptank")
 	if(lit)
-		overlays += "+lit"
+		add_overlay("+lit")
 		item_state = "flamethrower_1"
 	else
 		item_state = "flamethrower_0"
@@ -74,15 +74,15 @@
 	if(iswrench(W) && !status)//Taking this apart
 		var/turf/T = get_turf(src)
 		if(weldtool)
-			weldtool.loc = T
+			weldtool.forceMove(T)
 			weldtool = null
 		if(igniter)
-			igniter.loc = T
+			igniter.forceMove(T)
 			igniter = null
 		if(ptank)
-			ptank.loc = T
+			ptank.forceMove(T)
 			ptank = null
-		PoolOrNew(/obj/item/stack/rods, T)
+		new /obj/item/stack/rods(T)
 		qdel(src)
 		return
 
@@ -96,8 +96,7 @@
 		var/obj/item/device/assembly/igniter/I = W
 		if(I.secured)	return
 		if(igniter)		return
-		user.drop_item()
-		I.loc = src
+		user.drop_from_inventory(I,src)
 		igniter = I
 		update_icon()
 		return
@@ -106,26 +105,14 @@
 		if(ptank)
 			user << "<span class='notice'>There appears to already be a phoron tank loaded in [src]!</span>"
 			return
-		user.drop_item()
+		user.drop_from_inventory(W,src)
 		ptank = W
-		W.loc = src
 		update_icon()
 		return
 
-	if(istype(W, /obj/item/device/analyzer) && ptank)
-		var/obj/item/weapon/icon = src
-		user.visible_message("<span class='notice'>[user] has used the analyzer on \icon[icon]</span>")
-		var/pressure = ptank.air_contents.return_pressure()
-		var/total_moles = ptank.air_contents.total_moles
-
-		user << "\blue Results of analysis of \icon[icon]"
-		if(total_moles>0)
-			user << "\blue Pressure: [round(pressure,0.1)] kPa"
-			for(var/g in ptank.air_contents.gas)
-				user << "\blue [gas_data.name[g]]: [round((ptank.air_contents.gas[g] / total_moles) * 100)]%"
-			user << "\blue Temperature: [round(ptank.air_contents.temperature-T0C)]&deg;C"
-		else
-			user << "\blue Tank is empty!"
+	if(istype(W, /obj/item/device/analyzer))
+		var/obj/item/device/analyzer/A = W
+		A.analyze_gases(src, user)
 		return
 	..()
 	return
@@ -156,7 +143,7 @@
 		if(!status)	return
 		lit = !lit
 		if(lit)
-			processing_objects.Add(src)
+			START_PROCESSING(SSprocessing, src)
 	if(href_list["amount"])
 		throw_amount = throw_amount + text2num(href_list["amount"])
 		throw_amount = max(50, min(5000, throw_amount))
@@ -201,7 +188,7 @@
 	//Transfer 5% of current tank air contents to turf
 	var/datum/gas_mixture/air_transfer = ptank.air_contents.remove_ratio(0.02*(throw_amount/100))
 	//air_transfer.toxins = air_transfer.toxins * 5 // This is me not comprehending the air system. I realize this is retarded and I could probably make it work without fucking it up like this, but there you have it. -- TLE
-	new/obj/effect/decal/cleanable/liquid_fuel/flamethrower_fuel(target,air_transfer.gas["phoron"],get_dir(loc,target))
+	new/obj/effect/decal/cleanable/liquid_fuel/flamethrower_fuel(target,air_transfer.gas["phoron"]*15,get_dir(loc,target))
 	air_transfer.gas["phoron"] = 0
 	target.assume_air(air_transfer)
 	//Burn it based on transfered gas

@@ -1,6 +1,7 @@
 /obj/machinery/computer/helm
 	name = "helm control console"
-	icon_state = "id"
+
+	icon_screen = "id"
 	var/state = "status"
 	var/obj/effect/map/ship/linked			//connected overmap object
 	var/autopilot = 0
@@ -9,7 +10,8 @@
 	var/dx		//desitnation
 	var/dy		//coordinates
 
-/obj/machinery/computer/helm/initialize()
+/obj/machinery/computer/helm/Initialize()
+	. = ..()
 	linked = map_sectors["[z]"]
 	if (linked)
 		if(!linked.nav_control)
@@ -27,8 +29,7 @@
 			R.fields["y"] = S.y
 			known_sectors += R
 
-/obj/machinery/computer/helm/process()
-	..()
+/obj/machinery/computer/helm/machinery_process()
 	if (autopilot && dx && dy)
 		var/turf/T = locate(dx,dy,1)
 		if(linked.loc == T)
@@ -102,7 +103,7 @@
 
 	data["locations"] = locations
 
-	ui = nanomanager.try_update_ui(user, src, ui_key, ui, data, force_open)
+	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data, force_open)
 	if (!ui)
 		ui = new(user, src, ui_key, "helm.tmpl", "[linked.name] Helm Control", 380, 530)
 		ui.set_initial_data(data)

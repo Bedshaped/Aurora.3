@@ -18,19 +18,30 @@
 	volume = 250
 	var/safety = 0
 
-/obj/item/weapon/reagent_containers/spray/New()
-	..()
+/obj/item/weapon/reagent_containers/spray/Initialize()
+	. = ..()
 	src.verbs -= /obj/item/weapon/reagent_containers/verb/set_APTFT
 
 /obj/item/weapon/reagent_containers/spray/AltClick()
+	if(!usr || usr.stat || usr.lying || usr.restrained() || !Adjacent(usr))	return
 	safety = !safety
 	playsound(src.loc, 'sound/weapons/empty.ogg', 50, 1)
-	usr << "<span class = 'notice'>You twist the locking cap on the end of the nozzle, the spraybottle is now [safety ? "locked" : "unlocked"].</span>"
+	usr << "<span class = 'notice'>You twist the locking cap on the end of the nozzle. \The [src] is now [safety ? "locked" : "unlocked"].</span>"
 
 
 /obj/item/weapon/reagent_containers/spray/afterattack(atom/A as mob|obj, mob/user as mob, proximity)
-	if(istype(A, /obj/item/weapon/storage) || istype(A, /obj/structure/table) || istype(A, /obj/structure/closet) || istype(A, /obj/item/weapon/reagent_containers) || istype(A, /obj/structure/sink) || istype(A, /obj/structure/janitorialcart))
+
+	if(istype(A, /obj/item/weapon/reagent_containers))
+		. = ..()
 		return
+
+	if(is_type_in_list(A,can_be_placed_into))
+		return
+
+	if(istype(A, /mob))
+		user.setClickCooldown(25)
+	else
+		user.setClickCooldown(4)
 
 	if(istype(A, /spell))
 		return
@@ -54,18 +65,18 @@
 
 	if(reagents.has_reagent("sacid"))
 		message_admins("[key_name_admin(user)] fired sulphuric acid from \a [src].")
-		log_game("[key_name(user)] fired sulphuric acid from \a [src].")
+		log_game("[key_name(user)] fired sulphuric acid from \a [src].",ckey=key_name(user))
 	if(reagents.has_reagent("pacid"))
 		message_admins("[key_name_admin(user)] fired Polyacid from \a [src].")
-		log_game("[key_name(user)] fired Polyacid from \a [src].")
+		log_game("[key_name(user)] fired Polyacid from \a [src].",ckey=key_name(user))
 	if(reagents.has_reagent("lube"))
 		message_admins("[key_name_admin(user)] fired Space lube from \a [src].")
-		log_game("[key_name(user)] fired Space lube from \a [src].")
+		log_game("[key_name(user)] fired Space lube from \a [src].",ckey=key_name(user))
 	return
 
 /obj/item/weapon/reagent_containers/spray/proc/Spray_at(atom/A as mob|obj, mob/user as mob, proximity)
-	if ((A.density || istype(A, /mob/living)) && proximity)//isHuman check allows the visible message to proc when spraying lying-down people and
-		A.visible_message("[usr] sprays [A] with [src].")
+	if (A.density && proximity)
+		A.visible_message("[user] sprays [A] with [src].")
 		reagents.splash(A, amount_per_transfer_from_this)
 	else
 		spawn(0)
@@ -113,16 +124,16 @@
 	desc = "BLAM!-brand non-foaming space cleaner!"
 	volume = 50
 
-/obj/item/weapon/reagent_containers/spray/cleaner/New()
-	..()
+/obj/item/weapon/reagent_containers/spray/cleaner/Initialize()
+	. = ..()
 	reagents.add_reagent("cleaner", volume)
 
 /obj/item/weapon/reagent_containers/spray/sterilizine
 	name = "sterilizine"
 	desc = "Great for hiding incriminating bloodstains and sterilizing scalpels."
 
-/obj/item/weapon/reagent_containers/spray/sterilizine/New()
-	..()
+/obj/item/weapon/reagent_containers/spray/sterilizine/Initialize()
+	. = ..()
 	reagents.add_reagent("sterilizine", volume)
 
 /obj/item/weapon/reagent_containers/spray/pepper
@@ -136,8 +147,8 @@
 	safety = 1
 
 
-/obj/item/weapon/reagent_containers/spray/pepper/New()
-	..()
+/obj/item/weapon/reagent_containers/spray/pepper/Initialize()
+	. = ..()
 	reagents.add_reagent("condensedcapsaicin", 40)
 
 /obj/item/weapon/reagent_containers/spray/pepper/examine(mob/user)
@@ -149,12 +160,12 @@
 
 /obj/item/weapon/reagent_containers/spray/pepper/attack_self(var/mob/user)
 	safety = !safety
-	usr << "<span class = 'notice'>You switch the safety [safety ? "on" : "off"].</span>"
+	user << "<span class = 'notice'>You switch the safety [safety ? "on" : "off"].</span>"
 	playsound(src.loc, 'sound/weapons/empty.ogg', 50, 1)
 
-/obj/item/weapon/reagent_containers/spray/pepper/Spray_at(atom/A as mob|obj)
+/obj/item/weapon/reagent_containers/spray/pepper/Spray_at(atom/A as mob|obj, mob/user)
 	if(safety)
-		usr << "<span class = 'warning'>The safety is on!</span>"
+		user << "<span class = 'warning'>The safety is on!</span>"
 		return
 	..()
 
@@ -168,8 +179,8 @@
 	possible_transfer_amounts = null
 	volume = 10
 
-/obj/item/weapon/reagent_containers/spray/waterflower/New()
-	..()
+/obj/item/weapon/reagent_containers/spray/waterflower/Initialize()
+	. = ..()
 	reagents.add_reagent("water", 10)
 
 /obj/item/weapon/reagent_containers/spray/chemsprayer
@@ -182,7 +193,7 @@
 	w_class = 3.0
 	possible_transfer_amounts = null
 	volume = 600
-	origin_tech = "combat=3;materials=3;engineering=3"
+	origin_tech = list(TECH_COMBAT = 3, TECH_MATERIAL = 3, TECH_ENGINEERING = 3)
 
 /obj/item/weapon/reagent_containers/spray/chemsprayer/Spray_at(atom/A as mob|obj)
 	var/direction = get_dir(src, A)
@@ -191,7 +202,7 @@
 	var/turf/T2 = get_step(T,turn(direction, -90))
 	var/list/the_targets = list(T, T1, T2)
 
-	for(var/a = 1 to 3)
+	for(var/a = 1 to spray_size)
 		spawn(0)
 			if(reagents.total_volume < 1) break
 			var/obj/effect/effect/water/chempuff/D = new/obj/effect/effect/water/chempuff(get_turf(src))
@@ -204,6 +215,19 @@
 			D.set_up(my_target, rand(6, 8), 2)
 	return
 
+/obj/item/weapon/reagent_containers/spray/chemsprayer/xenobiology
+	name = "xenoblaster"
+	desc = "A child's plastic watergun repurposed for the use in pacifying slimes. Has an adjustable nozzle that controls precision as well as strength."
+	icon = 'icons/obj/gun.dmi'
+	icon_state = "xenoblaster"
+	item_state = "xenoblaster"
+	origin_tech = list(TECH_MATERIAL = 1, TECH_ENGINEERING = 1)
+	volume = 200
+	spray_size = 3
+	spray_sizes = list(1,3)
+	amount_per_transfer_from_this = 5
+	possible_transfer_amounts = list(5,15)
+
 /obj/item/weapon/reagent_containers/spray/plantbgone
 	name = "Plant-B-Gone"
 	desc = "Kills those pesky weeds!"
@@ -212,8 +236,8 @@
 	item_state = "plantbgone"
 	volume = 100
 
-/obj/item/weapon/reagent_containers/spray/plantbgone/New()
-	..()
+/obj/item/weapon/reagent_containers/spray/plantbgone/Initialize()
+	. = ..()
 	reagents.add_reagent("plantbgone", 100)
 
 /obj/item/weapon/reagent_containers/spray/plantbgone/afterattack(atom/A as mob|obj, mob/user as mob, proximity)

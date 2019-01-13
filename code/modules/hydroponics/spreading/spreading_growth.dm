@@ -17,19 +17,22 @@
 		if((locate(/obj/effect/plant) in floor.contents) || (locate(/obj/effect/dead_plant) in floor.contents) )
 			continue
 		if(floor.density)
-			if(!isnull(seed.chems["pacid"]))
-				spawn(rand(5,25)) floor.ex_act(3)
+			if(seed && seed.chems["pacid"])
+				addtimer(CALLBACK(floor, /atom/.proc/ex_act, 3), rand(5, 25))
 			continue
 		if(!Adjacent(floor) || !floor.Enter(src))
 			continue
 		neighbors |= floor
+
+	if (neighbors.len)
+		SSplants.add_plant(src)
+
 	// Update all of our friends.
 	var/turf/T = get_turf(src)
 	for(var/obj/effect/plant/neighbor in range(1,src))
 		neighbor.neighbors -= T
 
 /obj/effect/plant/process()
-
 	// Something is very wrong, kill ourselves.
 	if(!seed)
 		die_off()
@@ -79,24 +82,32 @@
 		//spread to 1-3 adjacent turfs depending on yield trait.
 		var/max_spread = between(1, round(seed.get_trait(TRAIT_YIELD)*3/14), 3)
 		
-		for(var/i in 1 to max_spread)
-			if(prob(spread_chance))
-				sleep(rand(3,5))
-				if(!neighbors.len)
-					break
-				var/turf/target_turf = pick(neighbors)
-				var/obj/effect/plant/child = new(get_turf(src),seed,parent)
-				spawn(1) // This should do a little bit of animation.
-					child.loc = target_turf
-					child.update_icon()
-				// Update neighboring squares.
-				for(var/obj/effect/plant/neighbor in range(1,target_turf))
-					neighbor.neighbors -= target_turf
+		do_spread(spread_chance, max_spread)
 
 	// We shouldn't have spawned if the controller doesn't exist.
 	check_health()
-	if(neighbors.len || health != max_health)
-		plant_controller.add_plant(src)
+	if(neighbors.len || health != max_health || buckled_mob || !is_mature())
+		SSplants.add_plant(src)
+
+/obj/effect/plant/proc/do_spread(spread_chance, max_spread)
+	set waitfor = FALSE
+	for(var/i in 1 to max_spread)
+		if(prob(spread_chance))
+			sleep(rand(3,5))
+			if(!neighbors.len)
+				return
+
+			var/turf/target_turf = pick(neighbors)
+			var/obj/effect/plant/child = new(get_turf(src),seed,parent)
+			// This should do a little bit of animation.
+			addtimer(CALLBACK(src, .proc/do_move, target_turf, child), 1)
+			// Update neighboring squares.
+			for(var/obj/effect/plant/neighbor in range(1,target_turf))
+				neighbor.neighbors -= target_turf
+
+/obj/effect/plant/proc/do_move(turf/target, obj/effect/plant/child)
+	child.forceMove(target)
+	child.queue_icon_update()
 
 /obj/effect/plant/proc/die_off()
 	// Kill off our plant.
@@ -107,7 +118,8 @@
 			continue
 		for(var/obj/effect/plant/neighbor in check_turf.contents)
 			neighbor.neighbors |= check_turf
-			plant_controller.add_plant(neighbor)
-	spawn(1) if(src) qdel(src)
+			SSplants.add_plant(neighbor)
+
+	qdel(src)
 
 #undef NEIGHBOR_REFRESH_TIME

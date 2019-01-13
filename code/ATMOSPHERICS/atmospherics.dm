@@ -10,9 +10,6 @@ Pipelines + Other Objects -> Pipe network
 
 */
 /obj/machinery/atmospherics
-
-	auto_init = 0
-
 	anchored = 1
 	idle_power_usage = 0
 	active_power_usage = 0
@@ -29,8 +26,12 @@ Pipelines + Other Objects -> Pipe network
 	var/pipe_color
 
 	var/global/datum/pipe_icon_manager/icon_manager
+	var/obj/machinery/atmospherics/node1
+	var/obj/machinery/atmospherics/node2
+	gfi_layer_rotation = GFI_ROTATION_OVERDIR
 
-/obj/machinery/atmospherics/New()
+/obj/machinery/atmospherics/Initialize(mapload)
+	. = ..()
 	if(!icon_manager)
 		icon_manager = new()
 
@@ -40,7 +41,20 @@ Pipelines + Other Objects -> Pipe network
 
 	if(!pipe_color_check(pipe_color))
 		pipe_color = null
+
+	if (mapload)
+		return INITIALIZE_HINT_LATELOAD
+
+/obj/machinery/atmospherics/Destroy()
 	..()
+	return QDEL_HINT_HARDDEL	// fuck it
+
+/obj/machinery/atmospherics/proc/atmos_init()
+
+// atmos_init() and Initialize() must be separate, as atmos_init() can be called multiple times after the machine has been initialized.
+
+/obj/machinery/atmospherics/LateInitialize()
+	atmos_init()
 
 /obj/machinery/atmospherics/attackby(atom/A, mob/user as mob)
 	if(istype(A, /obj/item/device/pipe_painter))
@@ -49,7 +63,7 @@ Pipelines + Other Objects -> Pipe network
 
 /obj/machinery/atmospherics/proc/add_underlay(var/turf/T, var/obj/machinery/atmospherics/node, var/direction, var/icon_connect_type)
 	if(node)
-		if(T.intact && node.level == 1 && istype(node, /obj/machinery/atmospherics/pipe))
+		if(!T.is_plating() && node.level == 1 && istype(node, /obj/machinery/atmospherics/pipe))
 			//underlays += icon_manager.get_atmos_icon("underlay_down", direction, color_cache_name(node))
 			underlays += icon_manager.get_atmos_icon("underlay", direction, color_cache_name(node), "down" + icon_connect_type)
 		else
@@ -87,11 +101,9 @@ obj/machinery/atmospherics/proc/check_connect_types(obj/machinery/atmospherics/a
 
 	return node.pipe_color
 
-/obj/machinery/atmospherics/process()
+/obj/machinery/atmospherics/machinery_process()
 	last_flow_rate = 0
 	last_power_draw = 0
-
-	build_network()
 
 /obj/machinery/atmospherics/proc/network_expand(datum/pipe_network/new_network, obj/machinery/atmospherics/pipe/reference)
 	// Check to see if should be added to network. Add self if so and adjust variables appropriately.
@@ -113,6 +125,9 @@ obj/machinery/atmospherics/proc/check_connect_types(obj/machinery/atmospherics/a
 
 /obj/machinery/atmospherics/proc/reassign_network(datum/pipe_network/old_network, datum/pipe_network/new_network)
 	// Used when two pipe_networks are combining
+
+/obj/machinery/atmospherics/proc/remove_network(datum/pipe_network/network)
+	reassign_network(network, null)
 
 /obj/machinery/atmospherics/proc/return_network_air(datum/network/reference)
 	// Return a list of gas_mixture(s) in the object

@@ -3,10 +3,11 @@
 /obj/machinery/computer/secure_data//TODO:SANITY
 	name = "security records console"
 	desc = "Used to view, edit and maintain security records"
-	icon_state = "security"
-	light_color = "#a91515"
-	req_one_access = list(access_security, access_forensics_lockers, access_lawyer)
-	circuit = "/obj/item/weapon/circuitboard/secure_data"
+
+	icon_screen = "security"
+	light_color = LIGHT_COLOR_ORANGE
+	req_one_access = list(access_security, access_forensics_lockers, access_lawyer, access_hop)
+	circuit = /obj/item/weapon/circuitboard/secure_data
 	var/obj/item/weapon/card/id/scan = null
 	var/authenticated = null
 	var/rank = null
@@ -15,7 +16,7 @@
 	var/datum/data/record/active2 = null
 	var/a_id = null
 	var/temp = null
-	var/printing = null
+	//var/printing = null
 	var/can_change_id = 0
 	var/list/Perp
 	var/tempname = null
@@ -23,30 +24,34 @@
 	var/sortBy = "name"
 	var/order = 1 // -1 = Descending - 1 = Ascending
 
+
+/obj/machinery/computer/secure_data/AltClick(var/mob/user)
+	eject_id()
+
 /obj/machinery/computer/secure_data/verb/eject_id()
 	set category = "Object"
 	set name = "Eject ID Card"
 	set src in oview(1)
 
-	if(!usr || usr.stat || usr.lying)	return
+	if(!usr || usr.stat || usr.lying || usr.restrained() || !Adjacent(usr))	return
 
 	if(scan)
 		usr << "You remove \the [scan] from \the [src]."
-		scan.loc = get_turf(src)
+		scan.forceMove(get_turf(src))
 		if(!usr.get_active_hand() && istype(usr,/mob/living/carbon/human))
 			usr.put_in_hands(scan)
 		scan = null
 	else
-		usr << "There is nothing to remove from the console."
+		usr << "There is no ID card to remove from the console."
 	return
 
 /obj/machinery/computer/secure_data/attackby(obj/item/O as obj, user as mob)
 	if(istype(O, /obj/item/weapon/card/id) && !scan)
-		usr.drop_item()
-		O.loc = src
+		usr.drop_from_inventory(O,src)
 		scan = O
 		user << "You insert [O]."
-	..()
+	else
+		..()
 
 /obj/machinery/computer/secure_data/attack_ai(mob/user as mob)
 	return attack_hand(user)
@@ -55,8 +60,11 @@
 /obj/machinery/computer/secure_data/attack_hand(mob/user as mob)
 	if(..())
 		return
+	ui_interact(user)
+
+/obj/machinery/computer/secure_data/ui_interact(user)
 	if (src.z > 6)
-		user << "\red <b>Unable to establish a connection</b>: \black You're too far away from the station!"
+		user << "<span class='warning'>Unable to establish a connection:</span> You're too far away from the station!"
 		return
 	var/dat
 
@@ -96,6 +104,8 @@
 							switch(crimstat)
 								if("*Arrest*")
 									background = "'background-color:#DC143C;'"
+								if("Search")
+									background = "'background-color:#FFAE00;'"
 								if("Incarcerated")
 									background = "'background-color:#CD853F;'"
 								if("Parolled")
@@ -139,7 +149,24 @@
 					else
 						dat += "<B>General Record Lost!</B><BR>"
 					if ((istype(active2, /datum/data/record) && data_core.security.Find(active2)))
-						dat += text("<BR>\n<CENTER><B>Security Data</B></CENTER><BR>\nCriminal Status: <A href='?src=\ref[];choice=Edit Field;field=criminal'>[]</A><BR>\n<BR>\nMinor Crimes: <A href='?src=\ref[];choice=Edit Field;field=mi_crim'>[]</A><BR>\nDetails: <A href='?src=\ref[];choice=Edit Field;field=mi_crim_d'>[]</A><BR>\n<BR>\nMajor Crimes: <A href='?src=\ref[];choice=Edit Field;field=ma_crim'>[]</A><BR>\nDetails: <A href='?src=\ref[];choice=Edit Field;field=ma_crim_d'>[]</A><BR>\n<BR>\nImportant Notes:<BR>\n\t<A href='?src=\ref[];choice=Edit Field;field=notes'>[]</A><BR>\n<BR>\n<CENTER><B>Comments/Log</B></CENTER><BR>", src, active2.fields["criminal"], src, active2.fields["mi_crim"], src, active2.fields["mi_crim_d"], src, active2.fields["ma_crim"], src, active2.fields["ma_crim_d"], src, decode(active2.fields["notes"]))
+						dat += text("<BR>\n<CENTER><B>Security Data</B></CENTER><BR>\nCriminal Status: <A href='?src=\ref[];choice=Edit Field;field=criminal'>[]</A><BR>\n<BR>\nImportant Notes:<BR>\n\t<A href='?src=\ref[];choice=Edit Field;field=notes'>[]</A>", src, active2.fields["criminal"], src, decode(active2.fields["notes"]))
+						dat += "<BR>\n<BR>\n<CENTER><B>Incidents</B></CENTER><BR><hr>"
+						for(var/datum/char_infraction/I in active2.fields["incidents"])
+							dat += "UID: [I.UID] <br>"
+							dat += "Date: [I.datetime] <br>"
+							dat += "Charges: "
+							for (var/L in I.charges)
+								dat += "[L], "
+							dat += "<br>"
+							// dat += "Brig Sentence: [I.getBrigSentence()] <br>"
+							// dat += "Fine: [I.fine] Credits <br>"
+							dat += "Notes: <br>"
+							if (I.notes != "")
+								dat+= nl2br(I.notes)
+							else
+								dat+= "-No Summary Entered-"
+							dat+= "<hr>"
+						dat += "<BR>\n<BR>\n<CENTER><B>Comments/Log</B></CENTER><BR>"
 						var/counter = 1
 						while(active2.fields[text("com_[]", counter)])
 							dat += text("[]<BR><A href='?src=\ref[];choice=Delete Entry;del_c=[]'>Delete Entry</A><BR><BR>", active2.fields[text("com_[]", counter)], src, counter)
@@ -179,6 +206,8 @@
 							switch(crimstat)
 								if("*Arrest*")
 									background = "'background-color:#DC143C;'"
+								if("Search")
+									background = "'background-color:#FFAE00;'"
 								if("Incarcerated")
 									background = "'background-color:#CD853F;'"
 								if("Parolled")
@@ -243,13 +272,12 @@ What a mess.*/
 					if(istype(usr,/mob/living/carbon/human) && !usr.get_active_hand())
 						usr.put_in_hands(scan)
 					else
-						scan.loc = get_turf(src)
+						scan.forceMove(get_turf(src))
 					scan = null
 				else
 					var/obj/item/I = usr.get_active_hand()
-					if (istype(I, /obj/item/weapon/card/id))
-						usr.drop_item()
-						I.loc = src
+					if (istype(I, /obj/item/weapon/card/id) && usr.unEquip(I))
+						I.forceMove(src)
 						scan = I
 
 			if("Log Out")
@@ -341,34 +369,35 @@ What a mess.*/
 					screen = 3	*/
 
 			if ("Print Record")
-				if (!( printing ))
-					printing = 1
-					var/datum/data/record/record1 = null
-					var/datum/data/record/record2 = null
-					if ((istype(active1, /datum/data/record) && data_core.general.Find(active1)))
-						record1 = active1
-					if ((istype(active2, /datum/data/record) && data_core.security.Find(active2)))
-						record2 = active2
-					sleep(50)
-					var/obj/item/weapon/paper/P = new /obj/item/weapon/paper( loc )
-					P.info = "<CENTER><B>Security Record</B></CENTER><BR>"
-					if (record1)
-						P.info += text("Name: [] ID: []<BR>\nSex: []<BR>\nAge: []<BR>\nFingerprint: []<BR>\nPhysical Status: []<BR>\nMental Status: []<BR>", record1.fields["name"], record1.fields["id"], record1.fields["sex"], record1.fields["age"], record1.fields["fingerprint"], record1.fields["p_stat"], record1.fields["m_stat"])
-						P.name = text("Security Record ([])", record1.fields["name"])
-					else
-						P.info += "<B>General Record Lost!</B><BR>"
-						P.name = "Security Record"
-					if (record2)
-						P.info += text("<BR>\n<CENTER><B>Security Data</B></CENTER><BR>\nCriminal Status: []<BR>\n<BR>\nMinor Crimes: []<BR>\nDetails: []<BR>\n<BR>\nMajor Crimes: []<BR>\nDetails: []<BR>\n<BR>\nImportant Notes:<BR>\n\t[]<BR>\n<BR>\n<CENTER><B>Comments/Log</B></CENTER><BR>", record2.fields["criminal"], record2.fields["mi_crim"], record2.fields["mi_crim_d"], record2.fields["ma_crim"], record2.fields["ma_crim_d"], decode(record2.fields["notes"]))
-						var/counter = 1
-						while(record2.fields[text("com_[]", counter)])
-							P.info += text("[]<BR>", record2.fields[text("com_[]", counter)])
-							counter++
-					else
-						P.info += "<B>Security Record Lost!</B><BR>"
-					P.info += "</TT>"
-					printing = null
-					updateUsrDialog()
+				var/datum/data/record/record1 = null
+				var/datum/data/record/record2 = null
+				if ((istype(active1, /datum/data/record) && data_core.general.Find(active1)))
+					record1 = active1
+				if ((istype(active2, /datum/data/record) && data_core.security.Find(active2)))
+					record2 = active2
+				var/obj/item/weapon/paper/P = new /obj/item/weapon/paper()
+				var/info = ""
+				var/pname
+				P.info = "<CENTER><B>Security Record</B></CENTER><BR>"
+				if (record1)
+					info += text("Name: [] ID: []<BR>\nSex: []<BR>\nAge: []<BR>\nFingerprint: []<BR>\nPhysical Status: []<BR>\nMental Status: []<BR>", record1.fields["name"], record1.fields["id"], record1.fields["sex"], record1.fields["age"], record1.fields["fingerprint"], record1.fields["p_stat"], record1.fields["m_stat"])
+					pname = text("Security Record ([])", record1.fields["name"])
+				else
+					info += "<B>General Record Lost!</B><BR>"
+					pname = "Security Record"
+				if (record2)
+					info += text("<BR>\n<CENTER><B>Security Data</B></CENTER><BR>\nCriminal Status: []<BR>\n<BR>\nMinor Crimes: []<BR>\nDetails: []<BR>\n<BR>\nMajor Crimes: []<BR>\nDetails: []<BR>\n<BR>\nImportant Notes:<BR>\n\t[]<BR>\n<BR>\n<CENTER><B>Comments/Log</B></CENTER><BR>", record2.fields["criminal"], record2.fields["mi_crim"], record2.fields["mi_crim_d"], record2.fields["ma_crim"], record2.fields["ma_crim_d"], decode(record2.fields["notes"]))
+					var/counter = 1
+					while(record2.fields[text("com_[]", counter)])
+						info += text("[]<BR>", record2.fields[text("com_[]", counter)])
+						counter++
+				else
+					info += "<B>Security Record Lost!</B><BR>"
+				info += "</TT>"
+				P.set_content_unsafe(pname, info)
+				updateUsrDialog()
+				print(P)
+
 //RECORD DELETE
 			if ("Delete All Records")
 				temp = ""
@@ -385,7 +414,7 @@ What a mess.*/
 				if (!( istype(active2, /datum/data/record) ))
 					return
 				var/a2 = active2
-				var/t1 = sanitize(input("Add Comment:", "Secure. records", null, null)  as message)
+				var/t1 = sanitize(input("Add Comment:", "Secure. records", null, null)  as message, MAX_PAPER_MESSAGE_LEN)
 				if ((!( t1 ) || !( authenticated ) || usr.stat || usr.restrained() || (!in_range(src, usr) && (!istype(usr, /mob/living/silicon))) || active2 != a2))
 					return
 				var/counter = 1
@@ -411,11 +440,11 @@ What a mess.*/
 //RECORD CREATE
 			if ("New Record (Security)")
 				if ((istype(active1, /datum/data/record) && !( istype(active2, /datum/data/record) )))
-					active2 = CreateSecurityRecord(active1.fields["name"], active1.fields["id"])
+					active2 = data_core.CreateSecurityRecord(active1.fields["name"], active1.fields["id"])
 					screen = 3
 
 			if ("New Record (General)")
-				active1 = CreateGeneralRecord()
+				active1 = data_core.CreateGeneralRecord()
 				active2 = null
 
 //FIELD FUNCTIONS
@@ -427,19 +456,19 @@ What a mess.*/
 				switch(href_list["field"])
 					if("name")
 						if (istype(active1, /datum/data/record))
-							var/t1 = sanitizeName(input("Please input name:", "Secure. records", active1.fields["name"], null)  as text)
+							var/t1 = sanitizeName(input("Please input name:", "Secure. records", active1.fields["name"], null)  as text, MAX_PAPER_MESSAGE_LEN)
 							if (!t1 || active1 != a1)
 								return
 							active1.fields["name"] = t1
 					if("id")
 						if (istype(active2, /datum/data/record))
-							var/t1 = sanitize(input("Please input id:", "Secure. records", active1.fields["id"], null)  as text)
+							var/t1 = sanitize(input("Please input id:", "Secure. records", active1.fields["id"], null)  as text, MAX_PAPER_MESSAGE_LEN)
 							if (!t1 || active1 != a1)
 								return
 							active1.fields["id"] = t1
 					if("fingerprint")
 						if (istype(active1, /datum/data/record))
-							var/t1 = sanitize(input("Please input fingerprint hash:", "Secure. records", active1.fields["fingerprint"], null)  as text)
+							var/t1 = sanitize(input("Please input fingerprint hash:", "Secure. records", active1.fields["fingerprint"], null)  as text, MAX_PAPER_MESSAGE_LEN)
 							if (!t1 || active1 != a1)
 								return
 							active1.fields["fingerprint"] = t1
@@ -457,31 +486,31 @@ What a mess.*/
 							active1.fields["age"] = t1
 					if("mi_crim")
 						if (istype(active2, /datum/data/record))
-							var/t1 = sanitize(input("Please input minor disabilities list:", "Secure. records", active2.fields["mi_crim"], null)  as text)
+							var/t1 = sanitize(input("Please input minor disabilities list:", "Secure. records", active2.fields["mi_crim"], null)  as text, MAX_PAPER_MESSAGE_LEN)
 							if (!t1 || active2 != a2)
 								return
 							active2.fields["mi_crim"] = t1
 					if("mi_crim_d")
 						if (istype(active2, /datum/data/record))
-							var/t1 = sanitize(input("Please summarize minor dis.:", "Secure. records", active2.fields["mi_crim_d"], null)  as message)
+							var/t1 = sanitize(input("Please summarize minor dis.:", "Secure. records", active2.fields["mi_crim_d"], null)  as message, MAX_PAPER_MESSAGE_LEN)
 							if (!t1 || active2 != a2)
 								return
 							active2.fields["mi_crim_d"] = t1
 					if("ma_crim")
 						if (istype(active2, /datum/data/record))
-							var/t1 = sanitize(input("Please input major diabilities list:", "Secure. records", active2.fields["ma_crim"], null)  as text)
+							var/t1 = sanitize(input("Please input major diabilities list:", "Secure. records", active2.fields["ma_crim"], null)  as text, MAX_PAPER_MESSAGE_LEN)
 							if (!t1 || active2 != a2)
 								return
 							active2.fields["ma_crim"] = t1
 					if("ma_crim_d")
 						if (istype(active2, /datum/data/record))
-							var/t1 = sanitize(input("Please summarize major dis.:", "Secure. records", active2.fields["ma_crim_d"], null)  as message)
+							var/t1 = sanitize(input("Please summarize major dis.:", "Secure. records", active2.fields["ma_crim_d"], null)  as message, MAX_PAPER_MESSAGE_LEN)
 							if (!t1 || active2 != a2)
 								return
 							active2.fields["ma_crim_d"] = t1
 					if("notes")
 						if (istype(active2, /datum/data/record))
-							var/t1 = sanitize(input("Please summarize notes:", "Secure. records", html_decode(active2.fields["notes"]), null)  as message, extra = 0)
+							var/t1 = sanitize(input("Please summarize notes:", "Secure. records", html_decode(active2.fields["notes"]), null)  as message,MAX_PAPER_MESSAGE_LEN, extra = 0)
 							if (!t1 || active2 != a2)
 								return
 							active2.fields["notes"] = t1
@@ -491,6 +520,7 @@ What a mess.*/
 							temp += "<ul>"
 							temp += "<li><a href='?src=\ref[src];choice=Change Criminal Status;criminal2=none'>None</a></li>"
 							temp += "<li><a href='?src=\ref[src];choice=Change Criminal Status;criminal2=arrest'>*Arrest*</a></li>"
+							temp += "<li><a href='?src=\ref[src];choice=Change Criminal Status;criminal2=search'>Search</a></li>"
 							temp += "<li><a href='?src=\ref[src];choice=Change Criminal Status;criminal2=incarcerated'>Incarcerated</a></li>"
 							temp += "<li><a href='?src=\ref[src];choice=Change Criminal Status;criminal2=parolled'>Parolled</a></li>"
 							temp += "<li><a href='?src=\ref[src];choice=Change Criminal Status;criminal2=released'>Released</a></li>"
@@ -508,7 +538,7 @@ What a mess.*/
 							alert(usr, "You do not have the required rank to do this!")
 					if("species")
 						if (istype(active1, /datum/data/record))
-							var/t1 = sanitize(input("Please enter race:", "General records", active1.fields["species"], null)  as message)
+							var/t1 = sanitize(input("Please enter race:", "General records", active1.fields["species"], null)  as message, MAX_PAPER_MESSAGE_LEN)
 							if (!t1 || active1 != a1)
 								return
 							active1.fields["species"] = t1
@@ -541,6 +571,8 @@ What a mess.*/
 									active2.fields["criminal"] = "None"
 								if("arrest")
 									active2.fields["criminal"] = "*Arrest*"
+								if("search")
+									active2.fields["criminal"] = "Search"
 								if("incarcerated")
 									active2.fields["criminal"] = "Incarcerated"
 								if("parolled")
@@ -596,7 +628,7 @@ What a mess.*/
 				if(3)
 					R.fields["age"] = rand(5, 85)
 				if(4)
-					R.fields["criminal"] = pick("None", "*Arrest*", "Incarcerated", "Parolled", "Released")
+					R.fields["criminal"] = pick("None", "*Arrest*", "Search", "Incarcerated", "Parolled", "Released")
 				if(5)
 					R.fields["p_stat"] = pick("*Unconcious*", "Active", "Physically Unfit")
 					if(PDA_Manifest.len)
@@ -614,6 +646,8 @@ What a mess.*/
 /obj/machinery/computer/secure_data/detective_computer
 	icon = 'icons/obj/computer.dmi'
 	icon_state = "messyfiles"
+
+	icon_screen = null
 
 	light_range_on = 0
 	light_power_on = 0

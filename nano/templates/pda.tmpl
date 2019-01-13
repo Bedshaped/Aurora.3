@@ -213,6 +213,20 @@ Used In File(s): \code\game\objects\items\devices\PDA\PDA.dm
                 {{:helper.link('Set Ringtone', 'comment', {'choice' : "Ringtone"}, null, 'fixedLeftWide')}}
                 {{:helper.link('Delete all Conversations', 'trash', {'choice' : "Clear", 'option' : "All"}, null, 'fixedLeftWider')}}
             </div>
+            <div class="itemLabelNarrow">
+                <b>Filter PDAs</b>
+             </div>
+                <div class = "itemContent">
+                  {{:helper.link( 'All',data.pdafilter == 0? 'null' : 'close', {'choice' : "Filter", 'option' : "0"}, null, 'fixedLeft')}}
+                    {{:helper.link('Command',data.pdafilter == 2? 'null': 'close', {'choice' : "Filter", 'option' : "2"}, null, 'fixedLeft')}}
+                    {{:helper.link('Security',data.pdafilter == 3? 'null': 'close', {'choice' : "Filter", 'option' : "3"}, null, 'fixedLeft')}}
+                    {{:helper.link('Engineering',data.pdafilter == 4? 'null': 'close', {'choice' : "Filter", 'option' : "4"}, null, 'fixedLeft')}}
+                    {{:helper.link('Science',data.pdafilter == 5? 'null': 'close', {'choice' : "Filter", 'option' : "5"}, null, 'fixedLeft')}}
+                    {{:helper.link('Cargo',data.pdafilter == 6? 'null': 'close', {'choice' : "Filter", 'option' : "6"}, null, 'fixedLeft')}}
+                    {{:helper.link('Service',data.pdafilter == 7? 'null': 'close', {'choice' : "Filter", 'option' : "7"}, null, 'fixedLeft')}}
+                    {{:helper.link('Medical',data.pdafilter == 8? 'null': 'close', {'choice' : "Filter", 'option' : "8"}, null, 'fixedLeft')}}             
+                </div>
+            
         </div>
         {{if data.toff == 0}}
             <br><br>
@@ -341,6 +355,16 @@ Used In File(s): \code\game\objects\items\devices\PDA\PDA.dm
                     <tr><th colspan="3" class="sci">Science</th></tr>
                     {{for data.manifest["sci"]}}
                         {{if value.rank == "Research Director"}}
+                            <tr><td><span class="good">{{:value.name}}</span></td><td><span class="good">{{:value.rank}}</span></td><td><span class="good">{{:value.active}}</span></td></tr>
+                        {{else}}
+                            <tr><td><span class="average">{{:value.name}}</span></td><td><span class="average">{{:value.rank}}</span></td><td><span class="average">{{:value.active}}</span></td></tr>
+                        {{/if}}
+                    {{/for}}
+                {{/if}}
+				{{if data.manifest.car.length}}
+                    <tr><th colspan="3" class="car">Cargo</th></tr>
+                    {{for data.manifest["car"]}}
+                        {{if value.rank == "Quartermaster"}}
                             <tr><td><span class="good">{{:value.name}}</span></td><td><span class="good">{{:value.rank}}</span></td><td><span class="good">{{:value.active}}</span></td></tr>
                         {{else}}
                             <tr><td><span class="average">{{:value.name}}</span></td><td><span class="average">{{:value.rank}}</span></td><td><span class="average">{{:value.active}}</span></td></tr>
@@ -508,35 +532,84 @@ Used In File(s): \code\game\objects\items\devices\PDA\PDA.dm
             </div>
         </div>
 
-    {{else data.mode == 43}}
-        <H2>Sensor Selection</H2>
+    {{else data.mode == 43}}    <!-- Power monitor powernet selection menu -->
+        <H2>Power Monitor</H2>
         <div class="item">
-            Available Sensors:
-        </div>
-        {{for data.records.power_sensors}}
-            <div class="item">
-                {{:helper.link(value.name_tag, 'plus', {'cartmenu' : "1", 'choice' : "Power Select",'target' : value.name_tag})}}<br>
+            <div class="itemLabel">
+                <b>Available Sensors</b>:
             </div>
-        {{/for}}
+            <div class="itemContent">
+                {{for data.records.power_sensors}}
+                        {{:helper.link(value.name_tag, 'plus', {'cartmenu' : "1", 'choice' : "Power Select",'target' : value.name_tag}, null, 'fixedLeftWider')}}
+                {{/for}}
+            </div>
+        </div>
 
-
-    {{else data.mode == 433}}
-        <H2>Sensor Reading(Simplified View)</H2>
-		{{if data.records.sensor_reading}}
-			<table><tr><th>Area<th>Cell %<th>Load
-			{{for data.records.sensor_reading.apc_data}}
-				<tr><td>{{:value.name}}
-				<td>{{:value.cell_charge}}%
-				<td>{{:value.total_load}}
-			{{empty}}
-				<tr><td>No APCs found!
-			{{/for}}
-			</table>
-			<br><b>Available: {{:data.records.sensor_reading.total_avail}}</b>
-			<br><b>Load: {{:data.records.sensor_reading.total_used_all}}</b>
+    {{else data.mode == 433}}   <!-- Power monitor sensor display -->
+        <H2>Power Monitor</H2>
+        {{if data.records.sensor_reading}}    
+            <h3>Network Information</h3>  
+            <div class="item">
+                <div class="itemLabel">
+                    <b>Powernet Sensor</b>:
+                </div>
+                <div class="itemContent">
+                    <b>{{:data.records.sensor_reading.name}}</b>
+                </div>
+            </div>
+            <div class="item">
+                <div class="itemLabel">
+                    Load:
+                </div>
+                <div class="itemContent">
+                    <!-- see power_monitor.tmpl -->
+                    {{:helper.displayBar(data.records.sensor_reading.load_percentage, 0, 100, (data.records.sensor_reading.load_percentage <= 75) ? 'good' : (data.records.sensor_reading.load_percentage <= 90) ? 'average' : 'bad')}}{{:data.records.sensor_reading.load_percentage}}%
+                </div>
+                <div class="itemLabel">
+                    Available Power:
+                </div>
+                <div class="itemContent">
+                    {{:data.records.sensor_reading.total_avail}}
+                </div>
+                <div class="itemLabel">
+                    Total Usage:
+                </div>
+                <div class="itemContent">
+                    {{:data.records.sensor_reading.total_used_all}}
+                </div>
+            </div>
+            <h3>APC Sensor Readings</h3>
+            {{if data.records.sensor_reading.apc_data.length > 0}}  
+            	<table>
+                    <tr>
+                        <th>APC Name</th><th>Cell Status</th><th>Power Usage</th>
+                    </tr>
+                    {{for data.records.sensor_reading.apc_data}}
+                        <tr>
+                            <td style="width: 220px;">{{:value.name}}</td>
+                            {{if value.cell_status == "N"}}
+                                <td>{{:helper.link(value.cell_charge + '%', 'batt_disc', null,'disabled', 'width75btn')}}</td>
+                            {{else value.cell_status == "C"}}
+                                <td>{{:helper.link(value.cell_charge + '%', 'batt_chrg', null,'disabled', 'width75btn')}}</td>
+                            {{else}}
+                                <td>{{:helper.link(value.cell_charge + '%', 'batt_full', null,'disabled', 'width75btn')}}</td>
+                            {{/if}}
+                            <td>{{:value.total_load}}</td>
+                        </tr>
+                    {{/for}}
+                </table>
+            {{else}}
+                <div class="notice">
+                    No APCs found in selected powernet.
+                </div>
+            {{/if}}
 		{{else}}
-			Unable to contact sensor controller! Please retry and contact tech support if problem persists.
+            <!-- values["sensor_reading"] not set in /obj/item/weapon/cartridge/proc/create_NanoUI_values proc -->
+			<div class="notice">
+                 Unable to contact sensor controller! Please retry and contact tech support if this problem persists.
+            </div>
 		{{/if}}
+
 
 	{{else data.mode == 44}}
 	    <H2>Medical Record List</H2>
@@ -581,7 +654,7 @@ Used In File(s): \code\game\objects\items\devices\PDA\PDA.dm
                         <span class="good">Details:		</span> <span class="average">{{:data.records.medical.alg_d}}	</span><br><br>
                         <span class="good">Current Disease:	</span> <span class="average">{{:data.records.medical.cdi}}		</span><br>
                         <span class="good">Details:		</span> <span class="average">{{:data.records.medical.alg_d}}	</span><br><br>
-                        <span class="good">Important Notes:	</span> <span class="average">{{:data.records.medical.notes}}	</span>
+                        <span class="good">Important Notes:	</span> <span class="average"><pre>{{:data.records.medical.notes}}</pre>	</span>
                     {{else}}
                         <span class="bad">
                             Medical Record Lost!
@@ -633,7 +706,7 @@ Used In File(s): \code\game\objects\items\devices\PDA\PDA.dm
                         <span class="good">Details:  </span><span class="average">{{:data.records.security.mi_crim_d}} </span><br><br>
                         <span class="good">Major Crimes:  </span><span class="average">{{:data.records.security.ma_crim}} </span><br>
                         <span class="good">Details:  </span><span class="average">{{:data.records.security.ma_crim_d}} </span><br><br>
-                        <span class="good">Important Notes:   </span><span class="average">{{:data.records.security.notes}} </span>
+                        <span class="good">Important Notes:   </span><span class="average"> <pre>{{:data.records.security.notes}}</pre> </span>
                     {{else}}
                         <span class="bad">
                             Security Record Lost!<br><br>
@@ -733,18 +806,18 @@ Used In File(s): \code\game\objects\items\devices\PDA\PDA.dm
                     {{if data.records.supply.approved_count == 0}}
                         <span class="average"> No current approved orders </span><br><br>
                     {{else}}
-                        {{for data.records.supply.approved}}
-                            <span class="average">#{{:value.Number}} - {{:value.Name}} approved by {{:value.OrderedBy}}<br>{{if value.Comment != ""}} {{:value.Comment}} <br>{{/if}}<br></span>
-                        {{/for}}
+                        {{props data.records.supply.approved}}
+                            <span class="average">#{{:value.order_id}} - {{:value.ordered_by}} - {{:value.price_cargo}} Credits </span>
+                        {{/props}}
                     {{/if}}
                     <br><br>
                     <span class="good"><B>Current Requested Orders</B></span><br>
                     {{if data.records.supply.requests_count == 0}}
                             <span class="average">No current requested orders</span><br><br>
                     {{else}}
-                        {{for data.records.supply.requests}}
-                            <span class="average">#{{:value.Number}} - {{:value.Name}} requested by {{:value.OrderedBy}}<br>{{if value.Comment != ""}} {{:value.Comment}} <br>{{/if}}<br></span>
-                        {{/for}}
+                        {{props data.records.supply.requests}}
+                            <span class="average">#{{:value.order_id}} - {{:value.ordered_by}} - {{:value.price_cargo}} Credits </span>
+                        {{/props}}
                     {{/if}}
 				</div>
 			</div>
@@ -938,10 +1011,6 @@ Used In File(s): \code\game\objects\items\devices\PDA\PDA.dm
                 {{:helper.link('Set news tone', 'comment', {'choice' : "Newstone"}, null, 'fixedLeftWide')}}
             </div>
         </div>
-        
-		{{if data.reception != 1}}
-			<span class="bad">No reception with newscaster network.</span>
-		{{/if}}
 		
 		<div class="item">
             <div class="itemContent">
@@ -959,12 +1028,7 @@ Used In File(s): \code\game\objects\items\devices\PDA\PDA.dm
 
     {{else data.mode == 61}}      
         <H2><span class="white">{{:data.feed.channel}}</span></H2>
-        <span class="white">Created by: </span><span class="average">{{:data.feed.author}}<br></span>
-		
-		{{if data.reception != 1}}
-			<span class="bad">No reception with newscaster network.</span>
-		{{/if}}
-		
+        <span class="white">Created by: </span><span class="average">{{:data.feed.author}}<br></span>		
         <div class="statusDisplay" style="overflow: auto;">
             <div class="item">
                 <div class="itemContent" style="width: 100%;">
@@ -974,14 +1038,17 @@ Used In File(s): \code\game\objects\items\devices\PDA\PDA.dm
 						No further feed story additions are allowed while the D-Notice is in effect.<br>
 					{{else}}
 						{{for data.feed.messages}}
-							-{{:value.body}}<br>
-							{{if value.has_image}}
-								<img src='pda_news_tmp_photo_{{:data.feed.channel}}_{{:value.index}}.png' width = '180'><br>
-								{{if value.caption}}
-									<span class="caption">{{:value.caption}}</span><br>
+							<BLOCKQUOTE style="padding:2px 4px;border-left:4px #797979 solid;">
+								{{:value.body}}<br>
+								{{if value.has_image}}
+									<img src='pda_news_tmp_photo_{{:data.feed.channel}}_{{:value.index}}.png' width = '180'><br>
+									{{if value.caption}}
+										<span class="caption">{{:value.caption}}</span><br>
+									{{/if}}
 								{{/if}}
-							{{/if}}
-							<span class="footer">[{{:value.message_type}} by <span class="average">{{:value.author}}</span> - {{:value.time_stamp}}]</span><br>
+								<span class="footer">[{{:value.message_type}} by <span class="average">{{:value.author}}</span> - {{:value.time_stamp}}]</span><br>
+								<span class="footer">[Likes: <FONT COLOR='DarkGreen'>{{:value.likes}}</FONT> Dislikes: <FONT COLOR='Maroon'>{{:value.dislikes}}</FONT>]</span>
+							</BLOCKQUOTE>
 							<br>
 						{{empty}}
 							<I>No feed messages found in channel...</I>

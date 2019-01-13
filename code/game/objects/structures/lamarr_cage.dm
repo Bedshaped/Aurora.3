@@ -32,20 +32,6 @@
 	src.healthcheck()
 	return
 
-
-/obj/structure/lamarr/blob_act()
-	if (prob(75))
-		new /obj/item/weapon/material/shard( src.loc )
-		Break()
-		qdel(src)
-
-
-/obj/structure/lamarr/meteorhit(obj/O as obj)
-		new /obj/item/weapon/material/shard( src.loc )
-		Break()
-		qdel(src)
-
-
 /obj/structure/lamarr/proc/healthcheck()
 	if (src.health <= 0)
 		if (!( src.destroyed ))
@@ -67,6 +53,7 @@
 
 
 /obj/structure/lamarr/attackby(obj/item/weapon/W as obj, mob/user as mob)
+	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 	src.health -= W.force
 	src.healthcheck()
 	..()
@@ -76,10 +63,12 @@
 	if (src.destroyed)
 		return
 	else
-		usr << text("\blue You kick the lab cage.")
+		user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
+		user << "<span class='warning'>You kick the lab cage.</span>"
 		for(var/mob/O in oviewers())
 			if ((O.client && !( O.blinded )))
-				O << text("\red [] kicks the lab cage.", usr)
+				O << "<span class='warning'>[user] kicks the lab cage.</span>"
+
 		src.health -= 2
 		healthcheck()
 		return
@@ -91,11 +80,4 @@
 	update_icon()
 	return
 
-/obj/item/clothing/mask/facehugger/lamarr
-	name = "Lamarr"
-	desc = "The worst she might do is attempt to... couple with your head."//hope we don't get sued over a harmless reference, rite?
-	sterile = 1
-	gender = FEMALE
 
-/obj/item/clothing/mask/facehugger/lamarr/New()//to prevent deleting it if aliums are disabled
-	return

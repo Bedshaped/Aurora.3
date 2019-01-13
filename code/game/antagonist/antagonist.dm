@@ -15,7 +15,7 @@
 
 	// Role data.
 	var/id = "traitor"                      // Unique datum identifier.
-	var/role_type = BE_TRAITOR              // Preferences option for this role.
+	var/role_type                           // Preferences option for this role. Defaults to the id if unset
 	var/role_text = "Traitor"               // special_role text.
 	var/role_text_plural = "Traitors"       // As above but plural.
 
@@ -30,6 +30,7 @@
 	var/faction_descriptor                  // Description of the cause. Mandatory for faction role.
 	var/faction_verb                        // Verb added when becoming a member of the faction, if any.
 	var/faction_welcome                     // Message shown to faction members.
+	var/faction = "neutral"			// Faction name, mostly used for simple animals.
 
 	// Spawn values (autotraitor and game mode)
 	var/hard_cap = 3                        // Autotraitor var. Won't spawn more than this many antags.
@@ -49,6 +50,7 @@
 	var/bantype = "Syndicate"               // Ban to check when spawning this antag.
 	var/suspicion_chance = 50               // Prob of being on the initial Command report
 	var/flags = 0                           // Various runtime options.
+	var/db_log_id = null                    // ID of the db entry used to track that antagonist
 
 	// Used for setting appearance.
 	var/list/valid_species =       list("Unathi","Tajara","Skrell","Human")
@@ -72,8 +74,11 @@
 
 /datum/antagonist/New()
 	..()
+	if(!role_type)
+		role_type = id
+
 	cur_max = hard_cap
-	get_starting_locations()
+
 	if(!role_text_plural)
 		role_text_plural = role_text
 	if(config.protect_roles_from_antagonist)
@@ -93,8 +98,8 @@
 
 	// Prune restricted status. Broke it up for readability.
 	// Note that this is done before jobs are handed out.
-	for(var/datum/mind/player in ticker.mode.get_players_for_role(role_type, id))
-		if(ghosts_only && !istype(player.current, /mob/dead))
+	for(var/datum/mind/player in SSticker.mode.get_players_for_role(role_type, id))
+		if(ghosts_only && !istype(player.current, /mob/abstract))
 			log_debug("[key_name(player)] is not eligible to become a [role_text]: Only ghosts may join as this role!")
 		else if(!allow_animals && isanimal(player.current))
 			log_debug("[key_name(player)] is not eligible to become a [role_text]: Simple animals cannot be this role!")
@@ -159,8 +164,6 @@
 	if(spawn_target == null)
 		spawn_target = initial_spawn_target
 
-	log_debug("ANTAG SPAWN: Attempting antag spawn. Antag: [id], spawn target: [spawn_target], ")
-
 	// Update our boundaries.
 	if(!candidates.len)
 		return 0
@@ -181,7 +184,7 @@
 	if(player.special_role)
 		log_debug("[player.key] was selected for [role_text] by lottery, but they already have a special role.")
 		return 0
-	if(!(flags & ANTAG_OVERRIDE_JOB) && (!player.current || istype(player.current, /mob/new_player)))
+	if(!(flags & ANTAG_OVERRIDE_JOB) && (!player.current || istype(player.current, /mob/abstract/new_player)))
 		log_debug("[player.key] was selected for [role_text] by lottery, but they have not joined the game.")
 		return 0
 
@@ -203,8 +206,8 @@
 		return
 
 	for(var/datum/mind/player in pending_antagonists)
-		pending_antagonists -= player
-		add_antagonist(player,0,0,1)
+		if (add_antagonist(player,0,0,1))
+			pending_antagonists -= player
 
 	reset_antag_selection()
 
@@ -216,5 +219,8 @@
 		if(flags & ANTAG_OVERRIDE_JOB)
 			player.assigned_role = null
 		player.special_role = null
+
+		if (!check_rights(R_ADMIN|R_MOD|R_CCIAA, 0, player.current))
+			player.current.client.verbs -= /client/proc/aooc
 	pending_antagonists.Cut()
 	candidates.Cut()

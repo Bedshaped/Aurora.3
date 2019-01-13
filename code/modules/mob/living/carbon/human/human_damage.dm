@@ -8,6 +8,8 @@
 	var/total_burn  = 0
 	var/total_brute = 0
 	for(var/obj/item/organ/external/O in organs)	//hardcoded to streamline things a bit
+		if((O.status & ORGAN_ROBOT) && !O.vital)
+			continue //*non-vital* robot limbs don't count towards shock and crit
 		total_brute += O.brute_dam
 		total_burn  += O.burn_dam
 
@@ -16,25 +18,42 @@
 	var/clone_l = getCloneLoss()
 
 	health = maxHealth - oxy_l - tox_l - clone_l - total_burn - total_brute
-
+	update_health_display()
 	//TODO: fix husking
 	if( ((maxHealth - total_burn) < config.health_threshold_dead) && stat == DEAD)
 		ChangeToHusk()
+	UpdateDamageIcon() // to fix that darn overlay bug
 	return
 
-/mob/living/carbon/human/adjustBrainLoss(var/amount)
+//Some sources of brain damage shouldn't be deadly
+/mob/living/carbon/human/adjustBrainLoss(var/amount, maximum = 60)
 
 	if(status_flags & GODMODE)	return 0	//godmode
 
 	if(species && species.has_organ["brain"])
 		var/obj/item/organ/brain/sponge = internal_organs_by_name["brain"]
 		if(sponge)
+			if(amount + sponge.damage > maximum)
+				if(sponge.damage < maximum)
+					amount = maximum - sponge.damage
+				else
+					return
 			sponge.take_damage(amount)
 			brainloss = sponge.damage
 		else
 			brainloss = 200
 	else
 		brainloss = 0
+
+	if(brainloss > BRAIN_DAMAGE_MILD && !has_trauma_type(BRAIN_TRAUMA_MILD))
+		if(prob((amount * 2) + ((brainloss - BRAIN_DAMAGE_MILD) / 5))) //1 damage|50 brain damage = 4% chance
+			gain_trauma_type(BRAIN_TRAUMA_MILD)
+	if(brainloss > BRAIN_DAMAGE_SEVERE && !has_trauma_type(BRAIN_TRAUMA_SEVERE) && !has_trauma_type(BRAIN_TRAUMA_SPECIAL))
+		if(prob(amount + ((brainloss - BRAIN_DAMAGE_SEVERE) / 15))) //1 damage|150 brain damage = 3% chance
+			if(prob(20))
+				gain_trauma_type(BRAIN_TRAUMA_SPECIAL)
+			else
+				gain_trauma_type(BRAIN_TRAUMA_SEVERE)
 
 /mob/living/carbon/human/setBrainLoss(var/amount)
 
@@ -68,20 +87,22 @@
 /mob/living/carbon/human/getBruteLoss()
 	var/amount = 0
 	for(var/obj/item/organ/external/O in organs)
+		if((O.status & ORGAN_ROBOT) && !O.vital)
+			continue //robot limbs don't count towards shock and crit
 		amount += O.brute_dam
 	return amount
 
 /mob/living/carbon/human/getFireLoss()
 	var/amount = 0
 	for(var/obj/item/organ/external/O in organs)
+		if((O.status & ORGAN_ROBOT) && !O.vital)
+			continue //robot limbs don't count towards shock and crit
 		amount += O.burn_dam
 	return amount
 
 
 /mob/living/carbon/human/adjustBruteLoss(var/amount)
-	if(species && species.brute_mod)
-		amount = amount*species.brute_mod
-
+	amount *= brute_mod
 	if(amount > 0)
 		take_overall_damage(amount, 0)
 	else
@@ -89,9 +110,7 @@
 	BITSET(hud_updateflag, HEALTH_HUD)
 
 /mob/living/carbon/human/adjustFireLoss(var/amount)
-	if(species && species.burn_mod)
-		amount = amount*species.burn_mod
-
+	amount *= burn_mod
 	if(amount > 0)
 		take_overall_damage(0, amount)
 	else
@@ -99,9 +118,7 @@
 	BITSET(hud_updateflag, HEALTH_HUD)
 
 /mob/living/carbon/human/proc/adjustBruteLossByPart(var/amount, var/organ_name, var/obj/damage_source = null)
-	if(species && species.brute_mod)
-		amount = amount*species.brute_mod
-
+	amount *= brute_mod
 	if (organ_name in organs_by_name)
 		var/obj/item/organ/external/O = get_organ(organ_name)
 
@@ -114,9 +131,7 @@
 	BITSET(hud_updateflag, HEALTH_HUD)
 
 /mob/living/carbon/human/proc/adjustFireLossByPart(var/amount, var/organ_name, var/obj/damage_source = null)
-	if(species && species.burn_mod)
-		amount = amount*species.burn_mod
-
+	amount *= burn_mod
 	if (organ_name in organs_by_name)
 		var/obj/item/organ/external/O = get_organ(organ_name)
 
@@ -138,15 +153,18 @@
 
 /mob/living/carbon/human/Paralyse(amount)
 	if(HULK in mutations)	return
+	// Notify our AI if they can now control the suit.
+	if(wearing_rig && !stat && paralysis < amount) //We are passing out right this second.
+		wearing_rig.notify_ai("<span class='danger'>Warning: user consciousness failure. Mobility control passed to integrated intelligence system.</span>")
 	..()
 
 /mob/living/carbon/human/getCloneLoss()
-	if(species.flags & (IS_SYNTHETIC | NO_SCAN))
+	if(species.flags & (NO_SCAN))
 		cloneloss = 0
 	return ..()
 
 /mob/living/carbon/human/setCloneLoss(var/amount)
-	if(species.flags & (IS_SYNTHETIC | NO_SCAN))
+	if(species.flags & (NO_SCAN))
 		cloneloss = 0
 	else
 		..()
@@ -154,7 +172,7 @@
 /mob/living/carbon/human/adjustCloneLoss(var/amount)
 	..()
 
-	if(species.flags & (IS_SYNTHETIC | NO_SCAN))
+	if(species.flags & (NO_SCAN))
 		cloneloss = 0
 		return
 
@@ -196,7 +214,10 @@
 	if(species.flags & NO_BREATHE)
 		oxyloss = 0
 	else
-		..()
+		amount = amount*species.oxy_mod
+		if(getOxyLoss() + amount >=  abs(config.health_threshold_crit)) //start taking brain damage if they go into crit from oxyloss
+			adjustBrainLoss(amount,55) //this brain damage won't be lethal)
+		..(amount)
 
 /mob/living/carbon/human/setOxyLoss(var/amount)
 	if(species.flags & NO_BREATHE)
@@ -210,18 +231,35 @@
 	return ..()
 
 /mob/living/carbon/human/adjustToxLoss(var/amount)
-	if(species && species.tox_mod)
-		amount = amount*species.tox_mod
+	if(species && species.toxins_mod)
+		amount = amount*species.toxins_mod
 	if(species.flags & NO_POISON)
 		toxloss = 0
 	else
-		..()
+		amount = amount*species.toxins_mod
+		..(amount)
 
 /mob/living/carbon/human/setToxLoss(var/amount)
 	if(species.flags & NO_POISON)
 		toxloss = 0
 	else
 		..()
+
+/mob/living/carbon/human/adjustHalLoss(var/amount, var/ignoreImmunity = 0)//An inherited version so this doesnt affect cyborgs
+	if(status_flags & GODMODE)	return 0	//godmode
+	if(!ignoreImmunity)//Adjusting how hallloss works. Species with the NO_PAIN flag will suffer most of the effects of halloss, but will be immune to most conventional sources of accumulating it
+		if (species && species.flags & NO_PAIN)//Species with this flag will only gather halloss through species-specific mechanics, which apply it with the ignoreImmunity flag
+			return 0
+
+	if(wearing_rig) //I don't know if this is the best way, but I'm hard-pressed to think of a different way. Thanks Vaurca.
+		for(var/obj/item/rig_module/lattice/L in wearing_rig.installed_modules)
+			if(L.active && lattice_users.len)
+				amount = amount / (lattice_users.len + 1)
+				for(var/mob/living/carbon/human/H in lattice_users)
+					if(H != src)
+						H.setHalLoss(min(max(H.getHalLoss() + amount, 0),(H.maxHealth*2)))
+
+	halloss = min(max(halloss + amount, 0),(maxHealth*2))
 
 ////////////////////////////////////////////
 
@@ -358,8 +396,8 @@ This function restores all organs.
 			src.invisibility = 0
 
 	//Handle other types of damage
-	if((damagetype != BRUTE) && (damagetype != BURN))
-		if(damagetype == HALLOSS && !(species && (species.flags & NO_PAIN)))
+	if(damagetype != BRUTE && damagetype != BURN)
+		if(!stat && damagetype == HALLOSS && !(species && (species.flags & NO_PAIN)))
 			if ((damage > 25 && prob(20)) || (damage > 50 && prob(60)))
 				emote("scream")
 
@@ -369,7 +407,7 @@ This function restores all organs.
 	//Handle BRUTE and BURN damage
 	handle_suit_punctures(damagetype, damage, def_zone)
 
-	if(blocked >= 2)	return 0
+	if(blocked >= 100)	return 0
 
 	var/obj/item/organ/external/organ = null
 	if(isorgan(def_zone))
@@ -380,19 +418,17 @@ This function restores all organs.
 	if(!organ)	return 0
 
 	if(blocked)
-		damage = (damage/(blocked+1))
+		damage *= BLOCKED_MULT(blocked)
 
 	switch(damagetype)
 		if(BRUTE)
 			damageoverlaytemp = 20
-			if(species && species.brute_mod)
-				damage = damage*species.brute_mod
+			damage = damage*species.brute_mod
 			if(organ.take_damage(damage, 0, sharp, edge, used_weapon))
 				UpdateDamageIcon()
 		if(BURN)
 			damageoverlaytemp = 20
-			if(species && species.burn_mod)
-				damage = damage*species.burn_mod
+			damage = damage*species.burn_mod
 			if(organ.take_damage(0, damage, sharp, edge, used_weapon))
 				UpdateDamageIcon()
 
@@ -400,3 +436,8 @@ This function restores all organs.
 	updatehealth()
 	BITSET(hud_updateflag, HEALTH_HUD)
 	return 1
+
+/mob/living/carbon/human/apply_radiation(var/rads)
+	if (species && rads > 0)
+		rads = rads * species.radiation_mod
+	..(rads)

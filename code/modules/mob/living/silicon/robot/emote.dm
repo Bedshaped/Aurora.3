@@ -36,9 +36,9 @@
 					param = null
 
 				if (param)
-					message = "<B>[src]</B> salutes to [param]."
+					message = "salutes to [param]."
 				else
-					message = "<B>[src]</b> salutes."
+					message = "salutes."
 			m_type = 1
 		if ("bow")
 			if (!src.buckled)
@@ -52,39 +52,39 @@
 					param = null
 
 				if (param)
-					message = "<B>[src]</B> bows to [param]."
+					message = "bows to [param]."
 				else
-					message = "<B>[src]</B> bows."
+					message = "bows."
 			m_type = 1
 
 		if ("clap")
 			if (!src.restrained())
-				message = "<B>[src]</B> claps."
+				message = "claps."
 				m_type = 2
 		if ("flap")
 			if (!src.restrained())
-				message = "<B>[src]</B> flaps \his wings."
+				message = "flaps its wings."
 				m_type = 2
 
 		if ("aflap")
 			if (!src.restrained())
-				message = "<B>[src]</B> flaps \his wings ANGRILY!"
+				message = "flaps its wings ANGRILY!"
 				m_type = 2
 
 		if ("twitch")
-			message = "<B>[src]</B> twitches violently."
+			message = "twitches violently."
 			m_type = 1
 
 		if ("twitch_s")
-			message = "<B>[src]</B> twitches."
+			message = "twitches."
 			m_type = 1
 
 		if ("nod")
-			message = "<B>[src]</B> nods."
+			message = "nods."
 			m_type = 1
 
 		if ("deathgasp")
-			message = "<B>[src]</B> shudders violently for a moment, then becomes motionless, its eyes slowly darkening."
+			message = "shudders violently for a moment, then becomes motionless, its eyes slowly darkening."
 			m_type = 1
 
 		if ("glare")
@@ -98,9 +98,9 @@
 				param = null
 
 			if (param)
-				message = "<B>[src]</B> glares at [param]."
+				message = "glares at [param]."
 			else
-				message = "<B>[src]</B> glares."
+				message = "glares."
 
 		if ("stare")
 			var/M = null
@@ -113,9 +113,9 @@
 				param = null
 
 			if (param)
-				message = "<B>[src]</B> stares at [param]."
+				message = "stares at [param]."
 			else
-				message = "<B>[src]</B> stares."
+				message = "stares."
 
 		if ("look")
 			var/M = null
@@ -129,9 +129,9 @@
 				param = null
 
 			if (param)
-				message = "<B>[src]</B> looks at [param]."
+				message = "looks at [param]."
 			else
-				message = "<B>[src]</B> looks."
+				message = "looks."
 			m_type = 1
 
 		if("beep")
@@ -145,9 +145,9 @@
 				param = null
 
 			if (param)
-				message = "<B>[src]</B> beeps at [param]."
+				message = "beeps at [param]."
 			else
-				message = "<B>[src]</B> beeps."
+				message = "beeps."
 			playsound(src.loc, 'sound/machines/twobeep.ogg', 50, 0)
 			m_type = 1
 
@@ -162,9 +162,9 @@
 				param = null
 
 			if (param)
-				message = "<B>[src]</B> pings at [param]."
+				message = "pings at [param]."
 			else
-				message = "<B>[src]</B> pings."
+				message = "pings."
 			playsound(src.loc, 'sound/machines/ping.ogg', 50, 0)
 			m_type = 1
 
@@ -179,15 +179,15 @@
 				param = null
 
 			if (param)
-				message = "<B>[src]</B> buzzes at [param]."
+				message = "buzzes at [param]."
 			else
-				message = "<B>[src]</B> buzzes."
+				message = "buzzes."
 			playsound(src.loc, 'sound/machines/buzz-sigh.ogg', 50, 0)
 			m_type = 1
 
 		if("law")
 			if (istype(module,/obj/item/weapon/robot_module/security))
-				message = "<B>[src]</B> shows its legal authorization barcode."
+				message = "shows its legal authorization barcode."
 
 				playsound(src.loc, 'sound/voice/biamthelaw.ogg', 50, 0)
 				m_type = 2
@@ -196,7 +196,7 @@
 
 		if("halt")
 			if (istype(module,/obj/item/weapon/robot_module/security))
-				message = "<B>[src]</B>'s speakers skreech, \"Halt! Security!\"."
+				message = "'s speakers skreech, \"Halt! Security!\"."
 
 				playsound(src.loc, 'sound/voice/halt.ogg', 50, 0)
 				m_type = 2
@@ -206,13 +206,19 @@
 		if ("help")
 			src << "salute, bow-(none)/mob, clap, flap, aflap, twitch, twitch_s, nod, deathgasp, glare-(none)/mob, stare-(none)/mob, look, beep, ping, \nbuzz, law, halt"
 		else
-			src << "\blue Unusable emote '[act]'. Say *help for a list."
+			src << "<span class='notice'>Unusable emote '[act]'. Say *help for a list.</span>"
 
 	if ((message && src.stat == 0))
-		if (m_type & 1)
-			for(var/mob/O in viewers(src, null))
-				O.show_message(message, m_type)
-		else
-			for(var/mob/O in hearers(src, null))
-				O.show_message(message, m_type)
+		custom_emote(m_type,message)
+
 	return
+
+/mob/living/silicon/robot/verb/powerwarn()
+	set category = "Robot Commands"
+	set name = "Power Warning"
+	if(!is_component_functioning("power cell") || !cell || !cell.charge)
+		visible_message("The power warning light on <span class='name'>[src]</span> flashes urgently.",\
+		"You announce you are operating in low power mode.")
+		playsound(loc, 'sound/machines/buzz-two.ogg', 50, 0)
+	else
+		to_chat(src, "<span class='warning'>You can only use this emote when you're out of charge.</span>")

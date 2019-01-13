@@ -1,12 +1,13 @@
 #define HOLD_CASINGS	0 //do not do anything after firing. Manual action, like pump shotguns, or guns that want to define custom behaviour
 #define EJECT_CASINGS	1 //drop spent casings on the ground after firing
 #define CYCLE_CASINGS 	2 //experimental: cycle casings, like a revolver. Also works for multibarrelled guns
+#define DELETE_CASINGS	3 //deletes the casing, used in caseless ammunition guns or something
 
 /obj/item/weapon/gun/projectile
 	name = "gun"
 	desc = "A gun that fires bullets."
 	icon_state = "revolver"
-	origin_tech = "combat=2;materials=2"
+	origin_tech = list(TECH_COMBAT = 2, TECH_MATERIAL = 2)
 	w_class = 3
 	matter = list(DEFAULT_WALL_MATERIAL = 1000)
 	recoil = 1
@@ -27,13 +28,17 @@
 	var/list/allowed_magazines		//determines list of which magazines will fit in the gun
 	var/auto_eject = 0			//if the magazine should automatically eject itself when empty.
 	var/auto_eject_sound = null
+
+	var/is_jammed = 0           //Whether this gun is jammed
+	var/jam_chance = 0          //Chance it jams on fire
+
 	//TODO generalize ammo icon states for guns
 	//var/magazine_states = 0
 	//var/list/icon_keys = list()		//keys
 	//var/list/ammo_states = list()	//values
 
-/obj/item/weapon/gun/projectile/New()
-	..()
+/obj/item/weapon/gun/projectile/Initialize()
+	. = ..()
 	if(ispath(ammo_type) && (load_method & (SINGLE_CASING|SPEEDLOADER)))
 		for(var/i in 1 to max_shells)
 			loaded += new ammo_type(src)
@@ -42,6 +47,8 @@
 	update_icon()
 
 /obj/item/weapon/gun/projectile/consume_next_projectile()
+	if(is_jammed)
+		return 0
 	//get the next casing
 	if(loaded.len)
 		chambered = loaded[1] //load next casing.
@@ -66,6 +73,15 @@
 	..()
 	process_chambered()
 
+/obj/item/weapon/gun/projectile/special_check(var/mob/user)
+	if(!..())
+		return 0
+	if(!is_jammed && jam_chance)
+		if(prob(jam_chance))
+			user << "<span class='danger'>\The [src] jams!</span>"
+			is_jammed = 1
+	return 1
+
 /obj/item/weapon/gun/projectile/proc/process_chambered()
 	if (!chambered) return
 
@@ -80,8 +96,10 @@
 				G.gunshot_residue = chambered.caliber
 
 	switch(handle_casings)
+		if(DELETE_CASINGS)
+			qdel(chambered)
 		if(EJECT_CASINGS) //eject casing onto ground.
-			chambered.loc = get_turf(src)
+			chambered.forceMove(get_turf(src))
 		if(CYCLE_CASINGS) //cycle the casing back to the end.
 			if(ammo_magazine)
 				ammo_magazine.stored_ammo += chambered
@@ -98,28 +116,28 @@
 	if(istype(A, /obj/item/ammo_magazine))
 		var/obj/item/ammo_magazine/AM = A
 		if(!(load_method & AM.mag_type) || caliber != AM.caliber || (allowed_magazines && !is_type_in_list(A, allowed_magazines)))
-			user << "<span class='warning'>[AM] won't load into [src]!</span>"
+			to_chat(user,"<span class='warning'>[AM] won't load into [src]!</span>")
 			return
 		switch(AM.mag_type)
 			if(MAGAZINE)
 				if(ammo_magazine)
-					user << "<span class='warning'>[src] already has a magazine loaded.</span>" //already a magazine here
+					to_chat(user,"<span class='warning'>[src] already has a magazine loaded.</span>") //already a magazine here
 					return
 				user.remove_from_mob(AM)
-				AM.loc = src
+				AM.forceMove(src)
 				ammo_magazine = AM
 				user.visible_message("[user] inserts [AM] into [src].", "<span class='notice'>You insert [AM] into [src].</span>")
 				playsound(src.loc, 'sound/weapons/flipblade.ogg', 50, 1)
 			if(SPEEDLOADER)
 				if(loaded.len >= max_shells)
-					user << "<span class='warning'>[src] is full!</span>"
+					to_chat(user,"<span class='warning'>[src] is full!</span>")
 					return
 				var/count = 0
 				for(var/obj/item/ammo_casing/C in AM.stored_ammo)
 					if(loaded.len >= max_shells)
 						break
 					if(C.caliber == caliber)
-						C.loc = src
+						C.forceMove(src)
 						loaded += C
 						AM.stored_ammo -= C //should probably go inside an ammo_magazine proc, but I guess less proc calls this way...
 						count++
@@ -129,14 +147,18 @@
 		AM.update_icon()
 	else if(istype(A, /obj/item/ammo_casing))
 		var/obj/item/ammo_casing/C = A
-		if(!(load_method & SINGLE_CASING) || caliber != C.caliber)
+		if(!(load_method & SINGLE_CASING))
+			to_chat(user,"<span class='warning'>[src] can not be loaded with single casings.</span>")
+			return //incompatible
+		if(caliber != C.caliber)
+			to_chat(user,"<span class='warning'>\The [C] does not fit.</span>")
 			return //incompatible
 		if(loaded.len >= max_shells)
-			user << "<span class='warning'>[src] is full.</span>"
+			to_chat(user,"<span class='warning'>[src] is full.</span>")
 			return
 
 		user.remove_from_mob(C)
-		C.loc = src
+		C.forceMove(src)
 		loaded.Insert(1, C) //add to the head of the list
 		user.visible_message("[user] inserts \a [C] into [src].", "<span class='notice'>You insert \a [C] into [src].</span>")
 		playsound(src.loc, 'sound/weapons/empty.ogg', 50, 1)
@@ -158,7 +180,7 @@
 			var/turf/T = get_turf(user)
 			if(T)
 				for(var/obj/item/ammo_casing/C in loaded)
-					C.loc = T
+					C.forceMove(T)
 					count++
 				loaded.Cut()
 			if(count)
@@ -173,11 +195,17 @@
 	update_icon()
 
 /obj/item/weapon/gun/projectile/attackby(var/obj/item/A as obj, mob/user as mob)
+	..()
 	load_ammo(A, user)
 
 /obj/item/weapon/gun/projectile/attack_self(mob/user as mob)
-	if(firemodes.len > 1)
-		switch_firemodes(user)
+	if(is_jammed)
+		user << "<span class='notice'>\The [user] unjams \the [src]!</span>"
+		if(do_after(user, 5))
+			playsound(src.loc, 'sound/weapons/empty.ogg', 100, 1)
+			is_jammed = 0
+	else if(firemodes.len > 1)
+		..()
 	else
 		unload_ammo(user)
 
@@ -187,10 +215,11 @@
 	else
 		return ..()
 
+
 /obj/item/weapon/gun/projectile/afterattack(atom/A, mob/living/user)
 	..()
 	if(auto_eject && ammo_magazine && ammo_magazine.stored_ammo && !ammo_magazine.stored_ammo.len)
-		ammo_magazine.loc = get_turf(src.loc)
+		ammo_magazine.forceMove(get_turf(src.loc))
 		user.visible_message(
 			"[ammo_magazine] falls out and clatters on the floor!",
 			"<span class='notice'>[ammo_magazine] falls out and clatters on the floor!</span>"
@@ -203,6 +232,8 @@
 
 /obj/item/weapon/gun/projectile/examine(mob/user)
 	..(user)
+	if(is_jammed)
+		user << "<span class='warning'>It looks jammed.</span>"
 	if(ammo_magazine)
 		user << "It has \a [ammo_magazine] loaded."
 	user << "Has [getAmmo()] round\s remaining."

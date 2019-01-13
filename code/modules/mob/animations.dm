@@ -90,7 +90,7 @@ note dizziness decrements automatically in the mob's Life() proc.
 	var/turf/turf = get_turf(src)
 	if(!istype(turf,/turf/space))
 		var/area/A = turf.loc
-		if(istype(A) && A.has_gravity)
+		if(istype(A) && A.has_gravity())
 			make_floating(0)
 			return
 		else if (Check_Shoegrip())
@@ -108,7 +108,10 @@ note dizziness decrements automatically in the mob's Life() proc.
 	return
 
 /mob/proc/make_floating(var/n)
-
+	if(buckled)
+		if(is_floating)
+			stop_floating()
+		return
 	floatiness = n
 
 	if(floatiness && !is_floating)
@@ -133,7 +136,7 @@ note dizziness decrements automatically in the mob's Life() proc.
 	animate(pixel_y = old_y, time = quarter_period, easing = SINE_EASING | EASE_IN, loop = -1)			//back
 
 /mob/proc/stop_floating()
-	animate(src, pixel_y = old_y, time = 5, easing = SINE_EASING | EASE_IN) //halt animation
+	animate(src, pixel_y = 0, time = 5, easing = SINE_EASING | EASE_IN) //halt animation
 	//reset the pixel offsets to zero
 	is_floating = 0
 
@@ -141,7 +144,12 @@ note dizziness decrements automatically in the mob's Life() proc.
 
 	var/pixel_x_diff = 0
 	var/pixel_y_diff = 0
-	var/direction = get_dir(src, A)
+	var/direction
+	if (loc == A.loc)
+		if (A.flags & ON_BORDER)
+			direction = A.dir
+	else
+		direction = get_dir(src, A)
 	switch(direction)
 		if(NORTH)
 			pixel_y_diff = 8
@@ -163,12 +171,50 @@ note dizziness decrements automatically in the mob's Life() proc.
 		if(SOUTHWEST)
 			pixel_x_diff = -8
 			pixel_y_diff = -8
+		else
+			return 0//No valid direction
 	animate(src, pixel_x = pixel_x + pixel_x_diff, pixel_y = pixel_y + pixel_y_diff, time = 2)
-	animate(pixel_x = initial(pixel_x), pixel_y = initial(pixel_y), time = 2)
+	animate(pixel_x = pixel_x - pixel_x_diff, pixel_y = pixel_y - pixel_y_diff, time = 2)
 
 /mob/do_attack_animation(atom/A)
 	..()
 	is_floating = 0 // If we were without gravity, the bouncing animation got stopped, so we make sure we restart the bouncing after the next movement.
+
+	// What icon do we use for the attack?
+	var/image/I
+	if(hand && l_hand) // Attacked with item in left hand.
+		I = image(l_hand.icon, A, l_hand.icon_state, A.layer + 1)
+	else if (!hand && r_hand) // Attacked with item in right hand.
+		I = image(r_hand.icon, A, r_hand.icon_state, A.layer + 1)
+	else // Attacked with a fist?
+		return
+
+	// Who can see the attack?
+	var/list/viewing = list()
+	for (var/mob/M in viewers(A))
+		if (M.client)
+			viewing |= M.client
+	flick_overlay(I, viewing, 5) // 5 ticks/half a second
+
+	// Scale the icon.
+	I.transform *= 0.75
+	// Set the direction of the icon animation.
+	var/direction = get_dir(src, A)
+	if(direction & NORTH)
+		I.pixel_y = -16
+	else if(direction & SOUTH)
+		I.pixel_y = 16
+
+	if(direction & EAST)
+		I.pixel_x = -16
+	else if(direction & WEST)
+		I.pixel_x = 16
+
+	if(!direction) // Attacked self?!
+		I.pixel_z = 16
+
+	// And animate the attack!
+	animate(I, alpha = 175, pixel_x = 0, pixel_y = 0, pixel_z = 0, time = 3)
 
 /mob/proc/spin(spintime, speed)
 	spawn()

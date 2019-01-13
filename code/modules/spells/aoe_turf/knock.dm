@@ -1,7 +1,7 @@
 /spell/aoe_turf/knock
 	name = "Knock"
 	desc = "This spell opens nearby doors and does not require wizard garb."
-
+	feedback = "KN"
 	school = "transmutation"
 	charge_max = 100
 	spell_flags = 0
@@ -9,6 +9,7 @@
 	invocation_type = SpI_WHISPER
 	range = 3
 	cooldown_min = 20 //20 deciseconds reduction per rank
+	cast_sound = 'sound/magic/Knock.ogg'
 
 	hud_state = "wiz_knock"
 
@@ -22,6 +23,12 @@
 				door.open()
 	return
 
+/spell/aoe_turf/knock/empower_spell()
+	if(!..())
+		return 0
+	range *= 2
+
+	return "You've doubled the range of [src]."
 
 //Construct version
 /spell/aoe_turf/knock/harvester
@@ -41,4 +48,23 @@
 	for(var/turf/T in targets)
 		for(var/obj/machinery/door/door in T.contents)
 			spawn door.cultify()
+
+	for(var/obj/O in range(1, holder))
+		O.cultify()
+	for(var/turf/T in range(1, holder))
+		var/atom/movable/overlay/animation = new /atom/movable/overlay(T)
+		animation.name = "conjure"
+		animation.density = 0
+		animation.anchored = 1
+		animation.icon = 'icons/effects/effects.dmi'
+		animation.layer = 3
+		animation.master = T
+		if(istype(T,/turf/simulated/wall))
+			animation.icon_state = "cultwall"
+			flick("cultwall",animation)
+		else
+			animation.icon_state = "cultfloor"
+			flick("cultfloor",animation)
+		QDEL_IN(animation, 10)
+		T.cultify()
 	return

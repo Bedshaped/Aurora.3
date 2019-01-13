@@ -8,7 +8,7 @@
 	throw_speed = 1
 	throw_range = 5
 	w_class = 2.0
-	origin_tech = "syndicate=4;magnets=4"
+	origin_tech = list(TECH_ILLEGAL = 4, TECH_MAGNET = 4)
 	var/can_use = 1
 	var/obj/effect/dummy/chameleon/active_dummy = null
 	var/saved_item = /obj/item/weapon/cigbutt
@@ -32,7 +32,7 @@
 	if(!active_dummy)
 		if(istype(target,/obj/item) && !istype(target, /obj/item/weapon/disk/nuclear))
 			playsound(get_turf(src), 'sound/weapons/flash.ogg', 100, 1, -6)
-			user << "\blue Scanned [target]."
+			user << "<span class='notice'>Scanned [target].</span>"
 			saved_item = target.type
 			saved_icon = target.icon
 			saved_icon_state = target.icon_state
@@ -45,30 +45,27 @@
 		playsound(get_turf(src), 'sound/effects/pop.ogg', 100, 1, -6)
 		qdel(active_dummy)
 		active_dummy = null
-		usr << "\blue You deactivate the [src]."
-		var/obj/effect/overlay/T = PoolOrNew(/obj/effect/overlay, get_turf(src))
+		usr << "<span class='notice'>You deactivate \the [src].</span>"
+		var/obj/effect/overlay/T = new /obj/effect/overlay(get_turf(src))
 		T.icon = 'icons/effects/effects.dmi'
 		flick("emppulse",T)
-		spawn(8) qdel(T)
+		QDEL_IN(T, 8)
 	else
 		playsound(get_turf(src), 'sound/effects/pop.ogg', 100, 1, -6)
 		var/obj/O = new saved_item(src)
 		if(!O) return
-		var/obj/effect/dummy/chameleon/C = PoolOrNew(/obj/effect/dummy/chameleon, usr.loc)
+		var/obj/effect/dummy/chameleon/C = new /obj/effect/dummy/chameleon(usr.loc)
 		C.activate(O, usr, saved_icon, saved_icon_state, saved_overlays, src)
 		qdel(O)
-		usr << "\blue You activate the [src]."
+		usr << "<span class='notice'>You activate \the [src].</span>"
 		var/obj/effect/overlay/T = new/obj/effect/overlay(get_turf(src))
 		T.icon = 'icons/effects/effects.dmi'
 		flick("emppulse",T)
-		spawn(8) qdel(T)
+		QDEL_IN(T, 8)
 
 /obj/item/device/chameleon/proc/disrupt(var/delete_dummy = 1)
 	if(active_dummy)
-		var/datum/effect/effect/system/spark_spread/spark_system = new /datum/effect/effect/system/spark_spread
-		spark_system.set_up(5, 0, src)
-		spark_system.attach(src)
-		spark_system.start()
+		spark(src, 5)
 		eject_all()
 		if(delete_dummy)
 			qdel(active_dummy)
@@ -78,7 +75,7 @@
 
 /obj/item/device/chameleon/proc/eject_all()
 	for(var/atom/movable/A in active_dummy)
-		A.loc = active_dummy.loc
+		A.forceMove(active_dummy.loc)
 		if(ismob(A))
 			var/mob/M = A
 			M.reset_view(null)
@@ -98,28 +95,28 @@
 	icon_state = new_iconstate
 	overlays = new_overlays
 	set_dir(O.dir)
-	M.loc = src
+	M.forceMove(src)
 	master = C
 	master.active_dummy = src
 
 /obj/effect/dummy/chameleon/attackby()
 	for(var/mob/M in src)
-		M << "\red Your chameleon-projector deactivates."
+		M << "<span class='warning'>Your chameleon-projector deactivates.</span>"
 	master.disrupt()
 
 /obj/effect/dummy/chameleon/attack_hand()
 	for(var/mob/M in src)
-		M << "\red Your chameleon-projector deactivates."
+		M << "<span class='warning'>Your chameleon-projector deactivates.</span>"
 	master.disrupt()
 
-/obj/effect/dummy/chameleon/ex_act()
+/obj/effect/dummy/chameleon/ex_act(var/severity = 2.0)
 	for(var/mob/M in src)
-		M << "\red Your chameleon-projector deactivates."
+		M << "<span class='warning'>Your chameleon-projector deactivates.</span>"
 	master.disrupt()
 
 /obj/effect/dummy/chameleon/bullet_act()
 	for(var/mob/M in src)
-		M << "\red Your chameleon-projector deactivates."
+		M << "<span class='warning'>Your chameleon-projector deactivates.</span>"
 	..()
 	master.disrupt()
 
@@ -144,4 +141,4 @@
 
 /obj/effect/dummy/chameleon/Destroy()
 	master.disrupt(0)
-	..()
+	return ..()

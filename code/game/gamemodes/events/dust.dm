@@ -53,6 +53,7 @@ The "dust" will damage the hull of the station causin minor hull breaches.
 
 
 	New()
+		..()
 		var/startx = 0
 		var/starty = 0
 		var/endy = 0
@@ -80,7 +81,7 @@ The "dust" will damage the hull of the station causin minor hull breaches.
 				startx = (TRANSITIONEDGE+1)
 				endy = rand(TRANSITIONEDGE,world.maxy-TRANSITIONEDGE)
 				endx = world.maxx-TRANSITIONEDGE
-		var/z_level = pick(config.station_levels)
+		var/z_level = pick(current_map.station_levels)
 		var/goal = locate(endx, endy, z_level)
 		src.x = startx
 		src.y = starty
@@ -89,8 +90,11 @@ The "dust" will damage the hull of the station causin minor hull breaches.
 			walk_towards(src, goal, 1)
 		return
 
+	touch_map_edge()
+		qdel(src)
 
-	Bump(atom/A)
+	Collide(atom/A)
+		. = ..()
 		spawn(0)
 			if(prob(50))
 				for(var/mob/M in range(10, src))
@@ -100,7 +104,7 @@ The "dust" will damage the hull of the station causin minor hull breaches.
 				playsound(src.loc, 'sound/effects/meteorimpact.ogg', 40, 1)
 
 				if(ismob(A))
-					A.meteorhit(src)//This should work for now I guess
+					A.ex_act(strength)//This should work for now I guess
 				else if(!istype(A,/obj/machinery/power/emitter) && !istype(A,/obj/machinery/field_generator)) //Protect the singularity from getting released every round!
 					A.ex_act(strength) //Changing emitter/field gen ex_act would make it immune to bombs and C4
 
@@ -110,12 +114,6 @@ The "dust" will damage the hull of the station causin minor hull breaches.
 					qdel(src)
 					return 0
 		return
-
-
-	Bumped(atom/A)
-		Bump(A)
-		return
-
 
 	ex_act(severity)
 		qdel(src)

@@ -36,6 +36,8 @@
 	faction = "mimic"
 	move_to_delay = 8
 
+	tameable = FALSE
+
 /mob/living/simple_animal/hostile/mimic/FindTarget()
 	. = ..()
 	if(.)
@@ -60,10 +62,10 @@
 	var/attempt_open = 0
 
 // Pickup loot
-/mob/living/simple_animal/hostile/mimic/crate/initialize()
-	..()
+/mob/living/simple_animal/hostile/mimic/crate/Initialize()
+	. = ..()
 	for(var/obj/item/I in loc)
-		I.loc = src
+		I.forceMove(src)
 
 /mob/living/simple_animal/hostile/mimic/crate/DestroySurroundings()
 	..()
@@ -109,7 +111,7 @@
 	var/obj/structure/closet/crate/C = new(get_turf(src))
 	// Put loot in crate
 	for(var/obj/O in src)
-		O.loc = C
+		O.forceMove(C)
 	..()
 
 /mob/living/simple_animal/hostile/mimic/crate/AttackingTarget()
@@ -134,14 +136,14 @@ var/global/list/protected_objects = list(/obj/structure/table, /obj/structure/ca
 	var/destroy_objects = 0
 	var/knockdown_people = 0
 
-/mob/living/simple_animal/hostile/mimic/copy/New(loc, var/obj/copy, var/mob/living/creator)
-	..(loc)
+/mob/living/simple_animal/hostile/mimic/copy/Initialize(mapload, obj/copy, mob/living/creator)
+	. = ..(mapload)
 	CopyObject(copy, creator)
 
 /mob/living/simple_animal/hostile/mimic/copy/death()
 
 	for(var/atom/movable/M in src)
-		M.loc = get_turf(src)
+		M.forceMove(get_turf(src))
 	..()
 
 /mob/living/simple_animal/hostile/mimic/copy/ListTargets()
@@ -153,11 +155,8 @@ var/global/list/protected_objects = list(/obj/structure/table, /obj/structure/ca
 
 	if((istype(O, /obj/item) || istype(O, /obj/structure)) && !is_type_in_list(O, protected_objects))
 
-		O.loc = src
-		name = O.name
-		desc = O.desc
-		icon = O.icon
-		icon_state = O.icon_state
+		O.forceMove(src)
+		appearance = O
 		icon_living = icon_state
 
 		if(istype(O, /obj/structure))

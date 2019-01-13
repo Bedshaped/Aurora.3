@@ -11,17 +11,22 @@
 	selection_color = "#dddddd"
 	access = list(access_morgue, access_chapel_office, access_crematorium, access_maint_tunnels)
 	minimal_access = list(access_morgue, access_chapel_office, access_crematorium)
-	alt_titles = list("Counselor")
+	alt_titles = list("Presbyter","Rabbi","Imam","Priest","Shaman","Counselor")
 
 
-	equip(var/mob/living/carbon/human/H)
-		if(!H)	return 0
+	equip(var/mob/living/carbon/human/H, var/alt_title, var/ask_questions = TRUE)
+		if(!H)
+			return FALSE
 
 		var/obj/item/weapon/storage/bible/B = new /obj/item/weapon/storage/bible(H) //BS12 EDIT
-		H.equip_to_slot_or_del(B, slot_l_hand)
+		H.equip_to_slot_or_del(B, slot_r_hand)
+		H.equip_to_slot_or_del(new /obj/item/device/radio/headset/headset_service(H), slot_l_ear)
 		H.equip_to_slot_or_del(new /obj/item/clothing/under/rank/chaplain(H), slot_w_uniform)
 		H.equip_to_slot_or_del(new /obj/item/device/pda/chaplain(H), slot_belt)
 		H.equip_to_slot_or_del(new /obj/item/clothing/shoes/black(H), slot_shoes)
+		if(!ask_questions)
+			return 1
+
 		spawn(0)
 			var/religion_name = "Christianity"
 			var/new_religion = sanitize(input(H, "You are the crew services officer. Would you like to change your religion? Default is Christianity, in SPACE.", "Name change", religion_name), MAX_NAME_LEN)
@@ -48,6 +53,8 @@
 					B.name = "Toolbox Manifesto"
 				if("homosexuality")
 					B.name = "Guys Gone Wild"
+				if("moroz holy tribunal","moroz","holy tribunal")
+					B.name = "Tribunal Codex"
 				//if("lol", "wtf", "gay", "penis", "ass", "poo", "badmin", "shitmin", "deadmin", "cock", "cocks")
 				//	B.name = pick("Woodys Got Wood: The Aftermath", "War of the Cocks", "Sweet Bro and Hella Jef: Expanded Edition")
 				//	H.setBrainLoss(100) // starts off retarded as fuck
@@ -78,7 +85,7 @@
 					if("Koran")
 						B.icon_state = "koran"
 						B.item_state = "koran"
-						for(var/area/chapel/main/A in world)
+						for(var/area/chapel/main/A in the_station_areas)
 							for(var/turf/T in A.contents)
 								if(T.icon_state == "carpetsymbol")
 									T.set_dir(4)
@@ -97,7 +104,7 @@
 					if("Athiest")
 						B.icon_state = "athiest"
 						B.item_state = "syringe_kit"
-						for(var/area/chapel/main/A in world)
+						for(var/area/chapel/main/A in the_station_areas)
 							for(var/turf/T in A.contents)
 								if(T.icon_state == "carpetsymbol")
 									T.set_dir(10)
@@ -113,7 +120,7 @@
 					if("Scientology")
 						B.icon_state = "scientology"
 						B.item_state = "scientology"
-						for(var/area/chapel/main/A in world)
+						for(var/area/chapel/main/A in the_station_areas)
 							for(var/turf/T in A.contents)
 								if(T.icon_state == "carpetsymbol")
 									T.set_dir(8)
@@ -127,7 +134,7 @@
 						// if christian bible, revert to default
 						B.icon_state = "bible"
 						B.item_state = "bible"
-						for(var/area/chapel/main/A in world)
+						for(var/area/chapel/main/A in the_station_areas)
 							for(var/turf/T in A.contents)
 								if(T.icon_state == "carpetsymbol")
 									T.set_dir(2)
@@ -142,11 +149,14 @@
 							H << "Welp, out of time, buddy. You're stuck. Next time choose faster."
 							accepted = 1
 
-			if(ticker)
-				ticker.Bible_icon_state = B.icon_state
-				ticker.Bible_item_state = B.item_state
-				ticker.Bible_name = B.name
-				ticker.Bible_deity_name = B.deity_name
+			SSticker.Bible_icon_state = B.icon_state
+			SSticker.Bible_item_state = B.item_state
+			SSticker.Bible_name = B.name
+			SSticker.Bible_deity_name = B.deity_name
 			feedback_set_details("religion_deity","[new_deity]")
 			feedback_set_details("religion_book","[new_book_style]")
-		return 1
+		return TRUE
+
+
+/datum/job/chaplain/equip_preview(var/mob/living/carbon/human/H, var/alt_title)
+	return equip(H, alt_title, FALSE)

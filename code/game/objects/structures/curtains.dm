@@ -22,12 +22,16 @@
 		..(P, def_zone)
 
 /obj/structure/curtain/attack_hand(mob/user)
-	playsound(get_turf(loc), "rustle", 15, 1, -5)
+	playsound(get_turf(loc), 'sound/effects/curtain.ogg', 15, 1, -5)
 	toggle()
 	..()
 
+/obj/structure/curtain/attack_ai(mob/user)
+	if(istype(user, /mob/living/silicon/robot) && Adjacent(user)) // Robots can open/close it, but not the AI.
+		attack_hand(user)
+
 /obj/structure/curtain/proc/toggle()
-	opacity = !opacity
+	src.set_opacity(!src.opacity)
 	if(opacity)
 		icon_state = "closed"
 		layer = SHOWER_CLOSED_LAYER
@@ -43,6 +47,19 @@
 	name = "plastic curtain"
 	color = "#B8F5E3"
 	alpha = 200
+
+/obj/structure/curtain/open/medical
+	name = "plastic curtain"
+	color = "#B8F5E3"
+	alpha = 200
+
+/obj/structure/curtain/open/bed
+	name = "bed curtain"
+	color = "#854636"
+
+/obj/structure/curtain/open/privacy
+	name = "privacy curtain"
+	color = "#B8F5E3"
 
 /obj/structure/curtain/open/shower
 	name = "shower curtain"

@@ -11,7 +11,8 @@
 	var/obj/item/weapon/toppaper	//The topmost piece of paper.
 	slot_flags = SLOT_BELT
 
-/obj/item/weapon/clipboard/New()
+/obj/item/weapon/clipboard/Initialize()
+	. = ..()
 	update_icon()
 
 /obj/item/weapon/clipboard/MouseDrop(obj/over_object as obj) //Quick clipboard fix. -Agouri
@@ -33,20 +34,22 @@
 			return
 
 /obj/item/weapon/clipboard/update_icon()
-	overlays.Cut()
+	cut_overlays()
+	var/list/to_add = list()
 	if(toppaper)
-		overlays += toppaper.icon_state
-		overlays += toppaper.overlays
+		to_add += toppaper.icon_state
+		// The overlay list is a special internal format.
+		// We need to copy it into a normal list before we can give it to SSoverlay.
+		to_add += toppaper.overlays.Copy()
 	if(haspen)
-		overlays += "clipboard_pen"
-	overlays += "clipboard_over"
-	return
+		to_add += "clipboard_pen"
+	to_add += "clipboard_over"
+	add_overlay(to_add)
 
 /obj/item/weapon/clipboard/attackby(obj/item/weapon/W as obj, mob/user as mob)
 	
 	if(istype(W, /obj/item/weapon/paper) || istype(W, /obj/item/weapon/photo))
-		user.drop_item()
-		W.loc = src
+		user.drop_from_inventory(W,src)
 		if(istype(W, /obj/item/weapon/paper))
 			toppaper = W
 		user << "<span class='notice'>You clip the [W] onto \the [src].</span>"
@@ -91,7 +94,7 @@
 
 		if(href_list["pen"])
 			if(istype(haspen) && (haspen.loc == src))
-				haspen.loc = usr.loc
+				haspen.forceMove(usr.loc)
 				usr.put_in_hands(haspen)
 				haspen = null
 
@@ -99,8 +102,7 @@
 			if(!haspen)
 				var/obj/item/weapon/pen/W = usr.get_active_hand()
 				if(istype(W, /obj/item/weapon/pen))
-					usr.drop_item()
-					W.loc = src
+					usr.drop_from_inventory(W,src)
 					haspen = W
 					usr << "<span class='notice'>You slot the pen into \the [src].</span>"
 
@@ -120,7 +122,7 @@
 			
 			if(P && (P.loc == src) && (istype(P, /obj/item/weapon/paper) || istype(P, /obj/item/weapon/photo)) )
 			
-				P.loc = usr.loc
+				P.forceMove(usr.loc)
 				usr.put_in_hands(P)
 				if(P == toppaper)
 					toppaper = null
@@ -147,7 +149,7 @@
 			
 			if(P && (P.loc == src) && istype(P, /obj/item/weapon/paper) )
 			
-				if(!(istype(usr, /mob/living/carbon/human) || istype(usr, /mob/dead/observer) || istype(usr, /mob/living/silicon)))
+				if(!(istype(usr, /mob/living/carbon/human) || istype(usr, /mob/abstract/observer) || istype(usr, /mob/living/silicon)))
 					usr << browse("<HTML><HEAD><TITLE>[P.name]</TITLE></HEAD><BODY>[stars(P.info)][P.stamps]</BODY></HTML>", "window=[P.name]")
 					onclose(usr, "[P.name]")
 				else

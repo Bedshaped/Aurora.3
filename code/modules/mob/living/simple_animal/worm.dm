@@ -101,7 +101,7 @@
 	Destroy() //if a chunk a destroyed, make a new worm out of the split halves
 		if(previous)
 			previous.Detach()
-		..()
+		return ..()
 
 	Move()
 		var/attachementNextPosition = loc
@@ -110,7 +110,8 @@
 				previous.Move(attachementNextPosition)
 			update_icon()
 
-	Bump(atom/obstacle)
+	Collide(atom/obstacle)
+		. = ..()
 		if(currentlyEating != obstacle)
 			currentlyEating = obstacle
 			eatingDuration = 0
@@ -121,9 +122,7 @@
 			currentlyEating = null
 			eatingDuration = 0
 
-		return
-
-	proc/update_icon() //only for the sake of consistency with the other update icon procs
+	update_icon() //only for the sake of consistency with the other update icon procs
 		if(stat == CONSCIOUS || stat == UNCONSCIOUS)
 			if(previous) //midsection
 				icon_state = "spaceworm[get_dir(src,previous) | get_dir(src,next)]" //see 3 lines below

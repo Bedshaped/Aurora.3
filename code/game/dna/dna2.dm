@@ -58,10 +58,6 @@ var/global/list/datum/dna/gene/dna_genes[0]
 // Used for genes that check for value rather than a binary on/off.
 #define GENE_ALWAYS_ACTIVATE 1
 
-// Skip checking if it's already active.
-// Used for genes that check for value rather than a binary on/off.
-#define GENE_ALWAYS_ACTIVATE 1
-
 /datum/dna
 	// READ-ONLY, GETS OVERWRITTEN
 	// DO NOT FUCK WITH THESE OR BYOND WILL EAT YOUR FACE
@@ -84,6 +80,7 @@ var/global/list/datum/dna/gene/dna_genes[0]
 
 	// New stuff
 	var/species = "Human"
+	var/list/body_markings = list()
 
 // Make a copy of this strand.
 // USE THIS WHEN COPYING STUFF OR YOU'LL GET CORRUPTION!
@@ -93,6 +90,7 @@ var/global/list/datum/dna/gene/dna_genes[0]
 	new_dna.b_type=b_type
 	new_dna.real_name=real_name
 	new_dna.species=species
+	new_dna.body_markings=body_markings.Copy()
 	for(var/b=1;b<=DNA_SE_LENGTH;b++)
 		new_dna.SE[b]=SE[b]
 		if(b<=DNA_UI_LENGTH)
@@ -151,6 +149,11 @@ var/global/list/datum/dna/gene/dna_genes[0]
 
 	SetUIValueRange(DNA_UI_HAIR_STYLE,  hair,  hair_styles_list.len,       1)
 	SetUIValueRange(DNA_UI_BEARD_STYLE, beard, facial_hair_styles_list.len,1)
+
+	body_markings.Cut()
+	for(var/obj/item/organ/external/E in character.organs)
+		if(LAZYLEN(E.genetic_markings))
+			body_markings[E.limb_name] = E.genetic_markings.Copy()
 
 	UpdateUI()
 

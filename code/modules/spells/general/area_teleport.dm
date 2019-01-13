@@ -1,7 +1,7 @@
 /spell/area_teleport
 	name = "Teleport"
 	desc = "This spell teleports you to a type of area of your selection."
-
+	feedback = "TP"
 	school = "abjuration"
 	charge_max = 600
 	spell_flags = NEEDSCLOTHES
@@ -35,13 +35,15 @@
 	return list(thearea)
 
 /spell/area_teleport/cast(area/thearea, mob/user)
-	if(!istype(thearea))
-		if(istype(thearea, /list))
-			thearea = thearea[1]
+	if(!istype(thearea) && istype(thearea, /list))
+		thearea = thearea[1]
+
 	var/list/L = list()
 	for(var/turf/T in get_area_turfs(thearea.type))
 		if(!T.density)
 			var/clear = 1
+			if(T.is_hole) //No more teleporting in holes.
+				continue
 			for(var/obj/O in T)
 				if(O.density)
 					clear = 0
@@ -59,18 +61,7 @@
 			B.user_unbuckle_mob(user)
 		user.buckled = null
 
-	var/attempt = null
-	var/success = 0
-	while(L.len)
-		attempt = pick(L)
-		success = user.Move(attempt)
-		if(!success)
-			L.Remove(attempt)
-		else
-			break
-
-	if(!success)
-		user.loc = pick(L)
+	do_teleport(user,pick(L))
 
 	return
 

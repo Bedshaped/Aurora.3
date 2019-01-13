@@ -9,10 +9,10 @@
 	var/max_cable = 100
 	var/on = 0
 
-/obj/machinery/cablelayer/New()
+/obj/machinery/cablelayer/Initialize()
+	. = ..()
 	cable = new(src)
 	cable.amount = 100
-	..()
 
 /obj/machinery/cablelayer/Move(new_turf,M_Dir)
 	..()
@@ -27,7 +27,7 @@
 	return
 
 /obj/machinery/cablelayer/attackby(var/obj/item/O as obj, var/mob/user as mob)
-	if(istype(O, /obj/item/stack/cable_coil))
+	if(iscoil(O))
 
 		var/result = load_cable(O)
 		if(!result)
@@ -36,7 +36,7 @@
 			user << "You load [result] lengths of cable into [src]."
 		return
 
-	if(istype(O, /obj/item/weapon/wirecutters))
+	if(iswirecutter(O))
 		if(cable && cable.amount)
 			var/m = round(input(usr,"Please specify the length of cable to cut","Cut cable",min(cable.amount,30)) as num, 1)
 			m = min(m, cable.amount)
@@ -74,7 +74,7 @@
 		visible_message("A red light flashes on \the [src].")
 		return
 	cable.use(amount)
-	if(deleted(cable)) 
+	if(QDELETED(cable)) 
 		cable = null
 	return 1
 
@@ -85,10 +85,8 @@
 	if(istype(new_turf, /turf/simulated/floor))
 		var/turf/simulated/floor/T = new_turf
 		if(!T.is_plating())
-			if(!T.broken && !T.burnt)
-				new T.floor_type(T)
-			T.make_plating()
-	return !new_turf.intact
+			T.make_plating(!(T.broken || T.burnt))
+	return new_turf.is_plating()
 
 /obj/machinery/cablelayer/proc/layCable(var/turf/new_turf,var/M_Dir)
 	if(!on)

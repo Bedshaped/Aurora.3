@@ -12,7 +12,7 @@
 
 /obj/item/device/gps/attack_self(var/mob/user as mob)
 	var/turf/T = get_turf(src)
-	user << "\blue \icon[src] [src] flashes <i>[T.x].[rand(0,9)]:[T.y].[rand(0,9)]:[T.z].[rand(0,9)]</i>."
+	user << "<span class='notice'>\icon[src] [src] flashes <i>[T.x].[rand(0,9)]:[T.y].[rand(0,9)]:[T.z].[rand(0,9)]</i>.</span>"
 
 /obj/item/device/measuring_tape
 	name = "measuring tape"
@@ -30,7 +30,6 @@
 	icon_state = "satchel"
 	slot_flags = SLOT_BELT | SLOT_POCKET
 	w_class = 3
-	storage_slots = 50
-	max_storage_space = 200 //Doesn't matter what this is, so long as it's more or equal to storage_slots * ore.w_class
+	max_storage_space = 100
 	max_w_class = 3
 	can_hold = list(/obj/item/weapon/fossil)

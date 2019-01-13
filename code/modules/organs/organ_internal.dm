@@ -28,7 +28,7 @@
 
 	if (germ_level > INFECTION_LEVEL_ONE)
 		if(prob(5))
-			owner.emote("cough")		//respitory tract infection
+			owner.emote("cough")		//Respiratory tract infection
 
 	if(is_bruised())
 		if(prob(2))
@@ -69,6 +69,7 @@
 	organ_tag = "eyes"
 	parent_organ = "head"
 	var/list/eye_colour = list(0,0,0)
+	var/singular_name = "eye"
 
 /obj/item/organ/eyes/proc/update_colour()
 	if(!owner)
@@ -109,7 +110,7 @@
 
 	if (germ_level > INFECTION_LEVEL_ONE)
 		if(prob(1))
-			owner << "\red Your skin itches."
+			owner << "<span class='warning'>Your skin itches.</span>"
 	if (germ_level > INFECTION_LEVEL_TWO)
 		if(prob(1))
 			spawn owner.delayed_vomit()
@@ -134,24 +135,22 @@
 		if(src.damage < 0)
 			src.damage = 0
 
-		// Get the effectiveness of the liver.
-		var/filter_effect = 3
+		var/filter_strength = INTOX_FILTER_HEALTHY
 		if(is_bruised())
-			filter_effect -= 1
+			filter_strength = INTOX_FILTER_BRUISED
 		if(is_broken())
-			filter_effect -= 2
+			filter_strength = INTOX_FILTER_DAMAGED
 
-		if (owner.intoxication)
-			//ALCOHOL_FILTRATION_RATE is defined in intoxication.dm
-			owner.intoxication -= ALCOHOL_FILTRATION_RATE*filter_effect*PROCESS_ACCURACY//A weakened liver filters out alcohol more slowly
+		if (owner.intoxication > 0)
+			owner.intoxication -= filter_strength*PROCESS_ACCURACY
 			owner.intoxication = max(owner.intoxication, 0)
+			if (!owner.intoxication)
+				owner.handle_intoxication()
 
-		// Do some reagent processing.
 		if(owner.chem_effects[CE_ALCOHOL_TOXIC])
-			if(filter_effect < 3)
+			take_damage(owner.chem_effects[CE_ALCOHOL_TOXIC] * 0.1 * PROCESS_ACCURACY, prob(1))
+			if(is_damaged())
 				owner.adjustToxLoss(owner.chem_effects[CE_ALCOHOL_TOXIC] * 0.1 * PROCESS_ACCURACY)
-			else
-				take_damage(owner.chem_effects[CE_ALCOHOL_TOXIC] * 0.1 * PROCESS_ACCURACY, prob(1)) // Chance to warn them
 
 /obj/item/organ/appendix
 	name = "appendix"
@@ -170,61 +169,3 @@
 			icon_state = "appendixinflamed"
 			name = "inflamed appendix"
 	..()
-
-//VAURCA ORGANS
-
-/obj/item/organ/internal/vaurca/process()
-	return
-
-/obj/item/organ/vaurca/neuralsocket
-	name = "neural socket"
-	organ_tag = "neural socket"
-	icon = 'icons/mob/alien.dmi'
-	icon_state = "neural_socket"
-	parent_organ = "head"
-	robotic = 2
-
-obj/item/organ/vaurca/neuralsocket/process()
-	if (is_broken())
-		if (all_languages["Hivenet"] in owner.languages)
-			owner.remove_language("Hivenet")
-			owner << "\red Your mind suddenly grows dark as the unity of the Hive is torn from you."
-	else
-		if (!(all_languages["Hivenet"] in owner.languages))
-			owner.add_language("Hivenet")
-			owner << "\blue Your mind expands, and your thoughts join the unity of the Hivenet."
-	..()
-
-/obj/item/organ/vaurca/neuralsocket/replaced(var/mob/living/carbon/human/target)
-	if (!(all_languages["Hivenet"] in owner.languages))
-		owner.add_language("Hivenet")
-		owner << "\blue Your mind expands, and your thoughts join the unity of the Hivenet."
-	..()
-
-/obj/item/organ/vaurca/neuralsocket/removed(var/mob/living/carbon/human/target)
-	if(all_languages["Hivenet"] in target.languages)
-		target.remove_language("Hivenet")
-		target << "\red Your mind suddenly grows dark as the unity of the Hive is torn from you."
-	..()
-
-/obj/item/organ/vaurca/breathingapparatus
-	name = "breathing apparatus"
-	organ_tag = "breathing apparatus"
-	parent_organ = "chest"
-	icon = 'icons/mob/alien.dmi'
-	icon_state = "breathing_app"
-	robotic = 0
-
-obj/item/organ/vaurca/breathingapparatus/process()
-	return
-
-/obj/item/organ/vaurca/breathingapparatus/removed()
-	return
-
-/obj/item/organ/vaurca/filtrationbit
-	name = "filtration bit"
-	organ_tag = "filtration bit"
-	parent_organ = "head"
-	icon = 'icons/mob/alien.dmi'
-	icon_state = "filter"
-	robotic = 2

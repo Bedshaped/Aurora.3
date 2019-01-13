@@ -14,20 +14,24 @@
 	icon_state = "black"
 	icon_closed = "black"
 
-/obj/structure/closet/gmcloset/New()
-	..()
+/obj/structure/closet/gmcloset/fill()
 	new /obj/item/clothing/head/that(src)
 	new /obj/item/clothing/head/that(src)
 	new /obj/item/device/radio/headset/headset_service(src)
 	new /obj/item/device/radio/headset/headset_service(src)
-	new /obj/item/clothing/head/hairflower
+	new /obj/item/clothing/head/pin/flower(src)
+	new /obj/item/clothing/head/pin/flower/pink(src)
+	new /obj/item/clothing/head/pin/flower/yellow(src)
+	new /obj/item/clothing/head/pin/flower/blue(src)
+	new /obj/item/clothing/head/pin/pink(src)
+	new /obj/item/clothing/head/pin/magnetic(src)
 	new /obj/item/clothing/under/sl_suit(src)
 	new /obj/item/clothing/under/sl_suit(src)
 	new /obj/item/clothing/under/rank/bartender(src)
 	new /obj/item/clothing/under/rank/bartender(src)
 	new /obj/item/clothing/under/dress/dress_saloon(src)
-	new /obj/item/clothing/suit/wcoat(src)
-	new /obj/item/clothing/suit/wcoat(src)
+	new /obj/item/clothing/accessory/wcoat(src)
+	new /obj/item/clothing/accessory/wcoat(src)
 	new /obj/item/clothing/shoes/black(src)
 	new /obj/item/clothing/shoes/black(src)
 
@@ -40,14 +44,14 @@
 	icon_state = "black"
 	icon_closed = "black"
 
-/obj/structure/closet/chefcloset/New()
-	..()
+/obj/structure/closet/chefcloset/fill()
 	new /obj/item/clothing/under/sundress(src)
 	new /obj/item/clothing/under/waiter(src)
 	new /obj/item/clothing/under/waiter(src)
 	new /obj/item/device/radio/headset/headset_service(src)
 	new /obj/item/device/radio/headset/headset_service(src)
-	new /obj/item/weapon/storage/box/mousetraps(src)
+	new /obj/item/clothing/suit/storage/toggle/hoodie(src)
+	new /obj/item/weapon/storage/box/gloves(src)
 	new /obj/item/weapon/storage/box/mousetraps(src)
 	new /obj/item/clothing/under/rank/chef(src)
 	new /obj/item/clothing/head/chefhat(src)
@@ -61,14 +65,12 @@
 	icon_state = "mixed"
 	icon_closed = "mixed"
 
-/obj/structure/closet/jcloset/New()
-	..()
+/obj/structure/closet/jcloset/fill()
 	new /obj/item/clothing/under/rank/janitor(src)
 	new /obj/item/device/radio/headset/headset_service(src)
 	new /obj/item/weapon/cartridge/janitor(src)
 	new /obj/item/clothing/gloves/black(src)
 	new /obj/item/clothing/head/soft/purple(src)
-	new /obj/item/clothing/head/beret/jan(src)
 	new /obj/item/device/flashlight(src)
 	new /obj/item/weapon/caution(src)
 	new /obj/item/weapon/caution(src)
@@ -83,6 +85,8 @@
 	new /obj/item/weapon/grenade/chem_grenade/cleaner(src)
 	new /obj/item/weapon/grenade/chem_grenade/cleaner(src)
 	new /obj/item/weapon/reagent_containers/spray/cleaner(src)
+	new /obj/item/weapon/reagent_containers/glass/rag(src)
+	new /obj/item/weapon/soap/nanotrasen(src)
 
 /*
  * Lawyer
@@ -93,8 +97,7 @@
 	icon_state = "blue"
 	icon_closed = "blue"
 
-/obj/structure/closet/lawcloset/New()
-	..()
+/obj/structure/closet/lawcloset/fill()
 	new /obj/item/clothing/under/lawyer/female(src)
 	new /obj/item/clothing/under/lawyer/black(src)
 	new /obj/item/clothing/under/lawyer/red(src)

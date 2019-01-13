@@ -15,11 +15,11 @@
 	var/obj/effect/suspension_field/suspension_field
 	var/list/secured_mobs = list()
 
-/obj/machinery/suspension_gen/New()
-	src.cell = new/obj/item/weapon/cell/high(src)
-	..()
+/obj/machinery/suspension_gen/Initialize()
+	. = ..()
+	cell = new/obj/item/weapon/cell/high(src)
 
-/obj/machinery/suspension_gen/process()
+/obj/machinery/suspension_gen/machinery_process()
 	set background = 1
 
 	if (suspension_field)
@@ -31,26 +31,26 @@
 				M.weakened = max(M.weakened, 3)
 				cell.charge -= power_use
 				if(prob(5))
-					M << "\blue [pick("You feel tingly.","You feel like floating.","It is hard to speak.","You can barely move.")]"
+					M << "<span class='notice'>[pick("You feel tingly.","You feel like floating.","It is hard to speak.","You can barely move.")]</span>"
 
 		if(field_type == "iron")
 			for(var/mob/living/silicon/M in T)
 				M.weakened = max(M.weakened, 3)
 				cell.charge -= power_use
 				if(prob(5))
-					M << "\blue [pick("You feel tingly.","You feel like floating.","It is hard to speak.","You can barely move.")]"
+					M << "<span class='notice'>[pick("You feel tingly.","You feel like floating.","It is hard to speak.","You can barely move.")]</span>"
 
 		for(var/obj/item/I in T)
 			if(!suspension_field.contents.len)
 				suspension_field.icon_state = "energynet"
-				suspension_field.overlays += "shield2"
-			I.loc = suspension_field
+				suspension_field.add_overlay("shield2")
+			I.forceMove(suspension_field)
 
 		for(var/mob/living/simple_animal/M in T)
 			M.weakened = max(M.weakened, 3)
 			cell.charge -= power_use
 			if(prob(5))
-				M << "\blue [pick("You feel tingly.","You feel like floating.","It is hard to speak.","You can barely move.")]"
+				M << "<span class='notice'>[pick("You feel tingly.","You feel like floating.","It is hard to speak.","You can barely move.")]</span>"
 
 		if(cell.charge <= 0)
 			deactivate()
@@ -128,22 +128,21 @@
 	else if(href_list["insertcard"])
 		var/obj/item/I = usr.get_active_hand()
 		if (istype(I, /obj/item/weapon/card))
-			usr.drop_item()
-			I.loc = src
+			usr.drop_from_inventory(I,src)
 			auth_card = I
-			if(attempt_unlock(I))
-				usr << "<span class='info'>You insert [I], the console flashes \'<i>Access granted.</a>\'</span>"
+			if(attempt_unlock(I, usr))
+				usr << "<span class='info'>You insert [I], the console flashes \'<i>Access granted.</i>\'</span>"
 			else
-				usr << "<span class='warning'>You insert [I], the console flashes \'<i>Access denied.</a>\'</span>"
+				usr << "<span class='warning'>You insert [I], the console flashes \'<i>Access denied.</i>\'</span>"
 	else if(href_list["ejectcard"])
 		if(auth_card)
 			if(ishuman(usr))
-				auth_card.loc = usr.loc
+				auth_card.forceMove(usr.loc)
 				if(!usr.get_active_hand())
 					usr.put_in_hands(auth_card)
 				auth_card = null
 			else
-				auth_card.loc = loc
+				auth_card.forceMove(loc)
 				auth_card = null
 	else if(href_list["lock"])
 		locked = 1
@@ -157,7 +156,7 @@
 	if(!open)
 		interact(user)
 	else if(cell)
-		cell.loc = loc
+		cell.forceMove(loc)
 		cell.add_fingerprint(user)
 		cell.update_icon()
 
@@ -166,14 +165,14 @@
 		user << "<span class='info'>You remove the power cell</span>"
 
 /obj/machinery/suspension_gen/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if (istype(W, /obj/item/weapon/screwdriver))
+	if (isscrewdriver(W))
 		if(!open)
 			if(screwed)
 				screwed = 0
 			else
 				screwed = 1
 			user << "<span class='info'>You [screwed ? "screw" : "unscrew"] the battery panel.</span>"
-	else if (istype(W, /obj/item/weapon/crowbar))
+	else if (iscrowbar(W))
 		if(!locked)
 			if(!screwed)
 				if(!suspension_field)
@@ -189,7 +188,7 @@
 				user << "<span class='warning'>Unscrew [src]'s battery panel first.</span>"
 		else
 			user << "<span class='warning'>[src]'s security locks are engaged.</span>"
-	else if (istype(W, /obj/item/weapon/wrench))
+	else if (iswrench(W))
 		if(!suspension_field)
 			if(anchored)
 				anchored = 0
@@ -207,32 +206,33 @@
 			if(cell)
 				user << "<span class='warning'>There is a power cell already installed.</span>"
 			else
-				user.drop_item()
-				W.loc = src
+				user.drop_from_inventory(W,src)
 				cell = W
 				user << "<span class='info'>You insert the power cell.</span>"
 				icon_state = "suspension1"
 	else if(istype(W, /obj/item/weapon/card))
 		var/obj/item/weapon/card/I = W
 		if(!auth_card)
-			if(attempt_unlock(I))
+			if(attempt_unlock(I, user))
 				user << "<span class='info'>You swipe [I], the console flashes \'<i>Access granted.</i>\'</span>"
 			else
 				user << "<span class='warning'>You swipe [I], console flashes \'<i>Access denied.</i>\'</span>"
 		else
 			user << "<span class='warning'>Remove [auth_card] first.</span>"
 
-/obj/machinery/suspension_gen/proc/attempt_unlock(var/obj/item/weapon/card/C)
+/obj/machinery/suspension_gen/proc/attempt_unlock(var/obj/item/weapon/card/C, var/mob/user)
 	if(!open)
-		if(istype(C, /obj/item/weapon/card/emag) && cell.charge > 0)
-			//put sparks here
-			if(prob(95))
-				locked = 0
+		if(istype(C, /obj/item/weapon/card/emag))
+			C.resolve_attackby(src, user)
 		else if(istype(C, /obj/item/weapon/card/id) && check_access(C))
 			locked = 0
-
 		if(!locked)
 			return 1
+
+/obj/machinery/suspension_gen/emag_act(var/remaining_charges, var/mob/user)
+	if(cell.charge > 0 && locked)
+		locked = 0
+		return 1
 
 //checks for whether the machine can be activated or not should already have occurred by this point
 /obj/machinery/suspension_gen/proc/activate()
@@ -245,7 +245,7 @@
 			success = 1
 			for(var/mob/living/carbon/C in T)
 				C.weakened += 5
-				C.visible_message("\blue \icon[C] [C] begins to float in the air!","You feel tingly and light, but it is difficult to move.")
+				C.visible_message("<span class='notice'>\icon[C] [C] begins to float in the air!","You feel tingly and light, but it is difficult to move.</span>")
 		if("nitrogen")
 			success = 1
 			//
@@ -268,29 +268,29 @@
 			success = 1
 			for(var/mob/living/silicon/R in T)
 				R.weakened += 5
-				R.visible_message("\blue \icon[R] [R] begins to float in the air!","You feel tingly and light, but it is difficult to move.")
+				R.visible_message("<span class='notice'>\icon[R] [R] begins to float in the air!","You feel tingly and light, but it is difficult to move.</span>")
 			//
 	//in case we have a bad field type
 	if(!success)
 		return
 
 	for(var/mob/living/simple_animal/C in T)
-		C.visible_message("\blue \icon[C] [C] begins to float in the air!","You feel tingly and light, but it is difficult to move.")
+		C.visible_message("<span class='notice'>\icon[C] [C] begins to float in the air!","You feel tingly and light, but it is difficult to move.</span>")
 		C.weakened += 5
 
 	suspension_field = new(T)
 	suspension_field.field_type = field_type
-	src.visible_message("\blue \icon[src] [src] activates with a low hum.")
+	src.visible_message("<span class='notice'>\icon[src] [src] activates with a low hum.</span>")
 	icon_state = "suspension3"
 
 	for(var/obj/item/I in T)
-		I.loc = suspension_field
+		I.forceMove(suspension_field)
 		collected++
 
 	if(collected)
 		suspension_field.icon_state = "energynet"
-		suspension_field.overlays += "shield2"
-		src.visible_message("\blue \icon[suspension_field] [suspension_field] gently absconds [collected > 1 ? "something" : "several things"].")
+		suspension_field.add_overlay("shield2")
+		src.visible_message("<span class='notice'>\icon[suspension_field] [suspension_field] gently absconds [collected > 1 ? "something" : "several things"].</span>")
 	else
 		if(istype(T,/turf/simulated/mineral) || istype(T,/turf/simulated/wall))
 			suspension_field.icon_state = "shieldsparkles"
@@ -305,14 +305,15 @@
 		M << "<span class='info'>You no longer feel like floating.</span>"
 		M.weakened = min(M.weakened, 3)
 
-	src.visible_message("\blue \icon[src] [src] deactivates with a gentle shudder.")
+	src.visible_message("<span class='notice'>\icon[src] [src] deactivates with a gentle shudder.</span>")
 	qdel(suspension_field)
+	suspension_field = null
 	icon_state = "suspension2"
 
 /obj/machinery/suspension_gen/Destroy()
 	//safety checks: clear the field and drop anything it's holding
 	deactivate()
-	..()
+	return ..()
 
 /obj/machinery/suspension_gen/verb/rotate_ccw()
 	set src in view(1)
@@ -320,7 +321,7 @@
 	set category = "Object"
 
 	if(anchored)
-		usr << "\red You cannot rotate [src], it has been firmly fixed to the floor."
+		usr << "<span class='warning'>You cannot rotate [src], it has been firmly fixed to the floor.</span>"
 	else
 		set_dir(turn(dir, 90))
 
@@ -330,7 +331,7 @@
 	set category = "Object"
 
 	if(anchored)
-		usr << "\red You cannot rotate [src], it has been firmly fixed to the floor."
+		usr << "<span class='warning'>You cannot rotate [src], it has been firmly fixed to the floor.</span>"
 	else
 		set_dir(turn(dir, -90))
 
@@ -343,5 +344,5 @@
 
 /obj/effect/suspension_field/Destroy()
 	for(var/obj/I in src)
-		I.loc = src.loc
-	..()
+		I.forceMove(src.loc)
+	return ..()

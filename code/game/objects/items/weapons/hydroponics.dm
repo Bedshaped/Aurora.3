@@ -42,10 +42,10 @@
 					else
 						S.item_quants[G.name] = 1
 				else
-					user << "\blue The seed bag is full."
+					user << "<span class='warning'>The seed bag is full.</span>"
 					S.updateUsrDialog()
 					return
-			user << "\blue You pick up all the seeds."
+			user << "<span class='notice'>You pick up all the seeds.</span>"
 		else
 			if (S.contents.len < S.capacity)
 				S.contents += src;
@@ -54,7 +54,7 @@
 				else
 					S.item_quants[name] = 1
 			else
-				user << "\blue The seed bag is full."
+				user << "<span class='warning'>The seed bag is full.</span>"
 		S.updateUsrDialog()
 	return
 
@@ -93,14 +93,14 @@
 		item_quants[N] -= 1
 		for(var/obj/O in contents)
 			if(O.name == N)
-				O.loc = get_turf(src)
+				O.forceMove(get_turf(src))
 				usr.put_in_hands(O)
 				break
 
 	else if ( href_list["unload"] )
 		item_quants.Cut()
 		for(var/obj/O in contents )
-			O.loc = get_turf(src)
+			O.forceMove(get_turf(src))
 
 	src.updateUsrDialog()
 	return

@@ -77,12 +77,12 @@
 					else
 						return
 				M.updatehealth()
-			src.occupant_message("You hit [target].")
-			src.visible_message("<font color='red'><b>[src.name] hits [target].</b></font>")
+			src.occupant_message("You hit \the [target].")
+			src.visible_message("<span class='danger'>\The [src] hits \the [target]!</span>")
 		else
 			step_away(M,src)
-			src.occupant_message("You push [target] out of the way.")
-			src.visible_message("[src] pushes [target] out of the way.")
+			src.occupant_message("You push \the [target] out of the way.")
+			src.visible_message("\The [src] pushes \the [target] out of the way.")
 
 		melee_can_hit = 0
 		if(do_after_mecha(melee_cooldown))
@@ -93,13 +93,13 @@
 		if(damtype == "brute")
 			for(var/target_type in src.destroyable_obj)
 				if(istype(target, target_type) && hascall(target, "attackby"))
-					src.occupant_message("You hit [target].")
-					src.visible_message("<font color='red'><b>[src.name] hits [target]</b></font>")
+					src.occupant_message("You hit \the [target].")
+					src.visible_message("<span class='danger'>\The [src] hits \the [target]!</span>")
 					if(!istype(target, /turf/simulated/wall))
 						target:attackby(src,src.occupant)
 					else if(prob(5))
 						target:dismantle_wall(1)
-						src.occupant_message("\blue You smash through the wall.")
+						src.occupant_message("<span class='notice'>You smash through the wall.</span>")
 						src.visible_message("<b>[src.name] smashes through the wall</b>")
 						playsound(src, 'sound/weapons/smash.ogg', 50, 1)
 					melee_can_hit = 0
@@ -252,13 +252,13 @@
 
 /obj/mecha/combat/Topic(href,href_list)
 	..()
-	var/datum/topic_input/filter = new (href,href_list)
-	if(filter.get("close"))
+	var/datum/topic_input/old_filter = new (href,href_list)
+	if(old_filter.get("close"))
 		am = null
 		return
 	/*
-	if(filter.get("saminput"))
-		if(md5(filter.get("saminput")) == am)
+	if(old_filter.get("saminput"))
+		if(md5(old_filter.get("saminput")) == am)
 			occupant_message("From the lies of the Antipath, Circuit preserve us.")
 		am = null
 	return

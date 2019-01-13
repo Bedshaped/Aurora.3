@@ -4,10 +4,9 @@
 	icon_state = "paper_bin1"
 	item_state = "sheet-metal"
 	throwforce = 1
-	w_class = 3
+	w_class = 5
 	throw_speed = 3
 	throw_range = 7
-	pressure_resistance = 10
 	layer = OBJ_LAYER - 0.1
 	var/amount = 30					//How much paper is in the bin.
 	var/list/papers = new/list()	//List of papers put in the bin for reference.
@@ -17,13 +16,29 @@
 	if((user == usr && (!( usr.restrained() ) && (!( usr.stat ) && (usr.contents.Find(src) || in_range(src, usr))))))
 		if(!istype(usr, /mob/living/carbon/slime) && !istype(usr, /mob/living/simple_animal))
 			if( !usr.get_active_hand() )		//if active hand is empty
-				attack_hand(usr, 1, 1)
+				var/mob/living/carbon/human/H = user
+				var/obj/item/organ/external/temp = H.organs_by_name["r_hand"]
+
+				if (H.hand)
+					temp = H.organs_by_name["l_hand"]
+				if(temp && !temp.is_usable())
+					user << "<span class='notice'>You try to move your [temp.name], but cannot!</span>"
+					return
+
+				user << "<span class='notice'>You pick up the [src].</span>"
+				user.put_in_hands(src)
 
 	return
 
 /obj/item/weapon/paper_bin/attack_hand(mob/user as mob)
-	if(!user.can_use_hand())
-		return
+	if(ishuman(user))
+		var/mob/living/carbon/human/H = user
+		var/obj/item/organ/external/temp = H.organs_by_name["r_hand"]
+		if (H.hand)
+			temp = H.organs_by_name["l_hand"]
+		if(temp && !temp.is_usable())
+			user << "<span class='notice'>You try to move your [temp.name], but cannot!</span>"
+			return
 	var/response = ""
 	if(!papers.len > 0)
 		response = alert(user, "Do you take regular paper, or Carbon copy paper?", "Paper type request", "Regular", "Carbon-Copy", "Cancel")
@@ -50,7 +65,7 @@
 			else if (response == "Carbon-Copy")
 				P = new /obj/item/weapon/paper/carbon
 
-		P.loc = user.loc
+		P.forceMove(user.loc)
 		user.put_in_hands(P)
 		user << "<span class='notice'>You take [P] out of the [src].</span>"
 	else
@@ -63,17 +78,16 @@
 /obj/item/weapon/paper_bin/attackby(obj/item/weapon/O as obj, mob/user as mob)
 	if(istype(O, /obj/item/weapon/paper))
 		var/obj/item/weapon/paper/i = O
-		user.drop_item()
-		i.loc = src
+		user.drop_from_inventory(i,src)
 		user << "<span class='notice'>You put [i] in [src].</span>"
 		papers.Add(i)
 		amount++
  /*	if(istype(O, /obj/item/weapon/paper_pack))	WIP written in.
  		var/obj/item/weapon/paper_bundle/j = O
- 		user.drop_item()
  		amount += j.amount
  		user << "<span class='notice'>You add paper from [j] into [src].</span>"
- 		del(j)
+ 		user.drop_from_inventory(j,get_turf(src))
+		qdel(j)
  */
 
 

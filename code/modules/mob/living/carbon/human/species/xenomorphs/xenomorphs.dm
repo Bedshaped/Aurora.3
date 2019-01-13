@@ -7,43 +7,18 @@ proc/create_new_xenomorph(var/alien_caste,var/target)
 	new_alien.set_species("Xenomorph [alien_caste]")
 	return new_alien
 
-/mob/living/carbon/human/xdrone/New(var/new_loc)
+/mob/living/carbon/human/xdrone/Initialize(mapload)
 	h_style = "Bald"
-	..(new_loc, "Xenomorph Drone")
+	. = ..(mapload, "Xenomorph Drone")
 
-/mob/living/carbon/human/xsentinel/New(var/new_loc)
+/mob/living/carbon/human/xsentinel/Initialize(mapload)
 	h_style = "Bald"
-	..(new_loc, "Xenomorph Sentinel")
+	. = ..(mapload, "Xenomorph Sentinel")
 
-/mob/living/carbon/human/xhunter/New(var/new_loc)
+/mob/living/carbon/human/xhunter/Initialize(mapload)
 	h_style = "Bald"
-	..(new_loc, "Xenomorph Hunter")
+	. = ..(mapload, "Xenomorph Hunter")
 
-/mob/living/carbon/human/xqueen/New(var/new_loc)
+/mob/living/carbon/human/xqueen/Initialize(mapload)
 	h_style = "Bald"
-	..(new_loc, "Xenomorph Queen")
-
-// I feel like we should generalize/condense down all the various icon-rendering antag procs.
-/*----------------------------------------
-Proc: AddInfectionImages()
-Des: Gives the client of the alien an image on each infected mob.
-----------------------------------------*/
-/mob/living/carbon/human/proc/AddInfectionImages()
-	if (client)
-		for (var/mob/living/C in mob_list)
-			if(C.status_flags & XENO_HOST)
-				var/obj/item/alien_embryo/A = locate() in C
-				var/I = image('icons/mob/alien.dmi', loc = C, icon_state = "infected[A.stage]")
-				client.images += I
-	return
-
-/*----------------------------------------
-Proc: RemoveInfectionImages()
-Des: Removes all infected images from the alien.
-----------------------------------------*/
-/mob/living/carbon/human/proc/RemoveInfectionImages()
-	if (client)
-		for(var/image/I in client.images)
-			if(dd_hasprefix_case(I.icon_state, "infected"))
-				qdel(I)
-	return
+	. = ..(mapload, "Xenomorph Queen")

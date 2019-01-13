@@ -1,9 +1,9 @@
 /obj/machinery/computer/area_atmos
 	name = "Area Air Control"
 	desc = "A computer used to control the stationary scrubbers and pumps in the area."
-	icon_state = "area_atmos"
+	icon_screen = "area_atmos"
 	light_color = "#e6ffff"
-	circuit = "/obj/item/weapon/circuitboard/area_atmos"
+	circuit = /obj/item/weapon/circuitboard/area_atmos
 
 	var/list/connectedscrubbers = new()
 	var/status = ""
@@ -13,11 +13,10 @@
 	//Simple variable to prevent me from doing attack_hand in both this and the child computer
 	var/zone = "This computer is working on a wireless range, the range is currently limited to 25 meters."
 
-	New()
-		..()
-		//So the scrubbers have time to spawn
-		spawn(10)
-			scanscrubbers()
+	Initialize()
+		. = ..()
+
+		scanscrubbers()
 
 	attack_ai(var/mob/user as mob)
 		return src.attack_hand(user)

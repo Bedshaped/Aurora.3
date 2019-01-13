@@ -13,9 +13,10 @@
 	var/open = 0
 	var/recent_fault = 0
 	var/power_output = 1
+	has_special_power_checks = TRUE
 
 /obj/machinery/power/port_gen/proc/IsBroken()
-	return (crit_fail || (stat & (BROKEN|EMPED)))
+	return (stat & (BROKEN|EMPED))
 
 /obj/machinery/power/port_gen/proc/HasFuel() //Placeholder for fuel check.
 	return 1
@@ -29,7 +30,7 @@
 /obj/machinery/power/port_gen/proc/handleInactive()
 	return
 
-/obj/machinery/power/port_gen/process()
+/obj/machinery/power/port_gen/machinery_process()
 	if(active && HasFuel() && !IsBroken() && anchored && powernet)
 		add_avail(power_gen * power_output)
 		UseFuel()
@@ -52,9 +53,9 @@
 	if(!..(user,1 ))
 		return
 	if(active)
-		usr << "\blue The generator is on."
+		usr << "<span class='notice'>The generator is on.</span>"
 	else
-		usr << "\blue The generator is off."
+		usr << "<span class='notice'>The generator is off.</span>"
 
 /obj/machinery/power/port_gen/emp_act(severity)
 	var/duration = 6000 //ten minutes
@@ -109,41 +110,33 @@
 	var/temperature = 0		//The current temperature
 	var/overheating = 0		//if this gets high enough the generator explodes
 
-/obj/machinery/power/port_gen/pacman/initialize()
-	..()
+	component_types = list(
+		/obj/item/weapon/stock_parts/matter_bin,
+		/obj/item/weapon/stock_parts/micro_laser,
+		/obj/item/stack/cable_coil = 2,
+		/obj/item/weapon/stock_parts/capacitor
+	)
+
+/obj/machinery/power/port_gen/pacman/Initialize()
+	component_types += board_path
+	. = ..()
+
 	if(anchored)
 		connect_to_network()
 
-/obj/machinery/power/port_gen/pacman/New()
-	..()
-	component_parts = list()
-	component_parts += new /obj/item/weapon/stock_parts/matter_bin(src)
-	component_parts += new /obj/item/weapon/stock_parts/micro_laser(src)
-	component_parts += new /obj/item/stack/cable_coil(src)
-	component_parts += new /obj/item/stack/cable_coil(src)
-	component_parts += new /obj/item/weapon/stock_parts/capacitor(src)
-	component_parts += new board_path(src)
-	RefreshParts()
-
 /obj/machinery/power/port_gen/pacman/Destroy()
 	DropFuel()
-	..()
+	return ..()
 
 /obj/machinery/power/port_gen/pacman/RefreshParts()
 	var/temp_rating = 0
+
 	for(var/obj/item/weapon/stock_parts/SP in component_parts)
 		if(istype(SP, /obj/item/weapon/stock_parts/matter_bin))
 			max_sheets = SP.rating * SP.rating * 50
 		else if(istype(SP, /obj/item/weapon/stock_parts/micro_laser) || istype(SP, /obj/item/weapon/stock_parts/capacitor))
 			temp_rating += SP.rating
 
-	var/temp_reliability = 0
-	var/part_count = 0
-	for(var/obj/item/weapon/CP in component_parts)
-		temp_reliability += CP.reliability
-		part_count++
-
-	reliability = min(round(temp_reliability / part_count), 100)
 	power_gen = round(initial(power_gen) * (max(2, temp_rating) / 2))
 
 /obj/machinery/power/port_gen/pacman/examine(mob/user)
@@ -168,13 +161,6 @@
 		sheets -= amount
 
 /obj/machinery/power/port_gen/pacman/UseFuel()
-	//break down sometimes
-	if (reliability < 100)
-		if (prob(1) && prob(1) && prob(100 - reliability))
-			stat |= BROKEN
-			crit_fail = 1
-			if (prob(100 - reliability))
-				explode()
 
 	//how much material are we using this iteration?
 	var/needed_sheets = power_output / time_per_sheet
@@ -260,46 +246,50 @@
 	sheet_left = 0
 	..()
 
+/obj/machinery/power/port_gen/pacman/emag_act(var/remaining_charges, var/mob/user)
+	if (active && prob(25))
+		explode() //if they're foolish enough to emag while it's running
+
+	if (!emagged)
+		emagged = 1
+		return 1
+
 /obj/machinery/power/port_gen/pacman/attackby(var/obj/item/O as obj, var/mob/user as mob)
 	if(istype(O, sheet_path))
 		var/obj/item/stack/addstack = O
 		var/amount = min((max_sheets - sheets), addstack.amount)
 		if(amount < 1)
-			user << "\blue The [src.name] is full!"
+			user << "<span class='notice'>The [src.name] is full!</span>"
 			return
-		user << "\blue You add [amount] sheet\s to the [src.name]."
+		user << "<span class='notice'>You add [amount] sheet\s to the [src.name].</span>"
 		sheets += amount
 		addstack.use(amount)
 		updateUsrDialog()
 		return
-	else if (istype(O, /obj/item/weapon/card/emag))
-		emagged = 1
-		if (active && prob(25))
-			explode() //if they're foolish enough to emag while it's running
 	else if(!active)
-		if(istype(O, /obj/item/weapon/wrench))
+		if(iswrench(O))
 
 			if(!anchored)
 				connect_to_network()
-				user << "\blue You secure the generator to the floor."
+				user << "<span class='notice'>You secure the generator to the floor.</span>"
 			else
 				disconnect_from_network()
-				user << "\blue You unsecure the generator from the floor."
+				user << "<span class='notice'>You unsecure the generator from the floor.</span>"
 
 			playsound(src.loc, 'sound/items/Deconstruct.ogg', 50, 1)
 			anchored = !anchored
 
-		else if(istype(O, /obj/item/weapon/screwdriver))
+		else if(isscrewdriver(O))
 			open = !open
 			playsound(src.loc, 'sound/items/Screwdriver.ogg', 50, 1)
 			if(open)
-				user << "\blue You open the access panel."
+				user << "<span class='notice'>You open the access panel.</span>"
 			else
-				user << "\blue You close the access panel."
-		else if(istype(O, /obj/item/weapon/crowbar) && open)
+				user << "<span class='notice'>You close the access panel.</span>"
+		else if(iscrowbar(O) && open)
 			var/obj/machinery/constructable_frame/machine_frame/new_frame = new /obj/machinery/constructable_frame/machine_frame(src.loc)
 			for(var/obj/item/I in component_parts)
-				I.loc = src.loc
+				I.forceMove(src.loc)
 			while ( sheets > 0 )
 				DropFuel()
 
@@ -343,7 +333,7 @@
 
 
 
-	ui = nanomanager.try_update_ui(user, src, ui_key, ui, data, force_open)
+	ui = SSnanoui.try_update_ui(user, src, ui_key, ui, data, force_open)
 	if (!ui)
 		ui = new(user, src, ui_key, "pacman.tmpl", src.name, 500, 560)
 		ui.set_initial_data(data)
@@ -416,7 +406,7 @@
 	//produces a tiny amount of radiation when in use
 	if (prob(2*power_output))
 		for (var/mob/living/L in range(src, 5))
-			L.apply_effect(1, IRRADIATE) //should amount to ~5 rads per minute at max safe power
+			L.apply_effect(1, IRRADIATE, blocked = L.getarmor(null, "rad")) //should amount to ~5 rads per minute at max safe power
 	..()
 
 /obj/machinery/power/port_gen/pacman/super/explode()
@@ -425,7 +415,7 @@
 	for (var/mob/living/L in range(src, 10))
 		//should really fall with the square of the distance, but that makes the rads value drop too fast
 		//I dunno, maybe physics works different when you live in 2D -- SM radiation also works like this, apparently
-		L.apply_effect(max(20, round(rads/get_dist(L,src))), IRRADIATE)
+		L.apply_effect(max(20, round(rads/get_dist(L,src))), IRRADIATE, blocked = L.getarmor(null, "rad"))
 
 	explosion(src.loc, 3, 3, 5, 3)
 	qdel(src)

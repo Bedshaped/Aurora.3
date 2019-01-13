@@ -3,7 +3,7 @@
 	icon = 'icons/obj/assemblies/new_assemblies.dmi'
 	icon_state = "holder"
 	item_state = "assembly"
-	flags = CONDUCT
+	flags = CONDUCT | PROXMOVE
 	throwforce = 5
 	w_class = 2.0
 	throw_speed = 3
@@ -40,8 +40,8 @@
 			user.remove_from_mob(D2)
 		D:holder = src
 		D2:holder = src
-		D.loc = src
-		D2.loc = src
+		D.forceMove(src)
+		D2.forceMove(src)
 		a_left = D
 		a_right = D2
 		name = "[D.name]-[D2.name] assembly"
@@ -64,15 +64,15 @@
 
 
 	update_icon()
-		overlays.Cut()
+		cut_overlays()
 		if(a_left)
-			overlays += "[a_left.icon_state]_left"
+			add_overlay("[a_left.icon_state]_left")
 			for(var/O in a_left.attached_overlays)
-				overlays += "[O]_l"
+				add_overlay("[O]_l")
 		if(a_right)
-			src.overlays += "[a_right.icon_state]_right"
+			add_overlay("[a_right.icon_state]_right")
 			for(var/O in a_right.attached_overlays)
-				overlays += "[O]_r"
+				add_overlay("[O]_r")
 		if(master)
 			master.update_icon()
 
@@ -146,15 +146,15 @@
 	attackby(obj/item/weapon/W as obj, mob/user as mob)
 		if(isscrewdriver(W))
 			if(!a_left || !a_right)
-				user << "\red BUG:Assembly part missing, please report this!"
+				user << "<span class='danger'>BUG:Assembly part missing, please report this!</span>"
 				return
 			a_left.toggle_secure()
 			a_right.toggle_secure()
 			secured = !secured
 			if(secured)
-				user << "\blue \The [src] is ready!"
+				user << "<span class='notice'>\The [src] is ready!</span>"
 			else
-				user << "\blue \The [src] can now be taken apart!"
+				user << "<span class='notice'>\The [src] can now be taken apart!</span>"
 			update_icon()
 			return
 		else if(W.IsSpecialAssembly())
@@ -168,7 +168,7 @@
 		src.add_fingerprint(user)
 		if(src.secured)
 			if(!a_left || !a_right)
-				user << "\red Assembly part missing!"
+				user << "<span class='warning'>Assembly part missing!</span>"
 				return
 			if(istype(a_left,a_right.type))//If they are the same type it causes issues due to window code
 				switch(alert("Which side would you like to use?",,"Left","Right"))
@@ -185,12 +185,11 @@
 			if(!T)	return 0
 			if(a_left)
 				a_left:holder = null
-				a_left.loc = T
+				a_left.forceMove(T)
 			if(a_right)
 				a_right:holder = null
-				a_right.loc = T
-			spawn(0)
-				qdel(src)
+				a_right.forceMove(T)
+			QDEL_IN(src, 0)
 		return
 
 
@@ -210,6 +209,15 @@
 //				special_assembly.dothings()
 		return 1
 
+
+/obj/item/device/assembly_holder/New()
+	..()
+	listening_objects += src
+
+/obj/item/device/assembly_holder/Destroy()
+	listening_objects -= src
+	return ..()
+	
 
 /obj/item/device/assembly_holder/hear_talk(mob/living/M as mob, msg, verb, datum/language/speaking)
 	if(a_right)
@@ -233,7 +241,7 @@
 		tmr.time=5
 		tmr.secured = 1
 		tmr.holder = src
-		processing_objects.Add(tmr)
+		START_PROCESSING(SSprocessing, tmr)
 		a_left = tmr
 		a_right = ign
 		secured = 1

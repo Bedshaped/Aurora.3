@@ -30,7 +30,7 @@
 	cameras()	// Sets up both cameras and last alarm area.
 	set_source_data(source, duration, severity)
 
-/datum/alarm/proc/process()
+/datum/alarm/process()
 	// Has origin gone missing?
 	if(!origin && !end_time)
 		end_time = world.time + ALARM_RESET_DELAY
@@ -76,9 +76,9 @@
 
 /datum/alarm/proc/cameras()
 	// reset camera cache
-	if(camera_cache_id != cache_id)
+	if(camera_repository.camera_cache_id != cache_id)
 		cameras = null
-		cache_id = camera_cache_id
+		cache_id = camera_repository.camera_cache_id
 	// If the alarm origin has changed area, for example a borg containing an alarming camera, reset the list of cameras
 	else if(cameras && (last_camera_area != alarm_area()))
 		cameras = null

@@ -7,7 +7,7 @@
 
 	if (src.client)
 		if(client.prefs.muted & MUTE_IC)
-			src << "\red You cannot speak in IC (muted)."
+			src << "<span class='warning'>You cannot speak in IC (muted).</span>"
 			return
 
 	if(istype(src.loc,/mob/living/parasite/meme))
@@ -15,7 +15,7 @@
 		message = sanitize(message)
 		if (!message)
 			return
-		log_say("[key_name(src)] : [message]")
+		log_say("[key_name(src)] : [message]",ckey=key_name(src))
 		if (stat == 2)
 			return say_dead(message)
 
@@ -24,10 +24,13 @@
 		ME.host << "The captive mind of [src] whispers, \"[message]\""
 
 		for (var/mob/M in player_list)
-			if (istype(M, /mob/new_player))
+			if (istype(M, /mob/abstract/new_player))
 				continue
 			else if(M.stat == 2 &&  M.client.prefs.toggles & CHAT_GHOSTEARS)
 				M << "The captive mind of [src] whispers, \"[message]\""
 
 /mob/living/parasite/captive_brain/emote(var/message)
+	return
+
+/mob/living/parasite/captive_brain/send_emote()
 	return

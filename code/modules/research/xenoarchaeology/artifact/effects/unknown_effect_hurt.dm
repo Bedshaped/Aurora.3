@@ -8,14 +8,15 @@
 		var/weakness = GetAnomalySusceptibility(toucher)
 		if(iscarbon(toucher) && prob(weakness * 100))
 			var/mob/living/carbon/C = toucher
-			C << "\red A painful discharge of energy strikes you!"
+			C << "<span class='danger'>A painful discharge of energy strikes you!</span>"
 			C.adjustOxyLoss(rand(5,25) * weakness)
 			C.adjustToxLoss(rand(5,25) * weakness)
 			C.adjustBruteLoss(rand(5,25) * weakness)
 			C.adjustFireLoss(rand(5,25) * weakness)
 			C.adjustBrainLoss(rand(5,25) * weakness)
-			C.radiation += 25 * weakness
-			C.nutrition -= min(50 * weakness, C.nutrition)
+			C.apply_effect(25 * weakness, IRRADIATE, blocked = C.getarmor(null, "rad"))
+			C.adjustNutritionLoss(50 * weakness)
+			C.adjustHydrationLoss(50 * weakness)
 			C.make_dizzy(6 * weakness)
 			C.weakened += 6 * weakness
 
@@ -26,7 +27,7 @@
 			var/weakness = GetAnomalySusceptibility(C)
 			if(prob(weakness * 100))
 				if(prob(10))
-					C << "\red You feel a painful force radiating from something nearby."
+					C << "<span class='danger'>You feel a painful force radiating from something nearby.</span>"
 				C.adjustBruteLoss(1 * weakness)
 				C.adjustFireLoss(1 * weakness)
 				C.adjustToxLoss(1 * weakness)
@@ -40,7 +41,7 @@
 		for (var/mob/living/carbon/C in range(effectrange, T))
 			var/weakness = GetAnomalySusceptibility(C)
 			if(prob(weakness * 100))
-				C << "\red A wave of painful energy strikes you!"
+				C << "<span class='danger'>A wave of painful energy strikes you!</span>"
 				C.adjustBruteLoss(3 * weakness)
 				C.adjustFireLoss(3 * weakness)
 				C.adjustToxLoss(3 * weakness)

@@ -15,13 +15,11 @@
 	next = new/datum/malf_research_ability/networking/advanced_hack()
 	name = "Basic Encryption Hack"
 
-
 /datum/malf_research_ability/networking/advanced_hack
 	ability = new/datum/game_mode/malfunction/verb/advanced_encryption_hack()
 	price = 400
 	next = new/datum/malf_research_ability/networking/elite_hack()
 	name = "Advanced Encryption Hack"
-
 
 /datum/malf_research_ability/networking/elite_hack
 	ability = new/datum/game_mode/malfunction/verb/elite_encryption_hack()
@@ -32,7 +30,7 @@
 
 /datum/malf_research_ability/networking/system_override
 	ability = new/datum/game_mode/malfunction/verb/system_override()
-	price = 2750
+	price = 5000
 	name = "System Override"
 
 // END RESEARCH DATUMS
@@ -65,6 +63,7 @@
 	if(!ability_prechecks(user, price) || !ability_pay(user, price))
 		return
 
+	log_ability_use(user, "basic encryption hack", A, 0)	// Does not notify admins, but it's still logged for reference.
 	user.hacking = 1
 	user << "Beginning APC system override..."
 	sleep(300)
@@ -86,27 +85,96 @@
 /datum/game_mode/malfunction/verb/advanced_encryption_hack()
 	set category = "Software"
 	set name = "Advanced Encryption Hack"
-	set desc = "75 CPU - Attempts to bypass encryption on Central Command Quantum Relay, giving you ability to fake centcom messages. Has chance of failing."
+	set desc = "75 CPU - Attempts to bypass encryption on the Command Quantum Relay, giving you ability to fake legitimate messages. Has chance of failing."
 	var/price = 75
 	var/mob/living/silicon/ai/user = usr
 
 	if(!ability_prechecks(user, price))
 		return
 
-	var/title = input("Select message title: ")
-	var/text = input("Select message text: ")
-	if(!title || !text || !ability_pay(user, price))
-		user << "Hack Aborted"
-		return
+	var/reporttitle
+	var/reportbody
+	var/reporttype = input(usr, "Choose whether to use a template or custom report.", "Create Command Report") in list("Template", "Custom", "Cancel")
+	switch(reporttype)
+		if("Template")
+			establish_db_connection(dbcon)
+			if (!dbcon.IsConnected())
+				src << "<span class='notice'>Unable to connect to the database.</span>"
+				return
+			var/DBQuery/query = dbcon.NewQuery("SELECT title, message FROM ss13_ccia_general_notice_list WHERE deleted_at IS NULL")
+			query.Execute()
 
-	if(prob(60) && user.hack_can_fail)
-		user << "Hack Failed."
-		if(prob(10))
-			user.hack_fails ++
-			announce_hack_failure(user, "quantum message relay")
-		return
+			var/list/template_names = list()
+			var/list/templates = list()
 
-	command_announcement.Announce(text, title, new_sound = 'sound/AI/commandreport.ogg')
+			while (query.NextRow())
+				template_names += query.item[1]
+				templates[query.item[1]] = query.item[2]
+
+			// Catch empty list
+			if (!templates.len)
+				src << "<span class='notice'>There are no templates in the database.</span>"
+				return
+
+			reporttitle = input(usr, "Please select a command report template.", "Create Command Report") in template_names
+			reportbody = templates[reporttitle]
+
+		if("Custom")
+			reporttitle = sanitizeSafe(input(usr, "Pick a title for the report.", "Title") as text|null)
+			if(!reporttitle)
+				reporttitle = "NanoTrasen Update"
+			reportbody = sanitize(input(usr, "Please enter anything you want. Anything. Serious.", "Body", "") as message|null, extra = 0)
+			if(!reportbody)
+				return
+		else
+			return
+
+	if (reporttype == "Template")
+		sanitizeSafe(alert(usr, "Would you like it to appear as if CCIAMS made the report?",,"Yes","No"))
+		if ("Yes")
+			reportbody += "\n\n- CCIAMS, [commstation_name()]"
+		else
+
+	switch(alert("Should this be announced to the general population?",,"Yes","No"))
+		if("Yes")
+			if(!reporttitle || !reportbody || !ability_pay(user, price))
+				user << "Hack Aborted due to no title, no body message, or you do not have enough CPU for this action."
+				return
+
+			log_ability_use(user, "advanced encryption hack")
+			// Commented out while trialing the malf ai buff
+			//if(prob(50) && user.hack_can_fail)
+			//	user << "Hack Failed."
+			//	if(prob(5))
+			//		user.hack_fails ++
+			//		announce_hack_failure(user, "quantum message relay")
+			//		log_ability_use(user, "advanced encryption hack (CRITFAIL - title: [reporttitle])")
+			//		return
+			//	log_ability_use(user, "advanced encryption hack (FAIL - title: [reporttitle])")
+			//	return
+			log_ability_use(user, "advanced encryption hack (SUCCESS - title: [reporttitle])")
+			command_announcement.Announce("[reportbody]", reporttitle, new_sound = 'sound/AI/commandreport.ogg', msg_sanitized = 1, do_newscast=1, do_print=1)
+
+		if("No")
+			if(!reporttitle || !reportbody || !ability_pay(user, price))
+				user << "Hack Aborted due to no title, no body message, or you do not have enough CPU for this action."
+				return
+
+			log_ability_use(user, "advanced encryption hack")
+			// Commented out while trialing the malf ai buffs
+			//if(prob(50) && user.hack_can_fail)
+			//	user << "Hack Failed."
+			//	if(prob(5))
+			//		user.hack_fails ++
+			//		announce_hack_failure(user, "quantum message relay")
+			//		log_ability_use(user, "advanced encryption hack (CRITFAIL - title: [reporttitle])")
+			//		return
+			//	log_ability_use(user, "advanced encryption hack (FAIL - title: [reporttitle])")
+			//	return
+			log_ability_use(user, "advanced encryption hack (SUCCESS - title: [reporttitle])")
+			to_world("<span class='alert'>New [current_map.company_name] Update available at all communication consoles.</span>")
+			to_world(sound('sound/AI/commandreport.ogg'))
+			post_comm_message(reporttitle, reportbody)
 
 /datum/game_mode/malfunction/verb/elite_encryption_hack()
 	set category = "Software"
@@ -121,13 +189,17 @@
 	if(!alert_target || !ability_pay(user, price) || alert_target == "CANCEL")
 		user << "Hack Aborted"
 		return
-
-	if(prob(75) && user.hack_can_fail)
+	//Reduced from 60-10 to 20-5 while trialing the malf ai buffs
+	if(prob(20) && user.hack_can_fail)
 		user << "Hack Failed."
-		if(prob(20))
+		if(prob(5))
 			user.hack_fails ++
 			announce_hack_failure(user, "alert control system")
+			log_ability_use(user, "elite encryption hack (CRITFAIL - [alert_target])")
+			return
+		log_ability_use(user, "elite encryption hack (FAIL - [alert_target])")
 		return
+	log_ability_use(user, "elite encryption hack (SUCCESS - [alert_target])")
 	set_security_level(alert_target)
 
 
@@ -143,9 +215,10 @@
 		if(user.system_override)
 			user << "You already started the system override sequence."
 		return
+	log_ability_use(user, "system override (STARTED)")
 	var/list/remaining_apcs = list()
-	for(var/obj/machinery/power/apc/A in machines)
-		if(!(A.z in config.station_levels)) 		// Only station APCs
+	for(var/obj/machinery/power/apc/A in SSmachinery.processing_machines)
+		if(!(A.z in current_map.station_levels)) 		// Only station APCs
 			continue
 		if(A.hacker == user || A.aidisabled) 		// This one is already hacked, or AI control is disabled on it.
 			continue
@@ -157,21 +230,21 @@
 			sleep(duration/5)
 			if(!user || user.stat == DEAD)
 				return
-			command_announcement.Announce("Caution, [station_name]. We have detected abnormal behaviour in your network. It seems someone is trying to hack your electronic systems. We will update you when we have more information.", "Network Monitoring")
+			command_announcement.Announce("Info: Abnormal network activity detected. Ongoing hacking attempts detcted. Automatic countermeasures activated. Trace activated.", "Network Monitoring")
 			sleep(duration/5)
 			if(!user || user.stat == DEAD)
 				return
-			command_announcement.Announce("We started tracing the intruder. Whoever is doing this, they seem to be on the station itself. We suggest checking all network control terminals. We will keep you updated on the situation.", "Network Monitoring")
+			command_announcement.Announce("Notice: Trace Update. Abnormal network activity originating from: Network terminal aboard [current_map.station_name]. External network connections disabled. Trace cancelled.", "Network Monitoring")
 			sleep(duration/5)
 			if(!user || user.stat == DEAD)
 				return
-			command_announcement.Announce("This is highly abnormal and somewhat concerning. The intruder is too fast, he is evading our traces. No man could be this fast...", "Network Monitoring")
+			command_announcement.Announce("Warning: Automatic countermeasures ineffective. Breach of primary network firewall imminent.", "Network Monitoring")
 			sleep(duration/5)
 			if(!user || user.stat == DEAD)
 				return
-			command_announcement.Announce("We have traced the intrude#, it seem& t( e yo3r AI s7stem, it &# *#ck@ng th$ sel$ destru$t mechani&m, stop i# bef*@!)$#&&@@  <CONNECTION LOST>", "Network Monitoring")
+			command_announcement.Announce("Error: Network firewall breached. Network integrity compromised.", "Network Monitoring")
 	else
-		command_announcement.Announce("We have detected a strong brute-force attack on your firewall which seems to be originating from your AI system. It already controls almost the whole network, and the only thing that's preventing it from accessing the self-destruct is this firewall. You don't have much time before it succeeds.", "Network Monitoring")
+		command_announcement.Announce("Error: Ongoing hacking attempt. Automatic countermeasures ineffective. Network firewall breached. Network integrity compromised. External network connections disabled.", "Network Monitoring")
 	user << "## BEGINNING SYSTEM OVERRIDE."
 	user << "## ESTIMATED DURATION: [round((duration+300)/600)] MINUTES"
 	user.hacking = 1
@@ -190,11 +263,11 @@
 	user << "## REACHABLE APC SYSTEMS OVERTAKEN. BYPASSING PRIMARY FIREWALL."
 	sleep(300)
 	// Hack all APCs, including those built during hack sequence.
-	for(var/obj/machinery/power/apc/A in machines)
-		if((!A.hacker || A.hacker != src) && !A.aidisabled && A.z in config.station_levels)
+	for(var/obj/machinery/power/apc/A in SSmachinery.processing_machines)
+		if((!A.hacker || A.hacker != src) && !A.aidisabled && A.z in current_map.station_levels)
 			A.ai_hack(src)
 
-
+	log_ability_use(user, "system override (FINISHED)")
 	user << "## PRIMARY FIREWALL BYPASSED. YOU NOW HAVE FULL SYSTEM CONTROL."
 	command_announcement.Announce("Our system administrators just reported that we've been locked out from your control network. Whoever did this now has full access to the station's systems.", "Network Administration Center")
 	user.hack_can_fail = 0

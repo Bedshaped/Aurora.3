@@ -6,7 +6,7 @@
 /mob/living/silicon/ai/var/stored_locations[0]
 
 /proc/InvalidPlayerTurf(turf/T as turf)
-	return !(T && T.z in config.player_levels)
+	return !(T && T.z in current_map.player_levels)
 
 /mob/living/silicon/ai/proc/get_camera_list()
 	if(src.stat == 2)
@@ -47,20 +47,20 @@
 
 	loc = sanitize(loc)
 	if(!loc)
-		src << "\red Must supply a location name"
+		src << "<span class='warning'>Must supply a location name</span>"
 		return
 
 	if(stored_locations.len >= max_locations)
-		src << "\red Cannot store additional locations. Remove one first"
+		src << "<span class='warning'>Cannot store additional locations. Remove one first</span>"
 		return
 
 	if(loc in stored_locations)
-		src << "\red There is already a stored location by this name"
+		src << "<span class='warning'>There is already a stored location by this name</span>"
 		return
 
 	var/L = src.eyeobj.getLoc()
 	if (InvalidPlayerTurf(get_turf(L)))
-		src << "\red Unable to store this location"
+		src << "<span class='warning'>Unable to store this location</span>"
 		return
 
 	stored_locations[loc] = L
@@ -75,7 +75,7 @@
 	set desc = "Returns to the selected camera location"
 
 	if (!(loc in stored_locations))
-		src << "\red Location [loc] not found"
+		src << "<span class='warning'>Location [loc] not found</span>"
 		return
 
 	var/L = stored_locations[loc]
@@ -87,7 +87,7 @@
 	set desc = "Deletes the selected camera location"
 
 	if (!(loc in stored_locations))
-		src << "\red Location [loc] not found"
+		src << "<span class='warning'>Location [loc] not found</span>"
 		return
 
 	stored_locations.Remove(loc)
@@ -138,6 +138,8 @@
 		return
 	if(!target_name)
 		src.cameraFollow = null
+	if (!track)
+		trackable_mobs()
 
 	var/mob/target = (isnull(track.humans[target_name]) ? track.others[target_name] : track.humans[target_name])
 	src.track = null
@@ -155,6 +157,11 @@
 	if(!istype(target))	return
 	var/mob/living/silicon/ai/U = usr
 
+	if(target == U.cameraFollow)
+		return
+
+	if(U.cameraFollow)
+		U.ai_cancel_tracking()
 	U.cameraFollow = target
 	U << "Now tracking [target.name] on camera."
 	target.tracking_initiated()
@@ -192,21 +199,11 @@
 	ai_camera_list()
 
 /proc/camera_sort(list/L)
-	var/obj/machinery/camera/a
-	var/obj/machinery/camera/b
-
-	for (var/i = L.len, i > 0, i--)
-		for (var/j = 1 to i - 1)
-			a = L[j]
-			b = L[j + 1]
-			if (a.c_tag_order != b.c_tag_order)
-				if (a.c_tag_order > b.c_tag_order)
-					L.Swap(j, j + 1)
-			else
-				if (sorttext(a.c_tag, b.c_tag) < 0)
-					L.Swap(j, j + 1)
-	return L
-
+	if (!L)
+		return
+	var/list/target = L.Copy()
+	// sortTim sorts in-place, but returns a ref to the list anyways.
+	return sortTim(target, /proc/cmp_camera, FALSE)
 
 mob/living/proc/near_camera()
 	if (!isturf(loc))
@@ -218,6 +215,9 @@ mob/living/proc/near_camera()
 /mob/living/proc/tracking_status()
 	// Easy checks first.
 	// Don't detect mobs on Centcom. Since the wizard den is on Centcomm, we only need this.
+	var/obj/item/weapon/card/id/id = GetIdCard()
+	if(id && id.prevent_tracking())
+		return TRACKING_TERMINATE
 	if(InvalidPlayerTurf(get_turf(src)))
 		return TRACKING_TERMINATE
 	if(invisibility >= INVISIBILITY_LEVEL_ONE) //cloaked
@@ -235,13 +235,8 @@ mob/living/proc/near_camera()
 	if(. == TRACKING_NO_COVERAGE)
 		return camera && camera.can_use() ? TRACKING_POSSIBLE : TRACKING_NO_COVERAGE
 
-/mob/living/silicon/robot/syndicate/tracking_status()
-	return TRACKING_TERMINATE
-
 /mob/living/carbon/human/tracking_status()
 	//Cameras can't track people wearing an agent card or a ninja hood.
-	if(wear_id && istype(wear_id.GetID(), /obj/item/weapon/card/id/syndicate))
-		return TRACKING_TERMINATE
 	if(istype(head, /obj/item/clothing/head/helmet/space/rig))
 		var/obj/item/clothing/head/helmet/space/rig/helmet = head
 		if(helmet.prevent_track())
@@ -253,7 +248,7 @@ mob/living/proc/near_camera()
 
 	if(. == TRACKING_NO_COVERAGE)
 		var/turf/T = get_turf(src)
-		if(T && (T.z in config.station_levels) && hassensorlevel(src, SUIT_SENSOR_TRACKING))
+		if(T && (T.z in current_map.station_levels) && hassensorlevel(src, SUIT_SENSOR_TRACKING))
 			return TRACKING_POSSIBLE
 
 mob/living/proc/tracking_initiated()

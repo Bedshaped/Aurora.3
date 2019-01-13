@@ -11,14 +11,17 @@
 	icon_state = "minimoog"
 	anchored = 1
 	density = 1
+	w_class = 5
 	var/datum/song/song
 	var/playing = 0
 	var/help = 0
 	var/edit = 1
 	var/repeat = 0
+	var/force_piano = FALSE
+	var/broken = 0 //Whether or not the piano can actually be played.
 
 /obj/structure/device/piano/New()
-	if(prob(50))
+	if(prob(50) && !force_piano)
 		name = "space minimoog"
 		desc = "This is a minimoog, like a space piano, but more spacey!"
 		icon_state = "minimoog"
@@ -28,7 +31,6 @@
 		icon_state = "piano"
 
 /obj/structure/device/piano/proc/playnote(var/note as text)
-	//world << "Note: [note]"
 	var/soundfile
 	/*BYOND loads resource files at compile time if they are ''. This means you can't really manipulate them dynamically.
 	Tried doing it dynamically at first but its more trouble than its worth. Would have saved many lines tho.*/
@@ -219,18 +221,14 @@
 			cur_acc[i] = "n"
 
 		for(var/line in song.lines)
-			//world << line
 			for(var/beat in text2list(lowertext(line), ","))
-				//world << "beat: [beat]"
 				var/list/notes = text2list(beat, "/")
 				for(var/note in text2list(notes[1], "-"))
-					//world << "note: [note]"
 					if(!playing || !anchored)//If the piano is playing, or is loose
 						playing = 0
 						return
 					if(lentext(note) == 0)
 						continue
-					//world << "Parse: [copytext(note,1,2)]"
 					var/cur_note = text2ascii(note) - 96
 					if(cur_note < 1 || cur_note > 7)
 						continue
@@ -256,6 +254,10 @@
 
 /obj/structure/device/piano/attack_hand(var/mob/user as mob)
 	if(!anchored)
+		return
+
+	if(broken)
+		to_chat(user,span("notice","\The [src] seems to be broken after so many years of misuse, perhaps due to reckless hooligans breaking into the display case and carelessly bashing keys."))
 		return
 
 	usr.machine = src
@@ -291,7 +293,7 @@
 					Notes are played by the names of the note, and optionally, the accidental, and/or the octave number.<br>
 					By default, every note is natural and in octave 3. Defining otherwise is remembered for each note.<br>
 					Example: <i>C,D,E,F,G,A,B</i> will play a C major scale.<br>
-					After a note has an accidental placed, it will be remembered: <i>C,C4,C,C3</i> is C3,C4,C4,C3</i><br>
+					After a note has an accidental placed, it will be remembered: <i>C,C4,C,C3</i> is <i>C3,C4,C4,C3</i><br>
 					Chords can be played simply by seperating each note with a hyphon: <i>A-C#,Cn-E,E-G#,Gn-B</i><br>
 					A pause may be denoted by an empty chord: <i>C,E,,C,G</i><br>
 					To make a chord be a different time, end it with /x, where the chord length will be length<br>
@@ -412,23 +414,23 @@
 	return
 
 /obj/structure/device/piano/attackby(obj/item/O as obj, mob/user as mob)
-	if (istype(O, /obj/item/weapon/wrench))
+	if (iswrench(O))
 		if (anchored)
 			playsound(src.loc, 'sound/items/Ratchet.ogg', 50, 1)
-			user << "\blue You begin to loosen \the [src]'s casters..."
+			user << "<span class='notice'>You begin to loosen \the [src]'s casters...</span>"
 			if (do_after(user, 40))
 				user.visible_message( \
 					"[user] loosens \the [src]'s casters.", \
-					"\blue You have loosened \the [src]. Now it can be pulled somewhere else.", \
+					"<span class='notice'>You have loosened \the [src]. Now it can be pulled somewhere else.</span>", \
 					"You hear ratchet.")
 				src.anchored = 0
 		else
 			playsound(src.loc, 'sound/items/Ratchet.ogg', 50, 1)
-			user << "\blue You begin to tighten \the [src] to the floor..."
+			user << "<span class='notice'>You begin to tighten \the [src] to the floor...</span>"
 			if (do_after(user, 20))
 				user.visible_message( \
 					"[user] tightens \the [src]'s casters.", \
-					"\blue You have tightened \the [src]'s casters. Now it can be played again.", \
+					"<span class='notice'>You have tightened \the [src]'s casters. Now it can be played again</span>.", \
 					"You hear ratchet.")
 				src.anchored = 1
 	else

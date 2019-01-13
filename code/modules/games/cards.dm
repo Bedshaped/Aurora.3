@@ -1,19 +1,31 @@
 /datum/playingcard
 	var/name = "playing card"
 	var/card_icon = "card_back"
+	var/back_icon = "card_back"
 
 /obj/item/weapon/deck
-	name = "deck of cards"
-	desc = "A simple deck of playing cards."
-	icon = 'icons/obj/playing_cards.dmi'
-	icon_state = "deck"
 	w_class = 2
-
+	icon = 'icons/obj/playing_cards.dmi'
 	var/list/cards = list()
 
-/obj/item/weapon/deck/New()
-	..()
+/obj/item/weapon/deck/proc/generate_deck() //the procs that creates the cards
+	return
 
+/obj/item/weapon/deck/holder
+	name = "card box"
+	desc = "A small leather case to show how classy you are compared to everyone else."
+	icon_state = "card_holder"
+
+/obj/item/weapon/deck/cards
+	name = "deck of cards"
+	desc = "A simple deck of playing cards."
+	icon_state = "deck"
+
+/obj/item/weapon/deck/Initialize()
+	. = ..()
+	generate_deck()
+
+/obj/item/weapon/deck/cards/generate_deck()
 	var/datum/playingcard/P
 	for(var/suit in list("spades","clubs","diamonds","hearts"))
 
@@ -27,12 +39,14 @@
 			P = new()
 			P.name = "[number] of [suit]"
 			P.card_icon = "[colour]num"
+			P.back_icon = "card_back"
 			cards += P
 
 		for(var/number in list("jack","queen","king"))
 			P = new()
 			P.name = "[number] of [suit]"
 			P.card_icon = "[colour]col"
+			P.back_icon = "card_back"
 			cards += P
 
 
@@ -48,7 +62,7 @@
 		for(var/datum/playingcard/P in H.cards)
 			cards += P
 		qdel(O)
-		user << "You place your cards on the bottom of the deck."
+		user << "You place your cards on the bottom of \the [src]."
 		return
 	..()
 
@@ -128,12 +142,11 @@
 /obj/item/weapon/hand/attackby(obj/O as obj, mob/user as mob)
 	if(istype(O,/obj/item/weapon/hand))
 		var/obj/item/weapon/hand/H = O
-		for(var/datum/playingcard/P in H.cards)
-			cards += P
-		src.concealed = H.concealed
-		qdel(O)
-		user.put_in_hands(src)
-		update_icon()
+		for(var/datum/playingcard/P in cards)
+			H.cards += P
+		H.concealed = src.concealed
+		qdel(src)
+		H.update_icon()
 		return
 	..()
 
@@ -145,6 +158,7 @@
 		newcards += P
 		cards -= P
 	cards = newcards
+	playsound(src.loc, 'sound/items/cardshuffle.ogg', 100, 1, -4)
 	user.visible_message("\The [user] shuffles [src].")
 
 /obj/item/weapon/deck/MouseDrop(atom/over)
@@ -158,6 +172,27 @@
 		return
 
 	deal_at(usr, over)
+
+/obj/item/weapon/pack/
+	name = "card pack"
+	desc = "For those with disposible income."
+
+	icon_state = "card_pack"
+	icon = 'icons/obj/playing_cards.dmi'
+	w_class = 1
+	var/list/cards = list()
+
+
+/obj/item/weapon/pack/attack_self(var/mob/user as mob)
+	user.visible_message("[user] rips open \the [src]!")
+	var/obj/item/weapon/hand/H = new()
+
+	H.cards += cards
+	cards.Cut();
+	user.drop_from_inventory(src,get_turf(src))
+	H.update_icon()
+	user.put_in_active_hand(H)
+	qdel(src)
 
 /obj/item/weapon/hand
 	name = "hand of cards"
@@ -192,7 +227,7 @@
 	H.update_icon()
 	src.update_icon()
 	usr.visible_message("\The [usr] plays \the [discarding].")
-	H.loc = get_step(usr,usr.dir)
+	H.forceMove(get_step(usr,usr.dir))
 
 	if(!cards.len)
 		qdel(src)
@@ -221,15 +256,14 @@
 		name = "a playing card"
 		desc = "A playing card."
 
-	overlays.Cut()
-
+	cut_overlays()
 
 	if(cards.len == 1)
 		var/datum/playingcard/P = cards[1]
-		var/image/I = new(src.icon, (concealed ? "card_back" : "[P.card_icon]") )
+		var/image/I = new(src.icon, (concealed ? "[P.back_icon]" : "[P.card_icon]") )
 		I.pixel_x += (-5+rand(10))
 		I.pixel_y += (-5+rand(10))
-		overlays += I
+		add_overlay(I)
 		return
 
 	var/offset = Floor(20/cards.len)
@@ -249,7 +283,7 @@
 				M.Translate(-2,  0)
 	var/i = 0
 	for(var/datum/playingcard/P in cards)
-		var/image/I = new(src.icon, (concealed ? "card_back" : "[P.card_icon]") )
+		var/image/I = new(src.icon, (concealed ? "[P.back_icon]" : "[P.card_icon]") )
 		//I.pixel_x = origin+(offset*i)
 		switch(direction)
 			if(SOUTH)
@@ -261,7 +295,7 @@
 			else
 				I.pixel_x = -7+(offset*i)
 		I.transform = M
-		overlays += I
+		add_overlay(I)
 		i++
 
 /obj/item/weapon/hand/dropped(mob/user as mob)

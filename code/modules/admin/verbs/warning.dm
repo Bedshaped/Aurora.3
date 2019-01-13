@@ -36,15 +36,15 @@
 		warned_computerid = C.computer_id
 		warned_ip = C.address
 	else
-		var/DBQuery/lookup_query = dbcon.NewQuery("SELECT ip, computerid FROM ss13_player WHERE ckey = :ckey")
-		lookup_query.Execute(list(":ckey" = warned_ckey))
+		var/DBQuery/lookup_query = dbcon.NewQuery("SELECT ip, computerid FROM ss13_player WHERE ckey = :ckey:")
+		lookup_query.Execute(list("ckey" = warned_ckey))
 
 		if (lookup_query.NextRow())
 			warned_ip = lookup_query.item[1]
 			warned_computerid = lookup_query.item[2]
 
-	var/DBQuery/insert_query = dbcon.NewQuery("INSERT INTO ss13_warnings (id, time, severity, reason, notes, ckey, computerid, ip, a_ckey, a_ip, a_computerid) VALUES (null, Now(), :warning_severity, :warning_reason, :warning_notes, :warned_ckey, :warned_computerid, :warned_ip, :a_ckey, :a_ip, :a_computerid)")
-	insert_query.Execute(list(":warning_severity" = warning_severity, ":warning_reason" = warning_reason, ":warning_notes" = warning_notes, ":warned_ckey" = warned_ckey, ":warned_computerid" = warned_computerid, ":warned_ip" = warned_ip, ":a_ckey" = ckey, ":a_ip" = address, ":a_computerid" = computer_id))
+	var/DBQuery/insert_query = dbcon.NewQuery("INSERT INTO ss13_warnings (id, time, severity, reason, notes, ckey, computerid, ip, a_ckey, a_ip, a_computerid) VALUES (null, Now(), :warning_severity:, :warning_reason:, :warning_notes:, :warned_ckey:, :warned_computerid:, :warned_ip:, :a_ckey:, :a_ip:, :a_computerid:)")
+	insert_query.Execute(list("warning_severity" = warning_severity, "warning_reason" = warning_reason, "warning_notes" = warning_notes, "warned_ckey" = warned_ckey, "warned_computerid" = warned_computerid, "warned_ip" = warned_ip, "a_ckey" = ckey, "a_ip" = address, "a_computerid" = computer_id))
 
 	notes_add_sql(warned_ckey, "Warning added by [ckey], for: [warning_reason]. || Notes regarding the warning: [warning_notes].", src, warned_ip, warned_computerid)
 
@@ -79,7 +79,7 @@
 		ban_unban_log_save("[ckey] warned [warned_ckey], resulting in a [AUTOBANTIME] minute autoban.")
 		if(C)
 			message_admins("[key_name_admin(src)] has warned [key_name_admin(C)] resulting in a [AUTOBANTIME] minute ban.")
-			C << "<font color='red'><BIG><B>You have been autobanned due to a warning by [ckey].</B></BIG><br>This is a temporary ban, it will be removed in [AUTOBANTIME] minutes."
+			C << "<font color='red'><BIG><B>You have been autobanned due to a warning by [ckey].</B></BIG><br>This is a temporary ban, it will be removed in [AUTOBANTIME] minutes.</font>"
 			qdel(C)
 		else
 			message_admins("[key_name_admin(src)] has warned [warned_ckey] resulting in a [AUTOBANTIME] minute ban.")
@@ -102,7 +102,7 @@
  */
 
 /client/verb/warnings_check()
-	set name = "My warnings"
+	set name = "Warnings and Notifications"
 	set category = "OOC"
 	set desc = "Display warnings issued to you."
 
@@ -115,7 +115,48 @@
 		alert("Connection to the SQL database lost. Aborting. Please alert an Administrator or a member of staff.")
 		return
 
-	var/dat = "<div align='center'><h3>Warnings received</h3></div><br>"
+	var/dat = ""
+
+	//
+	// Notifications
+	//
+
+	var/DBQuery/notification_query = dbcon.NewQuery({"SELECT
+		id, message, created_by
+	FROM ss13_player_notifications
+	WHERE 
+		acked_at IS NULL 
+		AND ckey = :ckey:
+		AND type IN ('player_greeting','player_greeting_chat')
+	"})
+	notification_query.Execute(list("ckey" = ckey))
+
+	var/notification_header=0
+	while(notification_query.NextRow())
+		if(!notification_header)
+			notification_header=1
+			dat += "<div align='center'><h3>Pending Notifications</h3></div><br>"
+			dat += "<table width='90%' bgcolor='#e3e3e3' cellpadding='5' cellspacing='0' align='center'>"
+			dat += "<tr>"
+			dat += "<th width='20%'>ADMIN</th>"
+			dat += "<th width='60%'>TEXT</th>"
+			dat += "<th width='20%'>ACKNOWLEDGE</th>"
+			dat += "</tr>"
+		
+		dat += "<tr bgcolor='90ee90' align='center'>"
+		dat += "<td>[notification_query.item[3]]</td>"
+		dat += "<td>[notification_query.item[2]]</td>"
+		dat += "<td><b>(<a href='byond://?src=\ref[src];notifacknowledge=[notification_query.item[1]]'>Acknowledge Notification</a>)</b></td>"
+		dat += "</tr>"
+
+	if(notification_header)
+		dat += "</table>"
+
+	//
+	// Warnings
+	//
+
+	dat += "<div align='center'><h3>Warnings Received</h3></div><br>"
 
 	dat += "<table width='90%' bgcolor='#e3e3e3' cellpadding='5' cellspacing='0' align='center'>"
 	dat += "<tr>"
@@ -124,8 +165,8 @@
 	dat += "<th width='60%'>REASON</th>"
 	dat += "</tr>"
 
-	var/DBQuery/search_query = dbcon.NewQuery("SELECT id, time, severity, reason, a_ckey, acknowledged, expired FROM ss13_warnings WHERE visible = 1 AND (ckey = :ckey OR computerid = :computer_id OR ip = :address) ORDER BY time DESC;")
-	search_query.Execute(list(":ckey" = ckey, ":computer_id" = computer_id, ":address" = address))
+	var/DBQuery/search_query = dbcon.NewQuery("SELECT id, time, severity, reason, a_ckey, acknowledged, expired FROM ss13_warnings WHERE visible = 1 AND (ckey = :ckey: OR computerid = :computer_id: OR ip = :address:) ORDER BY time DESC;")
+	search_query.Execute(list("ckey" = ckey, "computer_id" = computer_id, "address" = address))
 
 	while (search_query.NextRow())
 		var/id = text2num(search_query.item[1])
@@ -177,8 +218,25 @@
 		alert("Connection to SQL database failed while attempting to update your warning's status!")
 		return
 
-	var/DBQuery/query = dbcon.NewQuery("UPDATE ss13_warnings SET acknowledged = 1 WHERE id = :warning_id;")
-	query.Execute(list(":warning_id" = warning_id))
+	var/DBQuery/query = dbcon.NewQuery("UPDATE ss13_warnings SET acknowledged = 1 WHERE id = :warning_id:;")
+	query.Execute(list("warning_id" = warning_id))
+
+	warnings_check()
+
+/client/proc/notifications_acknowledge(var/id)
+	if(!id)
+		error("Error: Argument ID for notificaton acknowledgement not supplied.")
+		return
+
+	if (!establish_db_connection(dbcon))
+		error("Error: Unable to establish db connection during notification acknowledgement.")
+		return
+
+	var/DBQuery/query = dbcon.NewQuery({"UPDATE ss13_player_notifications
+	SET acked_by = :ckey:, acked_at = NOW()
+	WHERE id = :id: AND ckey = :ckey:
+	"})
+	query.Execute(list("ckey" = src.ckey, "id" = id))
 
 	warnings_check()
 
@@ -194,17 +252,17 @@
 	if (!dbcon.IsConnected())
 		return
 
-	var/list/client_details = list(":ckey" = ckey, ":computer_id" = computer_id, ":address" = address)
+	var/list/client_details = list("ckey" = ckey, "computer_id" = computer_id, "address" = address)
 
-	var/DBQuery/expire_query = dbcon.NewQuery("SELECT id FROM ss13_warnings WHERE (acknowledged = 1 AND expired = 0 AND DATE_SUB(CURDATE(),INTERVAL 3 MONTH) > time) AND (ckey = :ckey OR computerid = :computer_id OR ip = :address)")
+	var/DBQuery/expire_query = dbcon.NewQuery("SELECT id FROM ss13_warnings WHERE (acknowledged = 1 AND expired = 0 AND DATE_SUB(CURDATE(),INTERVAL 3 MONTH) > time) AND (ckey = :ckey: OR computerid = :computer_id: OR ip = :address:)")
 	expire_query.Execute(client_details)
 	while (expire_query.NextRow())
 		var/warning_id = text2num(expire_query.item[1])
-		var/DBQuery/update_query = dbcon.NewQuery("UPDATE ss13_warnings SET expired = 1 WHERE id = :warning_id")
-		update_query.Execute(list(":warning_id" = warning_id))
+		var/DBQuery/update_query = dbcon.NewQuery("UPDATE ss13_warnings SET expired = 1 WHERE id = :warning_id:")
+		update_query.Execute(list("warning_id" = warning_id))
 		count_expire++
 
-	var/DBQuery/query = dbcon.NewQuery("SELECT id FROM ss13_warnings WHERE (visible = 1 AND acknowledged = 0 AND expired = 0) AND (ckey = :ckey OR computerid = :computer_id OR ip = :address)")
+	var/DBQuery/query = dbcon.NewQuery("SELECT id FROM ss13_warnings WHERE (visible = 1 AND acknowledged = 0 AND expired = 0) AND (ckey = :ckey: OR computerid = :computer_id: OR ip = :address:)")
 	query.Execute(client_details)
 	while (query.NextRow())
 		count++
@@ -265,18 +323,18 @@
 		dat += "<th width='60%'>REASON</th>"
 		dat += "</tr>"
 
-		var/list/query_details = list(":a_ckey", ":ckey")
+		var/list/query_details = list("a_ckey", "ckey")
 		var/paramone = ""
 		var/paramtwo = ""
 		if(adminckey)
-			paramone = "AND a_ckey = :a_ckey "
-			query_details[":a_ckey"] = adminckey
+			paramone = "AND a_ckey = :a_ckey: "
+			query_details["a_ckey"] = adminckey
 		if(playerckey)
-			paramtwo = "AND ckey = :ckey "
-			query_details[":ckey"] = playerckey
+			paramtwo = "AND ckey = :ckey: "
+			query_details["ckey"] = playerckey
 
 		var/DBQuery/search_query = dbcon.NewQuery("SELECT id, time, severity, reason, notes, ckey, a_ckey, acknowledged, expired, edited, lasteditor, lasteditdate FROM ss13_warnings WHERE visible = 1 [paramone] [paramtwo] ORDER BY time DESC;")
-		search_query.Execute(query_details, 1)
+		search_query.Execute(query_details)
 
 		while (search_query.NextRow())
 			var/id = text2num(search_query.item[1])
@@ -334,6 +392,50 @@
 	usr << browse(dat, "window=lookupwarns;size=900x500")
 	feedback_add_details("admin_verb","WARN-LKUP")
 
+//Admin Proc to add a new User Notification
+/client/proc/notification_add()
+	set category = "Admin"
+	set name = "Add Notification"
+
+	if(!check_rights(R_ADMIN|R_MOD|R_DEV|R_CCIAA))
+		return
+
+	if (!establish_db_connection(dbcon))
+		error("Error: Unable to establish db connection while adding a notification.")
+		return
+
+	var/ckey = ckey(input(usr, "What ckey?", "Enter a ckey"))
+	if(!ckey)
+		to_chat(usr,"You need to specify a ckey.")
+		return
+
+	//Validate ckey
+	var/DBQuery/validatequery = dbcon.NewQuery("SELECT id FROM ss13_player WHERE ckey = :ckey:")
+	validatequery.Execute(list("ckey" = ckey))
+
+	if (validatequery.RowCount() == 0)
+		to_chat(usr, "Could not find a player with that ckey.")
+		return
+	else if (validatequery.RowCount() != 1)
+		to_chat(usr, "Found more than one player with this ckey. This should not happen, please inform the server maintainers.")
+		return
+
+	var/list/types=list("player_greeting","player_greeting_chat","admin","ccia")
+	var/type = input(usr, "Which Type?", "Choose a type", "") as null|anything in (types)
+	if(!type)
+		to_chat(usr,"You need to specify a type.")
+		return
+
+	var/message = sanitize(input(usr,"Notification Message", "Specify a notification message"))
+	if(!message)
+		to_chat(usr,"You need to specify a notification message.")
+		return
+
+	var/DBQuery/addquery = dbcon.NewQuery("INSERT INTO ss13_player_notifications (`ckey`, `type`, `message`, `created_by`) VALUES (:ckey:, :type:, :message:, :a_ckey:)")
+	addquery.Execute(list("ckey" = ckey, "type" = type, "message" = message, "a_ckey" = usr.ckey))
+	to_chat(usr,"Notification added.")
+	
+
 /*
  * A proc for editing and deleting warnings issued
  */
@@ -351,10 +453,10 @@
 	var/ckey
 	var/reason
 	var/notes
-	var/list/query_details = list(":warning_id" = warning_id, ":a_ckey" = usr.ckey)
+	var/list/query_details = list("warning_id" = warning_id, "a_ckey" = usr.ckey)
 
-	var/DBQuery/initial_query = dbcon.NewQuery("SELECT ckey, reason, notes FROM ss13_warnings WHERE id = :warning_id")
-	initial_query.Execute(query_details, 1)
+	var/DBQuery/initial_query = dbcon.NewQuery("SELECT ckey, reason, notes FROM ss13_warnings WHERE id = :warning_id:")
+	initial_query.Execute(query_details)
 	while (initial_query.NextRow())
 		ckey = initial_query.item[1]
 		reason = initial_query.item[2]
@@ -362,51 +464,49 @@
 		count++
 
 	if (count == 0)
-		usr << "\red Database update failed due to a warning id not being present in the database."
+		usr << "<span class='warning'>Database update failed due to a warning id not being present in the database.</span>"
 		error("Database update failed due to a warning id not being present in the database.")
 		return
 
 	if (count > 1)
-		usr << "\red Database update failed due to multiple warnings having the same ID. Contact the database admin."
+		usr << "<span class='warning'>Database update failed due to multiple warnings having the same ID. Contact the database admin.</span>"
 		error("Database update failed due to multiple warnings having the same ID. Contact the database admin.")
 		return
 
 	switch (warning_edit)
 		if ("delete")
 			if(alert("Delete this warning?", "Delete?", "Yes", "No") == "Yes")
-				var/DBQuery/deleteQuery = dbcon.NewQuery("UPDATE ss13_warnings SET visible = 0 WHERE id = :warning_id")
-				deleteQuery.Execute(query_details, 1)
+				var/DBQuery/deleteQuery = dbcon.NewQuery("UPDATE ss13_warnings SET visible = 0 WHERE id = :warning_id:")
+				deleteQuery.Execute(query_details)
 
-				message_admins("\blue [key_name_admin(usr)] deleted one of [ckey]'s warnings.")
-				log_admin("[key_name(usr)] deleted one of [ckey]'s warnings.")
+				message_admins("<span class='notice'>[key_name_admin(usr)] deleted one of [ckey]'s warnings.</span>")
+				log_admin("[key_name(usr)] deleted one of [ckey]'s warnings.", admin_key=key_name(usr), ckey=ckey)
 			else
 				usr << "Cancelled"
 				return
 
 		if ("editReason")
-			query_details += ":new_reason"
-			query_details[":new_reason"] = input("Edit this warning's reason.", "New Reason", reason, null) as null|text
+			query_details["new_reason"] = input("Edit this warning's reason.", "New Reason", reason, null) as null|text
 
-			if(!query_details[":new_reason"] || query_details[":new_reason"] == reason)
+			if(!query_details["new_reason"] || query_details["new_reason"] == reason)
 				usr << "Cancelled"
 				return
 
-			var/DBQuery/reason_query = dbcon.NewQuery("UPDATE ss13_warnings SET reason = :new_reason, edited = 1, lasteditor = :a_ckey, lasteditdate = NOW() WHERE id = :warning_id")
-			reason_query.Execute(query_details, 1)
+			var/DBQuery/reason_query = dbcon.NewQuery("UPDATE ss13_warnings SET reason = :new_reason:, edited = 1, lasteditor = :a_ckey:, lasteditdate = NOW() WHERE id = :warning_id:")
+			reason_query.Execute(query_details)
 
-			message_admins("\blue [key_name_admin(usr)] edited one of [ckey]'s warning reasons.")
-			log_admin("[key_name(usr)] edited one of [ckey]'s warning reasons.")
+			message_admins("<span class='notice'>[key_name_admin(usr)] edited one of [ckey]'s warning reasons.</span>")
+			log_admin("[key_name(usr)] edited one of [ckey]'s warning reasons.", admin_key=key_name(usr), ckey=ckey)
 
 		if("editNotes")
-			query_details += ":new_notes"
-			query_details[":new_notes"] = input("Edit this warning's notes.", "New Notes", notes, null) as null|text
+			query_details["new_notes"] = input("Edit this warning's notes.", "New Notes", notes, null) as null|text
 
-			if(!query_details[":new_notes"] || query_details[":new_notes"] == notes)
+			if(!query_details["new_notes"] || query_details["new_notes"] == notes)
 				usr << "Cancelled"
 				return
 
-			var/DBQuery/notes_query = dbcon.NewQuery("UPDATE ss13_warnings SET notes = :new_notes, edited = 1, lasteditor = :a_ckey, lasteditdate = NOW() WHERE id = :warning_id")
-			notes_query.Execute(query_details, 1)
+			var/DBQuery/notes_query = dbcon.NewQuery("UPDATE ss13_warnings SET notes = :new_notes:, edited = 1, lasteditor = :a_ckey:, lasteditdate = NOW() WHERE id = :warning_id:")
+			notes_query.Execute(query_details)
 
-			message_admins("\blue [key_name_admin(usr)] edited one of [ckey]'s warning notes.")
-			log_admin("[key_name(usr)] edited one of [ckey]'s warning notes.")
+			message_admins("<span class='notice'>[key_name_admin(usr)] edited one of [ckey]'s warning notes.</span>")
+			log_admin("[key_name(usr)] edited one of [ckey]'s warning notes.", admin_key=key_name(usr), ckey=ckey)

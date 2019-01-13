@@ -54,33 +54,33 @@
 	var/datum/wires/mulebot/wires = null
 
 	var/bloodiness = 0		// count of bloodiness
+	var/static/total_mules = 0
 
-/obj/machinery/bot/mulebot/New()
-	..()
+/obj/machinery/bot/mulebot/Initialize()
+	. = ..()
 	wires = new(src)
 	botcard = new(src)
 	botcard.access = list(access_maint_tunnels, access_mailsorting, access_cargo, access_cargo_bot, access_qm, access_mining, access_mining_station)
 	cell = new(src)
 	cell.charge = 2000
 	cell.maxcharge = 2000
+	if(SSradio)
+		SSradio.add_object(src, control_freq, filter = RADIO_MULEBOT)
+		SSradio.add_object(src, beacon_freq, filter = RADIO_NAVBEACONS)
 
-	spawn(5)	// must wait for map loading to finish
-		if(radio_controller)
-			radio_controller.add_object(src, control_freq, filter = RADIO_MULEBOT)
-			radio_controller.add_object(src, beacon_freq, filter = RADIO_NAVBEACONS)
-
-		var/count = 0
-		for(var/obj/machinery/bot/mulebot/other in world)
-			count++
-		if(!suffix)
-			suffix = "#[count]"
-		name = "Mulebot ([suffix])"
+	total_mules++
+	if(!suffix)
+		suffix = "#[total_mules]"
+	name = "Mulebot ([suffix])"
 
 /obj/machinery/bot/mulebot/Destroy()
-	if(radio_controller)
-		radio_controller.remove_object(src,beacon_freq)
-		radio_controller.remove_object(src,control_freq)
-	..()
+	unload(0)
+	qdel(wires)
+	wires = null
+	if(SSradio)
+		SSradio.remove_object(src,beacon_freq)
+		SSradio.remove_object(src,control_freq)
+	return ..()
 
 // attack by item
 // emag : lock/unlock,
@@ -88,61 +88,61 @@
 // cell: insert it
 // other: chance to knock rider off bot
 /obj/machinery/bot/mulebot/attackby(var/obj/item/I, var/mob/user)
-	if(istype(I,/obj/item/weapon/card/emag))
-		locked = !locked
-		user << "\blue You [locked ? "lock" : "unlock"] the mulebot's controls!"
-		flick("mulebot-emagged", src)
-		playsound(src.loc, 'sound/effects/sparks1.ogg', 100, 0)
-	else if(istype(I,/obj/item/weapon/cell) && open && !cell)
+	if(istype(I,/obj/item/weapon/cell) && open && !cell)
 		var/obj/item/weapon/cell/C = I
-		user.drop_item()
-		C.loc = src
+		user.drop_from_inventory(C,src)
 		cell = C
 		updateDialog()
-	else if(istype(I,/obj/item/weapon/screwdriver))
+	else if(isscrewdriver(I))
 		if(locked)
-			user << "\blue The maintenance hatch cannot be opened or closed while the controls are locked."
+			user << "<span class='notice'>The maintenance hatch cannot be opened or closed while the controls are locked.</span>"
 			return
 
 		open = !open
 		if(open)
-			src.visible_message("[user] opens the maintenance hatch of [src]", "\blue You open [src]'s maintenance hatch.")
+			src.visible_message("[user] opens the maintenance hatch of [src]", "<span class='notice'>You open [src]'s maintenance hatch.</span>")
 			on = 0
 			icon_state="mulebot-hatch"
 		else
-			src.visible_message("[user] closes the maintenance hatch of [src]", "\blue You close [src]'s maintenance hatch.")
+			src.visible_message("[user] closes the maintenance hatch of [src]", "<span class='notice'>You close [src]'s maintenance hatch.</span>")
 			icon_state = "mulebot0"
 
 		updateDialog()
-	else if (istype(I, /obj/item/weapon/wrench))
+	else if (iswrench(I))
 		if (src.health < maxhealth)
 			src.health = min(maxhealth, src.health+25)
+			user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 			user.visible_message(
-				"\red [user] repairs [src]!",
-				"\blue You repair [src]!"
+				"<span class='notice'>\The [user] repairs \the [src]!</span>",
+				"<span class='notice'>You repair \the [src]!</span>"
 			)
 		else
-			user << "\blue [src] does not need a repair!"
+			user << "<span class='notice'>[src] does not need a repair!</span>"
 	else if(load && ismob(load))  // chance to knock off rider
 		if(prob(1+I.force * 2))
 			unload(0)
-			user.visible_message("\red [user] knocks [load] off [src] with \the [I]!", "\red You knock [load] off [src] with \the [I]!")
+			user.visible_message("<span class='warning'>[user] knocks [load] off [src] with \the [I]!</span>", "<span class='warning'>You knock [load] off [src] with \the [I]!</span>")
 		else
 			user << "You hit [src] with \the [I] but to no effect."
+		user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 	else
 		..()
 	return
 
+/obj/machinery/bot/mulebot/emag_act(var/remaining_charges, var/user)
+	locked = !locked
+	user << "<span class='notice'>You [locked ? "lock" : "unlock"] the mulebot's controls!</span>"
+	flick("mulebot-emagged", src)
+	playsound(src.loc, 'sound/effects/sparks1.ogg', 100, 0)
+	return 1
 
 /obj/machinery/bot/mulebot/ex_act(var/severity)
 	unload(0)
 	switch(severity)
 		if(2)
-			BITRESET(wires, rand(0,9))
-			BITRESET(wires, rand(0,9))
-			BITRESET(wires, rand(0,9))
+			wires.RandomCutAll(40)//Fix by nanako because the old code was throwing runtimes
 		if(3)
-			BITRESET(wires, rand(0,9))
+			wires.RandomCutAll(20)
 	..()
 	return
 
@@ -150,12 +150,8 @@
 	if(prob(50) && !isnull(load))
 		unload(0)
 	if(prob(25))
-		src.visible_message("\red Something shorts out inside [src]!")
-		var/index = 1<< (rand(0,9))
-		if(wires & index)
-			wires &= ~index
-		else
-			wires |= index
+		src.visible_message("<span class='warning'>Something shorts out inside [src]!</span>")
+		wires.RandomCut()
 	..()
 
 
@@ -250,14 +246,14 @@
 					locked = !locked
 					updateDialog()
 				else
-					usr << "\red Access denied."
+					usr << "<span class='warning'>Access denied.</span>"
 					return
 			if("power")
 				if (src.on)
 					turn_off()
 				else if (cell && !open)
 					if (!turn_on())
-						usr << "\red You can't switch on [src]."
+						usr << "<span class='warning'>You can't switch on [src].</span>"
 						return
 				else
 					return
@@ -272,19 +268,18 @@
 					cell.add_fingerprint(usr)
 					cell = null
 
-					usr.visible_message("\blue [usr] removes the power cell from [src].", "\blue You remove the power cell from [src].")
+					usr.visible_message("<span class='notice'>[usr] removes the power cell from [src].</span>", "<span class='notice'>You remove the power cell from [src].</span>")
 					updateDialog()
 
 			if("cellinsert")
 				if(open && !cell)
 					var/obj/item/weapon/cell/C = usr.get_active_hand()
 					if(istype(C))
-						usr.drop_item()
+						usr.drop_from_inventory(C,src)
 						cell = C
-						C.loc = src
 						C.add_fingerprint(usr)
 
-						usr.visible_message("\blue [usr] inserts a power cell into [src].", "\blue You insert the power cell into [src].")
+						usr.visible_message("<span class='notice'>[usr] inserts a power cell into [src].</span>", "<span class='notice'>You insert the power cell into [src].</span>")
 						updateDialog()
 
 
@@ -408,17 +403,17 @@
 	if(istype(crate))
 		crate.close()
 
-	C.loc = src.loc
+	C.forceMove(src.loc)
 	sleep(2)
 	if(C.loc != src.loc) //To prevent you from going onto more thano ne bot.
 		return
-	C.loc = src
+	C.forceMove(src)
 	load = C
 
 	C.pixel_y += 9
 	if(C.layer < layer)
 		C.layer = layer + 0.1
-	overlays += C
+	add_overlay(C)
 
 	if(ismob(C))
 		var/mob/M = C
@@ -437,9 +432,9 @@
 		return
 
 	mode = 1
-	overlays.Cut()
+	cut_overlays()
 
-	load.loc = src.loc
+	load.forceMove(src.loc)
 	load.pixel_y -= 9
 	load.layer = initial(load.layer)
 	if(ismob(load))
@@ -455,7 +450,7 @@
 		if(CanPass(load,T))//Can't get off onto anything that wouldn't let you pass normally
 			step(load, dirn)
 		else
-			load.loc = src.loc//Drops you right there, so you shouldn't be able to get yourself stuck
+			load.forceMove(src.loc)//Drops you right there, so you shouldn't be able to get yourself stuck
 
 	load = null
 
@@ -466,7 +461,7 @@
 	for(var/atom/movable/AM in src)
 		if(AM == cell || AM == botcard) continue
 
-		AM.loc = src.loc
+		AM.forceMove(src.loc)
 		AM.layer = initial(AM.layer)
 		AM.pixel_y = initial(AM.pixel_y)
 		if(ismob(AM))
@@ -477,13 +472,12 @@
 	mode = 0
 
 
-/obj/machinery/bot/mulebot/process()
+/obj/machinery/bot/mulebot/machinery_process()
 	if(!has_power())
 		on = 0
 		return
 	if(on)
 		var/speed = (wires.Motor1() ? 1:0) + (wires.Motor2() ? 2:0)
-		//world << "speed: [speed]"
 		switch(speed)
 			if(0)
 				// do nothing
@@ -507,7 +501,6 @@
 	if(refresh) updateDialog()
 
 /obj/machinery/bot/mulebot/proc/process_bot()
-	//if(mode) world << "Mode: [mode]"
 	switch(mode)
 		if(0)		// idle
 			icon_state = "mulebot0"
@@ -530,9 +523,6 @@
 
 
 				if(istype( next, /turf/simulated))
-					//world << "at ([x],[y]) moving to ([next.x],[next.y])"
-
-
 					if(bloodiness)
 						var/obj/effect/decal/cleanable/blood/tracks/B = new(loc)
 						var/newdir = get_dir(next, loc)
@@ -552,7 +542,6 @@
 					var/moved = step_towards(src, next)	// attempt to move
 					if(cell) cell.use(1)
 					if(moved)	// successful move
-						//world << "Successful move."
 						blockcount = 0
 						path -= loc
 
@@ -567,11 +556,6 @@
 							mode = 2
 
 					else		// failed to move
-
-						//world << "Unable to move."
-
-
-
 						blockcount++
 						mode = 4
 						if(blockcount == 3)
@@ -595,16 +579,13 @@
 				else
 					src.visible_message("[src] makes an annoyed buzzing sound", "You hear an electronic buzzing sound.")
 					playsound(src.loc, 'sound/machines/buzz-two.ogg', 50, 0)
-					//world << "Bad turf."
 					mode = 5
 					return
 			else
-				//world << "No path."
 				mode = 5
 				return
 
 		if(5)		// calculate new path
-			//world << "Calc new path."
 			mode = 6
 			spawn(0)
 
@@ -621,10 +602,6 @@
 					playsound(src.loc, 'sound/machines/buzz-sigh.ogg', 50, 0)
 
 					mode = 7
-		//if(6)
-			//world << "Pending path calc."
-		//if(7)
-			//world << "No dest / no route."
 	return
 
 
@@ -697,28 +674,24 @@
 	return
 
 // called when bot bumps into anything
-/obj/machinery/bot/mulebot/Bump(var/atom/obs)
+/obj/machinery/bot/mulebot/Collide(var/atom/obs)
 	if(!wires.MobAvoid())		//usually just bumps, but if avoidance disabled knock over mobs
 		var/mob/M = obs
 		if(ismob(M))
 			if(istype(M,/mob/living/silicon/robot))
-				src.visible_message("\red [src] bumps into [M]!")
+				src.visible_message("<span class='warning'>[src] bumps into [M]!</span>")
 			else
-				src.visible_message("\red [src] knocks over [M]!")
+				src.visible_message("<span class='warning'>[src] knocks over [M]!</span>")
 				M.stop_pulling()
 				M.Stun(8)
 				M.Weaken(5)
 				M.lying = 1
-	..()
-
-/obj/machinery/bot/mulebot/alter_health()
-	return get_turf(src)
-
+	. = ..()
 
 // called from mob/living/carbon/human/Crossed()
 // when mulebot is in the same loc
 /obj/machinery/bot/mulebot/proc/RunOver(var/mob/living/carbon/human/H)
-	src.visible_message("\red [src] drives over [H]!")
+	src.visible_message("<span class='warning'>[src] drives over [H]!</span>")
 	playsound(src.loc, 'sound/effects/splat.ogg', 50, 1)
 
 	var/damage = rand(5,15)
@@ -731,6 +704,8 @@
 
 	blood_splatter(src,H,1)
 	bloodiness += 4
+
+	SSfeedback.IncrementSimpleStat("mule_victims")
 
 // player on mulebot attempted to move
 /obj/machinery/bot/mulebot/relaymove(var/mob/user)
@@ -821,19 +796,18 @@
 	if(freq == control_freq && !wires.RemoteTX())
 		return
 
-	var/datum/radio_frequency/frequency = radio_controller.return_frequency(freq)
+	var/datum/radio_frequency/frequency = SSradio.return_frequency(freq)
 
 	if(!frequency) return
 
 
 
 	var/datum/signal/signal = new()
+
 	signal.source = src
 	signal.transmission_method = 1
-	//for(var/key in keyval)
-	//	signal.data[key] = keyval[key]
 	signal.data = keyval
-		//world << "sent [key],[keyval[key]] on [freq]"
+
 	if (signal.data["findbeacon"])
 		frequency.post_signal(src, signal, filter = RADIO_NAVBEACONS)
 	else if (signal.data["type"] == "mulebot")
@@ -853,7 +827,7 @@
 		"home" = home_destination,
 		"load" = load,
 		"retn" = auto_return,
-		"pick" = auto_pickup,
+		"pick" = auto_pickup
 	)
 	post_signal_multiple(control_freq, kv)
 
@@ -866,21 +840,19 @@
 
 
 /obj/machinery/bot/mulebot/explode()
-	src.visible_message("\red <B>[src] blows apart!</B>", 1)
+	visible_message("<span class='danger'>[src] blows apart!</span>")
 	var/turf/Tsec = get_turf(src)
 
 	new /obj/item/device/assembly/prox_sensor(Tsec)
-	PoolOrNew(/obj/item/stack/rods, Tsec)
-	PoolOrNew(/obj/item/stack/rods, Tsec)
+	new /obj/item/stack/rods(Tsec)
+	new /obj/item/stack/rods(Tsec)
 	new /obj/item/stack/cable_coil/cut(Tsec)
 	if (cell)
-		cell.loc = Tsec
+		cell.forceMove(Tsec)
 		cell.update_icon()
 		cell = null
 
-	var/datum/effect/effect/system/spark_spread/s = new /datum/effect/effect/system/spark_spread
-	s.set_up(3, 1, src)
-	s.start()
+	spark(Tsec, 3, alldirs)
 
 	new /obj/effect/decal/cleanable/blood/oil(src.loc)
 	unload(0)

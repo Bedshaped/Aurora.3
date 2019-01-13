@@ -5,8 +5,8 @@
 	sharp = 1
 	embed = 1 //the dart is shot fast enough to pierce space suits, so I guess splintering inside the target can be a thing. Should be rare due to low damage.
 	var/reagent_amount = 15
-	kill_count = 15 //shorter range
-	
+	range = 15 //shorter range
+
 	muzzle_type = null
 
 /obj/item/projectile/bullet/chemdart/New()
@@ -14,7 +14,7 @@
 	reagents.my_atom = src
 
 /obj/item/projectile/bullet/chemdart/on_hit(var/atom/target, var/blocked = 0, var/def_zone = null)
-	if(blocked < 2 && isliving(target))
+	if(blocked < 100 && isliving(target))
 		var/mob/living/L = target
 		if(L.can_inject(target_zone=def_zone))
 			reagents.trans_to_mob(L, reagent_amount, CHEM_BLOOD)
@@ -34,7 +34,7 @@
 	desc = "A rack of hollow darts."
 	icon_state = "darts"
 	item_state = "rcdammo"
-	origin_tech = "materials=2"
+	origin_tech = list(TECH_MATERIAL = 2)
 	mag_type = MAGAZINE
 	caliber = "dart"
 	ammo_type = /obj/item/ammo_casing/chemdart
@@ -50,11 +50,13 @@
 	caliber = "dart"
 	fire_sound = 'sound/weapons/empty.ogg'
 	fire_sound_text = "a metallic click"
+	accuracy = 1
 	recoil = 0
 	silenced = 1
 	load_method = MAGAZINE
 	magazine_type = /obj/item/ammo_magazine/chemdart
 	auto_eject = 0
+	needspin = FALSE
 
 	var/list/beakers = list() //All containers inside the gun.
 	var/list/mixing = list() //Containers being used for mixing.
@@ -63,14 +65,13 @@
 	var/container_type = /obj/item/weapon/reagent_containers/glass/beaker
 	var/list/starting_chems = null
 
-/obj/item/weapon/gun/projectile/dartgun/dartgun/New()
-	..()
+/obj/item/weapon/gun/projectile/dartgun/Initialize()
+	. = ..()
 	if(starting_chems)
 		for(var/chem in starting_chems)
 			var/obj/B = new container_type(src)
 			B.reagents.add_reagent(chem, 60)
 			beakers += B
-	update_icon()
 
 /obj/item/weapon/gun/projectile/dartgun/update_icon()
 	if(!ammo_magazine)
@@ -97,25 +98,24 @@
 	//	return
 	..()
 	if (beakers.len)
-		user << "\blue [src] contains:"
+		user << "<span class='notice'>[src] contains:</span>"
 		for(var/obj/item/weapon/reagent_containers/glass/beaker/B in beakers)
 			if(B.reagents && B.reagents.reagent_list.len)
 				for(var/datum/reagent/R in B.reagents.reagent_list)
-					user << "\blue [R.volume] units of [R.name]"
+					user << "<span class='notice'>[R.volume] units of [R.name]</span>"
 
 /obj/item/weapon/gun/projectile/dartgun/attackby(obj/item/I as obj, mob/user as mob)
 	if(istype(I, /obj/item/weapon/reagent_containers/glass))
 		if(!istype(I, container_type))
-			user << "\blue [I] doesn't seem to fit into [src]."
+			user << "<span class='notice'>[I] doesn't seem to fit into [src].</span>"
 			return
 		if(beakers.len >= max_beakers)
-			user << "\blue [src] already has [max_beakers] beakers in it - another one isn't going to fit!"
+			user << "<span class='notice'>[src] already has [max_beakers] beakers in it - another one isn't going to fit!</span>"
 			return
 		var/obj/item/weapon/reagent_containers/glass/beaker/B = I
-		user.drop_item()
-		B.loc = src
+		user.drop_from_inventory(B,src)
 		beakers += B
-		user << "\blue You slot [B] into [src]."
+		user << "<span class='notice'>You slot [B] into [src].</span>"
 		src.updateUsrDialog()
 		return 1
 	..()
@@ -189,7 +189,7 @@
 				usr << "You remove [B] from [src]."
 				mixing -= B
 				beakers -= B
-				B.loc = get_turf(src)
+				B.forceMove(get_turf(src))
 	else if (href_list["eject_cart"])
 		unload_ammo(usr)
 	src.updateUsrDialog()

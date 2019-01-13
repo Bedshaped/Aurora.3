@@ -17,7 +17,7 @@
 	desc = "A weak forcefield which seems to be projected by the station's emergency atmosphere containment field"
 	health = max_health/2 // Half health, it's not suposed to resist much.
 
-/obj/machinery/shield/malfai/process()
+/obj/machinery/shield/malfai/machinery_process()
 	health -= 0.5 // Slowly lose integrity over time
 	check_failure()
 
@@ -36,7 +36,7 @@
 	opacity = 0
 	density = 0
 	update_nearby_tiles()
-	..()
+	return ..()
 
 /obj/machinery/shield/CanPass(atom/movable/mover, turf/target, height, air_group)
 	if(!height || air_group) return 0
@@ -54,20 +54,12 @@
 	playsound(src.loc, 'sound/effects/EMPulse.ogg', 75, 1)
 
 	check_failure()
-	opacity = 1
-	spawn(20) if(src) opacity = 0
+	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
 
 	..()
 
-/obj/machinery/shield/meteorhit()
-	src.health -= max_health*0.75 //3/4 health as damage
-	check_failure()
-	opacity = 1
-	spawn(20) if(src) opacity = 0
-	return
-
 /obj/machinery/shield/bullet_act(var/obj/item/projectile/Proj)
-	health -= Proj.damage
+	health -= Proj.get_structure_damage()
 	..()
 	check_failure()
 	opacity = 1
@@ -93,9 +85,6 @@
 		if(2)
 			if(prob(50))
 				qdel(src)
-
-/obj/machinery/shield/blob_act()
-	qdel(src)
 
 
 /obj/machinery/shield/hitby(AM as mob|obj)
@@ -130,7 +119,6 @@
 	density = 1
 	opacity = 0
 	anchored = 0
-	pressure_resistance = 2*ONE_ATMOSPHERE
 	req_access = list(access_engine)
 	var/const/max_health = 100
 	var/health = max_health
@@ -146,7 +134,7 @@
 
 /obj/machinery/shieldgen/Destroy()
 	collapse_shields()
-	..()
+	return ..()
 
 /obj/machinery/shieldgen/proc/shields_up()
 	if(active) return 0 //If it's already turned on, how did this get called?
@@ -192,7 +180,7 @@
 		create_shields()
 	update_icon()
 
-/obj/machinery/shieldgen/process()
+/obj/machinery/shieldgen/machinery_process()
 	if (!active || (stat & NOPOWER))
 		return
 
@@ -223,13 +211,6 @@
 			explosion(get_turf(src.loc), 0, 0, 1, 0, 0, 0)
 		qdel(src)
 	update_icon()
-	return
-
-/obj/machinery/shieldgen/meteorhit(obj/O as obj)
-	src.health -= max_health*0.25 //A quarter of the machine's health
-	if (prob(5))
-		src.malfunction = 1
-	src.checkhp()
 	return
 
 /obj/machinery/shieldgen/ex_act(severity)
@@ -268,35 +249,37 @@
 		return
 
 	if (src.active)
-		user.visible_message("\blue \icon[src] [user] deactivated the shield generator.", \
-			"\blue \icon[src] You deactivate the shield generator.", \
+		user.visible_message("<span class='notice'>\icon[src] [user] deactivated the shield generator.</span>", \
+			"<span class='notice'>\icon[src] You deactivate the shield generator.</span>", \
 			"You hear heavy droning fade out.")
 		src.shields_down()
 	else
 		if(anchored)
-			user.visible_message("\blue \icon[src] [user] activated the shield generator.", \
-				"\blue \icon[src] You activate the shield generator.", \
+			user.visible_message("<span class='notice'>\icon[src] [user] activated the shield generator.</span>", \
+				"<span class='notice'>\icon[src] You activate the shield generator.</span>", \
 				"You hear heavy droning.")
 			src.shields_up()
 		else
 			user << "The device must first be secured to the floor."
 	return
-
-/obj/machinery/shieldgen/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(istype(W, /obj/item/weapon/card/emag))
+	
+/obj/machinery/shieldgen/emag_act(var/remaining_charges, var/mob/user)
+	if(!malfunction)
 		malfunction = 1
 		update_icon()
+		return 1
 
-	else if(istype(W, /obj/item/weapon/screwdriver))
+/obj/machinery/shieldgen/attackby(obj/item/weapon/W as obj, mob/user as mob)
+	if(isscrewdriver(W))
 		playsound(src.loc, 'sound/items/Screwdriver.ogg', 100, 1)
 		if(is_open)
-			user << "\blue You close the panel."
+			user << "<span class='notice'>You close the panel.</span>"
 			is_open = 0
 		else
-			user << "\blue You open the panel and expose the wiring."
+			user << "<span class='notice'>You open the panel and expose the wiring.</span>"
 			is_open = 1
 
-	else if(istype(W, /obj/item/stack/cable_coil) && malfunction && is_open)
+	else if(iscoil(W) && malfunction && is_open)
 		var/obj/item/stack/cable_coil/coil = W
 		user << "<span class='notice'>You begin to replace the wires.</span>"
 		//if(do_after(user, min(60, round( ((maxhealth/health)*10)+(malfunction*10) ))) //Take longer to repair heavier damage
@@ -307,21 +290,21 @@
 				user << "<span class='notice'>You repair the [src]!</span>"
 				update_icon()
 
-	else if(istype(W, /obj/item/weapon/wrench))
+	else if(iswrench(W))
 		if(locked)
 			user << "The bolts are covered, unlocking this would retract the covers."
 			return
 		if(anchored)
 			playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
-			user << "\blue You unsecure the [src] from the floor!"
+			user << "<span class='notice'>You unsecure the [src] from the floor!</span>"
 			if(active)
-				user << "\blue The [src] shuts off!"
+				user << "<span class='notice'>The [src] shuts off!</span>"
 				src.shields_down()
 			anchored = 0
 		else
 			if(istype(get_turf(src), /turf/space)) return //No wrenching these in space!
 			playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
-			user << "\blue You secure the [src] to the floor!"
+			user << "<span class='notice'>You secure the [src] to the floor!</span>"
 			anchored = 1
 
 
@@ -330,7 +313,7 @@
 			src.locked = !src.locked
 			user << "The controls are now [src.locked ? "locked." : "unlocked."]"
 		else
-			user << "\red Access denied."
+			user << "<span class='warning'>Access denied.</span>"
 
 	else
 		..()

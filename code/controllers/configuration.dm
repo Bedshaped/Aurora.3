@@ -4,8 +4,6 @@ var/list/gamemode_cache = list()
 	var/server_name = null				// server name (for world name / status)
 	var/server_suffix = 0				// generate numeric suffix based on server port
 
-	var/nudge_script_path = "nudge.py"  // where the nudge.py script is located
-
 	var/log_ooc = 0						// log OOC channel
 	var/log_access = 0					// log login/logout
 	var/log_say = 0						// log client say
@@ -17,7 +15,6 @@ var/list/gamemode_cache = list()
 	var/log_emote = 0					// log emotes
 	var/log_attack = 0					// log attack messages
 	var/log_adminchat = 0				// log admin chat messages
-	var/log_adminwarn = 0				// log warnings admins get about bomb construction and such
 	var/log_pda = 0						// log pda messages
 	var/log_hrefs = 0					// logs all links clicked in-game. Could be used for debugging and tracking down exploits
 	var/log_runtime = 0					// logs world.log to a file
@@ -47,21 +44,20 @@ var/list/gamemode_cache = list()
 	var/continous_rounds = 0			// Gamemodes which end instantly will instead keep on going until the round ends by escape shuttle or nuke.
 	var/allow_Metadata = 0				// Metadata is supported.
 	var/popup_admin_pm = 0				//adminPMs to non-admins show in a pop-up 'reply' window when set to 1.
-	var/Ticklag = 0.9
+	var/Ticklag = 0.4
 	var/Tickcomp = 0
-	var/socket_talk	= 0					// use socket_talk to communicate with other processes
-	var/list/resource_urls = null
 	var/antag_hud_allowed = 0			// Ghosts can turn on Antagovision to see a HUD of who is the bad guys this round.
 	var/antag_hud_restricted = 0                    // Ghosts that turn on Antagovision cannot rejoin the round.
 	var/list/mode_names = list()
 	var/list/modes = list()				// allowed modes
 	var/list/votable_modes = list()		// votable modes
-	var/list/probabilities = list()		// relative probability of each mode
+	var/list/probabilities_secret = list()			// relative probability of each mode in secret/random
+	var/list/probabilities_mixed_secret = list()	// relative probability of each mode in heavy secret mode
 	var/humans_need_surnames = 0
 	var/allow_random_events = 0			// enables random events mid-round when set to 1
 	var/allow_ai = 1					// allow ai job
 	var/hostedby = null
-	var/respawn = 1
+	var/respawn_delay = 30
 	var/guest_jobban = 1
 	var/usewhitelist = 0
 	var/kick_inactive = 0				//force disconnect for inactive players after this many minutes, if non-0
@@ -73,9 +69,10 @@ var/list/gamemode_cache = list()
 	var/mod_tempban_max = 1440
 	var/mod_job_tempban_max = 1440
 	var/load_jobs_from_txt = 0
-	var/ToRban = 0
 	var/automute_on = 0					//enables automuting/spam prevention
+	var/macro_trigger = 5				// The grace period between messages before it's counted as abusing a macro.
 	var/jobs_have_minimal_access = 0	//determines whether jobs use minimal access or expanded access.
+	var/override_map
 
 	var/cult_ghostwriter = 1               //Allows ghosts to write in blood in cult rounds...
 	var/cult_ghostwriter_req_cultists = 10 //...so long as this many cultists are active.
@@ -96,17 +93,18 @@ var/list/gamemode_cache = list()
 	var/guests_allowed = 1
 	var/debugparanoid = 0
 
-	var/serverurl
 	var/server
 	var/banappeals
 	var/wikiurl
 	var/forumurl
+	var/forum_passphrase
 	var/githuburl
 
 	//Alert level description
 	var/alert_desc_green = "All threats to the station have passed. Security may not have weapons visible, privacy laws are once again fully enforced."
 	var/alert_desc_blue_upto = "The station has received reliable information about possible hostile activity on the station. Security staff may have weapons visible, random searches are permitted."
 	var/alert_desc_blue_downto = "The immediate threat has passed. Security may no longer have weapons drawn at all times, but may continue to have them visible. Random searches are still allowed."
+	var/alert_desc_yellow_to = "The station is now under an elevated alert status due to a confirmed biological hazard. All crew are to follow command instruction in order to ensure a safe return to standard operations."
 	var/alert_desc_red_upto = "There is an immediate serious threat to the station. Security may have weapons unholstered at all times. Random searches are allowed and advised."
 	var/alert_desc_red_downto = "The self-destruct mechanism has been deactivated, there is still however an immediate serious threat to the station. Security may have weapons unholstered at all times, random searches are allowed and advised."
 	var/alert_desc_delta = "The station's self-destruct mechanism has been engaged. All crew are instructed to obey all instructions given by heads of staff. Any violations of these orders can be punished by death. This is not a drill."
@@ -139,11 +137,17 @@ var/list/gamemode_cache = list()
 
 	var/welder_vision = 1
 	var/generate_asteroid = 0
+	var/dungeon_chance = 0
+
+
+	var/no_click_cooldown = 0
 
 	//Used for modifying movement speed for mobs.
 	//Unversal modifiers
-	var/run_speed = 0
 	var/walk_speed = 0
+	var/walk_delay_multiplier = 1
+	var/run_delay_multiplier = 1
+	var/vehicle_delay_multiplier = 1
 
 	//Mob specific modifiers. NOTE: These will affect different mob types in different ways
 	var/human_delay = 0
@@ -153,36 +157,33 @@ var/list/gamemode_cache = list()
 	var/slime_delay = 0
 	var/animal_delay = 0
 
+
 	var/admin_legacy_system = 0	//Defines whether the server uses the legacy admin system with admins.txt or the SQL system. Config option in config.txt
 	var/ban_legacy_system = 0	//Defines whether the server uses the legacy banning system with the files in /data or the SQL system. Config option in config.txt
 	var/use_age_restriction_for_jobs = 0 //Do jobs use account age restrictions? --requires database
+	var/use_age_restriction_for_antags = 0 //Do antags use account age restrictions? --requires database
+	var/age_restrictions_from_file = 0 // Are hardcoded values used or config ones?
 	var/sql_stats = 0			//Do we record round statistics on the database (deaths, round reports, population, etcetera) or not?
 	var/sql_whitelists = 0		//Defined whether the server uses an SQL based whitelist system, or the legacy one with two .txts. Config option in config.txt
 	var/sql_saves = 0			//Defines whether the server uses an SQL based character and preference saving system. Config option in config.txt
 
 	var/simultaneous_pm_warning_timeout = 100
 
-	var/use_recursive_explosions //Defines whether the server uses recursive or circular explosions.
+	var/use_spreading_explosions = 0 //Defines whether the server uses iterative or circular explosions.
 
 	var/assistant_maint = 0 //Do assistants get maint access?
 	var/gateway_delay = 18000 //How long the gateway takes before it activates. Default is half an hour.
 	var/ghost_interaction = 0
 
-	var/comms_password = ""
+	var/night_lighting = 0
+	var/nl_start = 19
+	var/nl_finish = 8
 
 	var/enter_allowed = 1
 
-	var/use_discord_bot = 0
-	var/discord_bot_host = "localhost"
-	var/discord_bot_port = 0
+	var/use_discord_pins = 0
 	var/python_path = "python" //Path to the python executable.  Defaults to "python" on windows and "/usr/bin/env python2" on unix
-	var/use_lib_nudge = 0 //Use the C library nudge instead of the python nudge.
 	var/use_overmap = 0
-
-	var/list/station_levels = list(1)				// Defines which Z-levels the station exists on.
-	var/list/admin_levels= list(2)					// Defines which Z-levels which are for admin functionality, for example including such areas as Central Command and the Syndicate Shuttle
-	var/list/contact_levels = list(1, 5)			// Defines which Z-levels which, for example, a Code Red announcement may affect
-	var/list/player_levels = list(1, 3, 4, 5, 6)	// Defines all Z-levels a character can typically reach
 
 	// Event settings
 	var/expected_round_length = 3 * 60 * 60 * 10 // 3 hours
@@ -222,13 +223,64 @@ var/list/gamemode_cache = list()
 	var/client_error_message = ""
 	var/client_warn_version = 0
 	var/client_warn_message = ""
+	var/list/client_blacklist_version = list()
 
 	//Mark-up enabling
 	var/allow_chat_markup = 0
 
+
+	var/list/language_prefixes = list(",","#","-")//Default language prefixes
+
+	var/ghosts_can_possess_animals = 0
+	var/delist_when_no_admins = 0
+
 	//Snowflake antag contest boolean
 	//AUG2016
 	var/antag_contest_enabled = 0
+
+	//API Rate limiting
+	var/api_rate_limit = 50
+	var/list/api_rate_limit_whitelist = list()
+
+	// Master Controller settings.
+	var/mc_init_tick_limit = TICK_LIMIT_MC_INIT_DEFAULT
+	var/fastboot = FALSE	// If true, take some shortcuts during boot to speed it up for testing. Probably should not be used on production servers.
+
+	//UDP GELF Logging
+	var/log_gelf_enabled = 0
+	var/log_gelf_ip = ""
+	var/log_gelf_port = ""
+
+	//IP Intel vars
+	var/ipintel_email
+	var/ipintel_rating_bad = 1
+	var/ipintel_rating_kick = 0
+	var/ipintel_save_good = 12
+	var/ipintel_save_bad = 1
+	var/ipintel_domain = "check.getipintel.net"
+
+	// Access control/Panic bunker settings.
+	var/access_deny_new_players = 0
+	var/access_deny_new_accounts = -1
+	var/access_deny_vms = 0
+	var/access_warn_vms = 0
+
+	var/sun_accuracy = 8
+	var/sun_target_z = 7
+
+	var/cargo_load_items_from = "json"
+	var/merchant_chance = 20 //Chance, in percentage, of the merchant job slot being open at round start
+
+	var/show_game_type_odd = 1 // If the check gamemode probability verb is enabled or not
+
+	var/openturf_starlight_permitted = FALSE
+
+	var/iterative_explosives_z_threshold = 10
+	var/iterative_explosives_z_multiplier = 0.75
+
+	var/ticket_reminder_period = 0
+
+	var/rounds_until_hard_restart = -1 // Changes how often a hard restart will be executed.
 
 /datum/configuration/New()
 	var/list/L = typesof(/datum/game_mode) - /datum/game_mode
@@ -242,10 +294,11 @@ var/list/gamemode_cache = list()
 				log_misc("Adding game mode [M.name] ([M.config_tag]) to configuration.")
 				src.modes += M.config_tag
 				src.mode_names[M.config_tag] = M.name
-				src.probabilities[M.config_tag] = M.probability
+				src.probabilities_secret[M.config_tag] = M.probability
 				if (M.votable)
 					src.votable_modes += M.config_tag
-	src.votable_modes += "secret"
+	src.votable_modes += ROUNDTYPE_STR_SECRET
+//	votable_modes += ROUNDTYPE_STR_MIXED_SECRET
 
 /datum/configuration/proc/load(filename, type = "config") //the type can also be game_options, in which case it uses a different switch. not making it separate to not copypaste code - Urist
 	var/list/Lines = file2list(filename)
@@ -274,9 +327,6 @@ var/list/gamemode_cache = list()
 
 		if(type == "config")
 			switch (name)
-				if ("resource_urls")
-					config.resource_urls = text2list(value, " ")
-
 				if ("admin_legacy_system")
 					config.admin_legacy_system = 1
 
@@ -286,11 +336,17 @@ var/list/gamemode_cache = list()
 				if ("use_age_restriction_for_jobs")
 					config.use_age_restriction_for_jobs = 1
 
+				if ("use_age_restriction_for_antags")
+					config.use_age_restriction_for_antags = 1
+
+				if ("load_age_restrictions_from_file")
+					config.age_restrictions_from_file = 1
+
 				if ("jobs_have_minimal_access")
 					config.jobs_have_minimal_access = 1
 
-				if ("use_recursive_explosions")
-					use_recursive_explosions = 1
+				if ("use_spreading_explosions")
+					use_spreading_explosions = 1
 
 				if ("log_ooc")
 					config.log_ooc = 1
@@ -331,9 +387,6 @@ var/list/gamemode_cache = list()
 				if ("log_adminchat")
 					config.log_adminchat = 1
 
-				if ("log_adminwarn")
-					config.log_adminwarn = 1
-
 				if ("log_pda")
 					config.log_pda = 1
 
@@ -344,10 +397,16 @@ var/list/gamemode_cache = list()
 					config.log_hrefs = 1
 
 				if ("log_runtime")
-					config.log_runtime = 1
+					config.log_runtime = text2num(value)
+
+				if ("dungeon_chance")
+					config.dungeon_chance = text2num(value)
 
 				if ("generate_asteroid")
 					config.generate_asteroid = 1
+
+				if ("no_click_cooldown")
+					config.no_click_cooldown = 1
 
 				if("allow_admin_ooccolor")
 					config.allow_admin_ooccolor = 1
@@ -400,8 +459,8 @@ var/list/gamemode_cache = list()
 //				if ("authentication")
 //					config.enable_authentication = 1
 
-				if ("norespawn")
-					config.respawn = 0
+				if ("respawn_delay")
+					config.respawn_delay = text2num(value)
 
 				if ("servername")
 					config.server_name = value
@@ -409,14 +468,8 @@ var/list/gamemode_cache = list()
 				if ("serversuffix")
 					config.server_suffix = 1
 
-				if ("nudge_script_path")
-					config.nudge_script_path = value
-
 				if ("hostedby")
 					config.hostedby = value
-
-				if ("serverurl")
-					config.serverurl = value
 
 				if ("server")
 					config.server = value
@@ -430,8 +483,14 @@ var/list/gamemode_cache = list()
 				if ("forumurl")
 					config.forumurl = value
 
+				if ("forum_passphrase")
+					config.forum_passphrase = value
+
 				if ("githuburl")
 					config.githuburl = value
+
+				if ("ghosts_can_possess_animals")
+					config.ghosts_can_possess_animals = value
 
 				if ("guest_jobban")
 					config.guest_jobban = 1
@@ -480,15 +539,22 @@ var/list/gamemode_cache = list()
 					config.protect_roles_from_antagonist = 1
 
 				if ("probability")
-					var/prob_pos = findtext(value, " ")
-					var/prob_name = null
-					var/prob_value = null
+					var/list/chunks = splittext(value, " ")
+					var/prob_type
+					var/prob_name
+					var/prob_value
 
-					if (prob_pos)
-						prob_name = lowertext(copytext(value, 1, prob_pos))
-						prob_value = copytext(value, prob_pos + 1)
+					if (chunks.len == 3)
+						prob_type = lowertext(chunks[1])
+						prob_name = lowertext(chunks[2])
+						prob_value = text2num(chunks[3])
 						if (prob_name in config.modes)
-							config.probabilities[prob_name] = text2num(prob_value)
+							// S adds a mode to standard secret rotation
+							// MS adds a mode to mixed secret rotation
+							if (prob_type == "s")
+								config.probabilities_secret[prob_name] = prob_value
+							else if (prob_type == "ms")
+								config.probabilities_mixed_secret[prob_name] = prob_value
 						else
 							log_misc("Unknown game mode probability configuration definition: [prob_name].")
 					else
@@ -536,6 +602,9 @@ var/list/gamemode_cache = list()
 				if("alert_green")
 					config.alert_desc_green = value
 
+				if("alert_yellow")
+					config.alert_desc_yellow_to = value
+
 				if("alert_delta")
 					config.alert_desc_delta = value
 
@@ -556,20 +625,17 @@ var/list/gamemode_cache = list()
 				if("antag_hud_restricted")
 					config.antag_hud_restricted = 1
 
-				if("socket_talk")
-					socket_talk = text2num(value)
-
 				if("tickcomp")
 					Tickcomp = 1
 
 				if("humans_need_surnames")
 					humans_need_surnames = 1
 
-				if("tor_ban")
-					ToRban = 1
-
 				if("automute_on")
 					automute_on = 1
+
+				if("macro_trigger")
+					macro_trigger = text2num(value)
 
 				if("usealienwhitelist")
 					usealienwhitelist = 1
@@ -590,30 +656,27 @@ var/list/gamemode_cache = list()
 				if("ghost_interaction")
 					config.ghost_interaction = 1
 
+				if("night_lighting")
+					config.night_lighting = 1
+
+				if("nl_start_hour")
+					config.nl_start = text2num(value)
+
+				if("nl_finish_hour")
+					config.nl_finish = text2num(value)
+
 				if("disable_player_mice")
 					config.disable_player_mice = 1
 
 				if("uneducated_mice")
 					config.uneducated_mice = 1
 
-				if("comms_password")
-					config.comms_password = value
-
-				if("use_discord_bot")
-					config.use_discord_bot = 1
-
-				if("discord_bot_host")
-					config.discord_bot_host = value
-
-				if("discord_bot_port")
-					config.discord_bot_port = value
+				if("use_discord_pins")
+					config.use_discord_pins = 1
 
 				if("python_path")
 					if(value)
 						config.python_path = value
-
-				if("use_lib_nudge")
-					config.use_lib_nudge = 1
 
 				if("allow_cult_ghostwriter")
 					config.cult_ghostwriter = 1
@@ -635,18 +698,6 @@ var/list/gamemode_cache = list()
 
 				if("use_overmap")
 					config.use_overmap = 1
-
-				if("station_levels")
-					config.station_levels = text2numlist(value, ";")
-
-				if("admin_levels")
-					config.admin_levels = text2numlist(value, ";")
-
-				if("contact_levels")
-					config.contact_levels = text2numlist(value, ";")
-
-				if("player_levels")
-					config.player_levels = text2numlist(value, ";")
 
 				if("expected_round_length")
 					config.expected_round_length = MinutesToTicks(text2num(value))
@@ -685,6 +736,9 @@ var/list/gamemode_cache = list()
 					value = text2num(value)
 					config.starlight = value >= 0 ? value : 0
 
+				if("openturf_starlight")
+					openturf_starlight_permitted = TRUE
+
 				if("ert_species")
 					config.ert_species = text2list(value, ";")
 					if(!config.ert_species.len)
@@ -695,6 +749,7 @@ var/list/gamemode_cache = list()
 
 				if("aggressive_changelog")
 					config.aggressive_changelog = 1
+
 
 				if("sql_whitelists")
 					config.sql_whitelists = 1
@@ -720,14 +775,95 @@ var/list/gamemode_cache = list()
 				if("client_warn_message")
 					config.client_warn_message = value
 
+				if("client_blacklist_version")
+					config.client_blacklist_version = splittext(value, ";")
+
 				if("allow_chat_markup")
 					config.allow_chat_markup = 1
 
 				if("sql_stats")
 					config.sql_stats = 1
 
+				if("default_language_prefixes")
+					var/list/values = text2list(value, " ")
+					if(values.len > 0)
+						language_prefixes = values
+
+				if("delist_when_no_admins")
+					config.delist_when_no_admins = 1
+
 				if("antag_contest_enabled")
 					config.antag_contest_enabled = 1
+
+				if("api_rate_limit")
+					config.api_rate_limit = text2num(value)
+
+				if("api_rate_limit_whitelist")
+					config.api_rate_limit_whitelist = text2list(value, ";")
+
+
+				if("mc_ticklimit_init")
+					config.mc_init_tick_limit = text2num(value) || TICK_LIMIT_MC_INIT_DEFAULT
+
+				if("log_gelf_enabled")
+					config.log_gelf_enabled = text2num(value)
+
+				if("log_gelf_ip")
+					config.log_gelf_ip = value
+
+				if("log_gelf_port")
+					config.log_gelf_port = value
+
+				if("ipintel_email")
+					if (value != "ch@nge.me")
+						ipintel_email = value
+				if("ipintel_rating_bad")
+					ipintel_rating_bad = text2num(value)
+				if("ipintel_rating_kick")
+					ipintel_rating_kick = text2num(value)
+				if("ipintel_domain")
+					ipintel_domain = value
+				if("ipintel_save_good")
+					ipintel_save_good = text2num(value)
+				if("ipintel_save_bad")
+					ipintel_save_bad = text2num(value)
+
+				if("access_deny_new_accounts")
+					access_deny_new_accounts = text2num(value) >= 0 ? text2num(value) : -1
+				if("access_deny_vms")
+					access_deny_vms = text2num(value)
+				if("access_warn_vms")
+					access_warn_vms = text2num(value)
+
+				if("cargo_load_items_from")
+					cargo_load_items_from = value
+
+				if("fastboot")
+					fastboot = TRUE
+					world.log << "Fastboot is ENABLED."
+
+				if("merchant_chance")
+					config.merchant_chance = text2num(value)
+
+				if("force_map")
+					override_map = value
+
+				if ("explosion_z_threshold")
+					iterative_explosives_z_threshold = text2num(value)
+
+				if ("explosion_z_mult")
+					iterative_explosives_z_multiplier = text2num(value)
+
+				if("show_game_type_odd")
+					config.show_game_type_odd = 1
+
+				if ("ticket_reminder_period")
+					ticket_reminder_period = text2num(value)
+					if (ticket_reminder_period < 1)
+						ticket_reminder_period = 0
+
+				if ("rounds_until_hard_restart")
+					rounds_until_hard_restart = text2num(value)
 
 				else
 					log_misc("Unknown setting in configuration: '[name]'")
@@ -767,10 +903,16 @@ var/list/gamemode_cache = list()
 				if("limbs_can_break")
 					config.limbs_can_break = value
 
-				if("run_speed")
-					config.run_speed = value
 				if("walk_speed")
 					config.walk_speed = value
+
+				// These should never go to 0 or below. So, we clamp them.
+				if("walk_delay_multiplier")
+					config.walk_delay_multiplier = max(0.1, value)
+				if("run_delay_multiplier")
+					config.run_delay_multiplier = max(0.1, value)
+				if("vehicle_delay_multiplier")
+					config.vehicle_delay_multiplier = max(0.1, value)
 
 				if("human_delay")
 					config.human_delay = value
@@ -789,13 +931,38 @@ var/list/gamemode_cache = list()
 				if("use_loyalty_implants")
 					config.use_loyalty_implants = 1
 
+				if ("sunlight_accuracy")
+					config.sun_accuracy = value
+
+				if ("sunlight_z")
+					config.sun_target_z = value
+
 				else
 					log_misc("Unknown setting in configuration: '[name]'")
 
 		else if (type == "age_restrictions")
 			name = replacetext(name, "_", " ")
-			age_restrictions += name
 			age_restrictions[name] = text2num(value)
+
+		else if (type == "discord")
+			// Ideally, this would never happen. But just in case.
+			if (!discord_bot)
+				log_debug("BOREALIS: Attempted to read config/discord.txt before initializing the bot.")
+				return
+
+			switch (name)
+				if ("token")
+					discord_bot.auth_token = value
+				if ("active")
+					discord_bot.active = 1
+				if ("robust_debug")
+					discord_bot.robust_debug = 1
+				if ("subscriber")
+					discord_bot.subscriber_role = value
+				if ("alert_visibility")
+					discord_bot.alert_visibility = 1
+				else
+					log_misc("Unknown setting in discord configuration: '[name]'")
 
 /datum/configuration/proc/pick_mode(mode_name)
 	// I wish I didn't have to instance the game modes in order to look up
@@ -806,12 +973,41 @@ var/list/gamemode_cache = list()
 			return M
 	return gamemode_cache["extended"]
 
-/datum/configuration/proc/get_runnable_modes()
+/datum/configuration/proc/get_runnable_modes(secret_type = ROUNDTYPE_STR_SECRET)
+	log_debug("GAMEMODE: Checking runnable modes with secret_type set to [secret_type]...")
+
+	var/list/probabilities = config.probabilities_secret
+
+	if (secret_type == ROUNDTYPE_STR_MIXED_SECRET)
+		probabilities = config.probabilities_mixed_secret
+	else if (secret_type == ROUNDTYPE_STR_RANDOM)
+		// Random picks from EVERYTHING. Need to use Copy() as to not pollute the
+		// original list. PBRef is /great/.
+		probabilities = config.probabilities_secret.Copy()
+		probabilities |= config.probabilities_mixed_secret
+
 	var/list/runnable_modes = list()
 	for(var/game_mode in gamemode_cache)
 		var/datum/game_mode/M = gamemode_cache[game_mode]
-		if(M && M.can_start() && !isnull(config.probabilities[M.config_tag]) && config.probabilities[M.config_tag] > 0)
-			runnable_modes |= M
+		if(!M)
+			log_debug("GAMEMODE: ERROR: [M] does not exist!")
+			continue
+
+		var/can_start = M.can_start()
+		if(can_start != GAME_FAILURE_NONE)
+			log_debug("GAMEMODE: [M.name] cannot start! Reason: [can_start]")
+			continue
+
+		if(!probabilities[M.config_tag])
+			log_debug("GAMEMODE: ERROR: [M.name] does not have a config associated with it!")
+			continue
+
+		if(probabilities[M.config_tag] <= 0)
+			log_debug("GAMEMODE: ERROR: [M.name] has a probability equal or less than 0!")
+			continue
+
+		runnable_modes |= M
+
 	return runnable_modes
 
 /datum/configuration/proc/post_load()
@@ -821,3 +1017,5 @@ var/list/gamemode_cache = list()
 			config.python_path = "/usr/bin/env python2"
 		else //probably windows, if not this should work anyway
 			config.python_path = "python"
+
+	revdata.generate_greeting_info()

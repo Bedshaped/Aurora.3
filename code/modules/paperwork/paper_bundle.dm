@@ -9,7 +9,6 @@
 	throw_range = 2
 	throw_speed = 1
 	layer = 4
-	pressure_resistance = 1
 	attack_verb = list("bapped")
 	var/page = 1    // current page
 	var/list/pages = list()  // Ordered list of pages as they are to be displayed. Can be different order than src.contents.
@@ -35,9 +34,8 @@
 
 	// merging bundles
 	else if(istype(W, /obj/item/weapon/paper_bundle))
-		user.drop_from_inventory(W)
 		for(var/obj/O in W)
-			O.loc = src
+			O.forceMove(src)
 			O.add_fingerprint(usr)
 			pages.Add(O)
 			amount++
@@ -63,36 +61,32 @@
 	else if(istype(sheet, /obj/item/weapon/photo))
 		user << "<span class='notice'>You add [(sheet.name == "photo") ? "the photo" : sheet.name] to [(src.name == "paper bundle") ? "the paper bundle" : src.name].</span>"
 
-	user.drop_from_inventory(sheet)
-	sheet.loc = src
+	user.drop_from_inventory(sheet,src)
 
 	pages.Insert(index, sheet)
+
 	if(index <= page)
 		page++
 
 /obj/item/weapon/paper_bundle/proc/burnpaper(obj/item/weapon/flame/P, mob/user)
-	var/class = "<span class='warning'>"
+	var/class = "warning"
 
 	if(P.lit && !user.restrained())
 		if(istype(P, /obj/item/weapon/flame/lighter/zippo))
-			class = "<span class='rose'>"
+			class = "rose>"
 
-		user.visible_message("[class][user] holds \the [P] up to \the [src], it looks like \he's trying to burn it!", \
-		"[class]You hold \the [P] up to \the [src], burning it slowly.")
+		user.visible_message("<span class='[class]'>[user] holds \the [P] up to \the [src], it looks like \he's trying to burn it!</span>", \
+		"<span class='[class]'>You hold \the [P] up to \the [src], burning it slowly.</span>")
 
 		spawn(20)
 			if(get_dist(src, user) < 2 && user.get_active_hand() == P && P.lit)
-				user.visible_message("[class][user] burns right through \the [src], turning it to ash. It flutters through the air before settling on the floor in a heap.", \
-				"[class]You burn right through \the [src], turning it to ash. It flutters through the air before settling on the floor in a heap.")
-
-				if(user.get_inactive_hand() == src)
-					user.drop_from_inventory(src)
-
+				user.visible_message("<span class='[class]'>[user] burns right through \the [src], turning it to ash. It flutters through the air before settling on the floor in a heap.</span>", \
+				"<span class='[class]'>You burn right through \the [src], turning it to ash. It flutters through the air before settling on the floor in a heap.</span>")
 				new /obj/effect/decal/cleanable/ash(src.loc)
 				qdel(src)
 
 			else
-				user << "\red You must hold \the [P] steady to burn \the [src]."
+				user << "<span class='warning'>You must hold \the [P] steady to burn \the [src].</span>"
 
 /obj/item/weapon/paper_bundle/examine(mob/user)
 	if(..(user, 1))
@@ -123,7 +117,7 @@
 
 	if(istype(pages[page], /obj/item/weapon/paper))
 		var/obj/item/weapon/paper/P = W
-		if(!(istype(usr, /mob/living/carbon/human) || istype(usr, /mob/dead/observer) || istype(usr, /mob/living/silicon)))
+		if(!(istype(usr, /mob/living/carbon/human) || istype(usr, /mob/abstract/observer) || istype(usr, /mob/living/silicon)))
 			dat+= "<HTML><HEAD><TITLE>[P.name]</TITLE></HEAD><BODY>[stars(P.info)][P.stamps]</BODY></HTML>"
 		else
 			dat+= "<HTML><HEAD><TITLE>[P.name]</TITLE></HEAD><BODY>[P.info][P.stamps]</BODY></HTML>"
@@ -169,10 +163,8 @@
 
 			if(pages.len <= 1)
 				var/obj/item/weapon/paper/P = src[1]
-				usr.drop_from_inventory(src)
 				usr.put_in_hands(P)
 				qdel(src)
-
 				return
 
 			if(page > pages.len)
@@ -204,10 +196,9 @@
 
 	usr << "<span class='notice'>You loosen the bundle.</span>"
 	for(var/obj/O in src)
-		O.loc = usr.loc
+		O.forceMove(usr.loc)
 		O.layer = initial(O.layer)
 		O.add_fingerprint(usr)
-	usr.drop_from_inventory(src)
 	qdel(src)
 	return
 
@@ -215,14 +206,13 @@
 /obj/item/weapon/paper_bundle/update_icon()
 	var/obj/item/weapon/paper/P = pages[1]
 	icon_state = P.icon_state
-	overlays = P.overlays
+	copy_overlays(P.overlays, TRUE)
 	underlays = 0
 	var/i = 0
 	var/photo
 	for(var/obj/O in src)
-		var/image/img = image('icons/obj/bureaucracy.dmi')
 		if(istype(O, /obj/item/weapon/paper))
-			img.icon_state = O.icon_state
+			var/image/img = image('icons/obj/bureaucracy.dmi', O.icon_state)
 			img.pixel_x -= min(1*i, 2)
 			img.pixel_y -= min(1*i, 2)
 			pixel_x = min(0.5*i, 1)
@@ -231,14 +221,12 @@
 			i++
 		else if(istype(O, /obj/item/weapon/photo))
 			var/obj/item/weapon/photo/Ph = O
-			img = Ph.tiny
 			photo = 1
-			overlays += img
+			add_overlay(Ph.tiny)
 	if(i>1)
-		desc =  "[i] papers clipped to each other."
+		desc = "[i] papers clipped to each other."
 	else
 		desc = "A single sheet of paper."
 	if(photo)
 		desc += "\nThere is a photo attached to it."
-	overlays += image('icons/obj/bureaucracy.dmi', "clip")
-	return
+	add_overlay("clip")

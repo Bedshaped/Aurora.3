@@ -1,6 +1,18 @@
 /mob/living/carbon/human/proc/get_unarmed_attack(var/mob/living/carbon/human/target, var/hit_zone)
+
+	if(src.default_attack && src.default_attack.is_usable(src, target, hit_zone))
+		if(pulling_punches)
+			var/datum/unarmed_attack/soft_type = src.default_attack.get_sparring_variant()
+			if(soft_type)
+				return soft_type
+		return src.default_attack
+
 	for(var/datum/unarmed_attack/u_attack in species.unarmed_attacks)
 		if(u_attack.is_usable(src, target, hit_zone))
+			if(pulling_punches)
+				var/datum/unarmed_attack/soft_variant = u_attack.get_sparring_variant()
+				if(soft_variant)
+					return soft_variant
 			return u_attack
 	return null
 
@@ -24,8 +36,7 @@
 
 	// Should this all be in Touch()?
 	if(istype(H))
-		if((H != src) && check_shields(0, H.name))
-			visible_message("\red <B>[H] attempted to touch [src]!</B>")
+		if(H != src && check_shields(0, null, H, H.zone_sel.selecting, H.name))
 			H.do_attack_animation(src)
 			return 0
 
@@ -35,11 +46,11 @@
 				if(M.a_intent == I_HURT)//Stungloves. Any contact will stun the alien.
 					if(G.cell.charge >= 2500)
 						G.cell.use(G.cell.charge)	//So it drains the cell.
-						visible_message("\red <B>[src] has been touched with the stun gloves by [M]!</B>")
+						visible_message("<span class='danger'>[src] has been touched with the stun gloves by [M]!</span>")
 						M.attack_log += text("\[[time_stamp()]\] <font color='red'>Stungloved [src.name] ([src.ckey])</font>")
 						src.attack_log += text("\[[time_stamp()]\] <font color='orange'>Has been stungloved by [M.name] ([M.ckey])</font>")
 
-						msg_admin_attack("[key_name_admin(M)] stungloved [src.name] ([src.ckey]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[M.x];Y=[M.y];Z=[M.z]'>JMP</a>)")
+						msg_admin_attack("[key_name_admin(M)] stungloved [src.name] ([src.ckey]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[M.x];Y=[M.y];Z=[M.z]'>JMP</a>)",ckey=key_name(M),ckey_target=key_name(src))
 
 						var/armorblock = run_armor_check(M.zone_sel.selecting, "energy")
 						apply_effects(5,5,0,0,5,0,0,0,0,armorblock)
@@ -47,21 +58,21 @@
 
 						if(prob(15))
 							playsound(src.loc, 'sound/weapons/flash.ogg', 100, 1)
-							M.visible_message("\red The power source on [M]'s stun gloves overloads in a terrific fashion!", "\red Your jury rigged stun gloves malfunction!", "\red You hear a loud sparking.")
+							M.visible_message("<span class='warning'>The power source on [M]'s stun gloves overloads in a terrific fashion!</span>", "<span class='warning'>Your jury rigged stun gloves malfunction!</span>", "<span class='warning'>You hear a loud sparking.</span>")
 
 							if(prob(50))
 								M.apply_damage(rand(1,5), BURN)
 
 							for(M in viewers(3, null))
-								var/safety = M:eyecheck()
+								var/safety = M:eyecheck(TRUE)
 								if(!safety)
 									if(!M.blinded)
 										flick("flash", M.flash)
 
 						return 1
 					else
-						M << "\red Not enough charge! "
-						visible_message("\red <B>[src] has been touched with the stun gloves by [M]!</B>")
+						M << "<span class='warning'>Not enough charge!</span>"
+						visible_message("<span class='danger'>[src] has been touched with the stun gloves by [M]!</span>")
 					return
 
 
@@ -70,7 +81,7 @@
 			var/damage = rand(0, 9)
 			if(!damage)
 				playsound(loc, 'sound/weapons/punchmiss.ogg', 25, 1, -1)
-				visible_message("\red <B>[H] has attempted to punch [src]!</B>")
+				visible_message("<span class='danger'>[H] has attempted to punch [src]!</span>")
 				return 0
 			var/obj/item/organ/external/affecting = get_organ(ran_zone(H.zone_sel.selecting))
 			var/armor_block = run_armor_check(affecting, "melee")
@@ -80,11 +91,11 @@
 
 			playsound(loc, "punch", 25, 1, -1)
 
-			visible_message("\red <B>[H] has punched [src]!</B>")
+			visible_message("<span class='danger'>[H] has punched [src]!</span>")
 
 			apply_damage(damage, HALLOSS, affecting, armor_block)
 			if(damage >= 9)
-				visible_message("\red <B>[H] has weakened [src]!</B>")
+				visible_message("<span class='danger'>[H] has weakened [src]!</span>")
 				apply_effect(4, WEAKEN, armor_block)
 
 			return
@@ -92,13 +103,21 @@
 	if(istype(M,/mob/living/carbon))
 		M.spread_disease_to(src, "Contact")
 
+	var/datum/martial_art/attacker_style = H.martial_art
+
 	switch(M.a_intent)
 		if(I_HELP)
 			if(istype(H) && health < config.health_threshold_crit && health > config.health_threshold_dead)
-				if((H.head && (H.head.flags & HEADCOVERSMOUTH)) || (H.wear_mask && (H.wear_mask.flags & MASKCOVERSMOUTH)))
+				if(!H.check_has_mouth())
+					H << "<span class='danger'>You don't have a mouth, you cannot perform CPR!</span>"
+					return
+				if(!check_has_mouth())
+					H << "<span class='danger'>They don't have a mouth, you cannot perform CPR!</span>"
+					return
+				if((H.head && (H.head.body_parts_covered & FACE)) || (H.wear_mask && (H.wear_mask.body_parts_covered & FACE)))
 					H << "<span class='notice'>Remove your mask!</span>"
 					return 0
-				if((head && (head.flags & HEADCOVERSMOUTH)) || (wear_mask && (wear_mask.flags & MASKCOVERSMOUTH)))
+				if((head && (head.body_parts_covered & FACE)) || (wear_mask && (wear_mask.body_parts_covered & FACE)))
 					H << "<span class='notice'>Remove [src]'s mask!</span>"
 					return 0
 
@@ -127,10 +146,21 @@
 		if(I_GRAB)
 			if(M == src || anchored)
 				return 0
+			if(M.is_pacified())
+				to_chat(M, "<span class='notice'>You don't want to risk hurting [src]!</span>")
+				return 0
+
+			if(attacker_style && attacker_style.grab_act(H, src))
+				return 1
+
 			for(var/obj/item/weapon/grab/G in src.grabbed_by)
 				if(G.assailant == M)
 					M << "<span class='notice'>You already grabbed [src].</span>"
 					return
+
+			if (!attempt_grab(M))
+				return
+
 			if(w_uniform)
 				w_uniform.add_fingerprint(M)
 
@@ -141,11 +171,11 @@
 				return
 			M.put_in_active_hand(G)
 			G.synch()
-			LAssailant = M
+			LAssailant = WEAKREF(M)
 
 			H.do_attack_animation(src)
 			playsound(loc, 'sound/weapons/thudswoosh.ogg', 50, 1, -1)
-			if(H.gloves && istype(H.gloves,/obj/item/clothing/gloves/force))
+			if(H.gloves && istype(H.gloves,/obj/item/clothing/gloves/force/syndicate)) //only antag gloves can do this for now
 				G.state = GRAB_AGGRESSIVE
 				G.icon_state = "grabbed1"
 				visible_message("<span class='warning'>[M] gets a strong grip on [src]!</span>")
@@ -154,6 +184,13 @@
 			return 1
 
 		if(I_HURT)
+			if(M.is_pacified())
+				to_chat(M, "<span class='notice'>You don't want to risk hurting [src]!</span>")
+				return 0
+
+			if(attacker_style && attacker_style.harm_act(H, src))
+				return 1
+
 			if(!istype(H))
 				attack_generic(H,rand(1,3),"punched")
 				return
@@ -242,35 +279,69 @@
 			playsound(loc, ((miss_type) ? (miss_type == 1 ? attack.miss_sound : 'sound/weapons/thudswoosh.ogg') : attack.attack_sound), 25, 1, -1)
 			H.attack_log += text("\[[time_stamp()]\] <font color='red'>[miss_type ? (miss_type == 1 ? "Missed" : "Blocked") : "[pick(attack.attack_verb)]"] [src.name] ([src.ckey])</font>")
 			src.attack_log += text("\[[time_stamp()]\] <font color='orange'>[miss_type ? (miss_type == 1 ? "Was missed by" : "Has blocked") : "Has Been [pick(attack.attack_verb)]"] by [H.name] ([H.ckey])</font>")
-			msg_admin_attack("[key_name(H)] [miss_type ? (miss_type == 1 ? "has missed" : "was blocked by") : "has [pick(attack.attack_verb)]"] [key_name(src)] (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[H.x];Y=[H.y];Z=[H.z]'>JMP</a>)")
+			msg_admin_attack("[key_name(H)] [miss_type ? (miss_type == 1 ? "has missed" : "was blocked by") : "has [pick(attack.attack_verb)]"] [key_name(src)] (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[H.x];Y=[H.y];Z=[H.z]'>JMP</a>)",ckey=key_name(H),ckey_target=key_name(src))
 
 			if(miss_type)
 				return 0
 
 			var/real_damage = rand_damage
+			var/hit_dam_type = attack.damage_type
+			var/is_sharp = 0
+			var/is_edge = 0
+
 			real_damage += attack.get_unarmed_damage(H)
 			real_damage *= damage_multiplier
 			rand_damage *= damage_multiplier
+
 			if(HULK in H.mutations)
 				real_damage *= 2 // Hulks do twice the damage
 				rand_damage *= 2
 
 			real_damage = max(1, real_damage)
-			if(H.gloves && istype(H.gloves,/obj/item/clothing/gloves/force))
-				var/obj/item/clothing/gloves/force/X = H.gloves
-				real_damage *= X.amplification
-			var/armour = run_armor_check(affecting, "melee")
+
+			if(H.gloves)
+				if(istype(H.gloves, /obj/item/clothing/gloves))
+					var/obj/item/clothing/gloves/G = H.gloves
+					real_damage += G.punch_force
+					hit_dam_type = G.punch_damtype
+					if(H.pulling_punches)
+						hit_dam_type = HALLOSS
+
+					if(G.sharp)
+						is_sharp = 1
+
+					if(G.edge)
+						is_edge = 1
+
+					if(istype(H.gloves,/obj/item/clothing/gloves/force))
+						var/obj/item/clothing/gloves/force/X = H.gloves
+						real_damage *= X.amplification
+
+			if(attack.sharp)
+				is_sharp = 1
+
+			if(attack.edge)
+				is_edge = 1
+
+			var/armour = run_armor_check(hit_zone, "melee")
 			// Apply additional unarmed effects.
 			attack.apply_effects(H, src, armour, rand_damage, hit_zone)
 
 			// Finally, apply damage to target
-			apply_damage(real_damage, BRUTE, affecting, armour, sharp=attack.sharp, edge=attack.edge)
+			apply_damage(real_damage, hit_dam_type, hit_zone, armour, sharp=is_sharp, edge=is_edge)
 
 		if(I_DISARM)
+			if(M.is_pacified())
+				to_chat(M, "<span class='notice'>You don't want to risk hurting [src]!</span>")
+				return 0
+
+			if(attacker_style && attacker_style.disarm_act(H, src))
+				return 1
+
 			M.attack_log += text("\[[time_stamp()]\] <font color='red'>Disarmed [src.name] ([src.ckey])</font>")
 			src.attack_log += text("\[[time_stamp()]\] <font color='orange'>Has been disarmed by [M.name] ([M.ckey])</font>")
 
-			msg_admin_attack("[key_name(M)] disarmed [src.name] ([src.ckey]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[M.x];Y=[M.y];Z=[M.z]'>JMP</a>)")
+			msg_admin_attack("[key_name(M)] disarmed [src.name] ([src.ckey]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[M.x];Y=[M.y];Z=[M.z]'>JMP</a>)",ckey=key_name(M),ckey_target=key_name(src))
 			M.do_attack_animation(src)
 
 			if(w_uniform)
@@ -291,11 +362,11 @@
 						return W.afterattack(target,src)
 
 			var/randn = rand(1, 100)
-			if(!(species.flags & NO_SLIP) && randn <= 25)
+			if(randn <= 25)
 				if(H.gloves && istype(H.gloves,/obj/item/clothing/gloves/force))
 					apply_effect(6, WEAKEN, run_armor_check(affecting, "melee"))
 					playsound(loc, 'sound/weapons/thudswoosh.ogg', 50, 1, -1)
-					visible_message("\red <B>[M] hurls [src] to the floor!</B>")
+					visible_message("<span class='danger'>[M] hurls [src] to the floor!</span>")
 					step_away(src,M,15)
 					sleep(3)
 					step_away(src,M,15)
@@ -305,7 +376,7 @@
 					var/armor_check = run_armor_check(affecting, "melee")
 					apply_effect(3, WEAKEN, armor_check)
 					playsound(loc, 'sound/weapons/thudswoosh.ogg', 50, 1, -1)
-					if(armor_check < 2)
+					if(armor_check < 100)
 						visible_message("<span class='danger'>[M] has pushed [src]!</span>")
 					else
 						visible_message("<span class='warning'>[M] attempted to push [src]!</span>")
@@ -314,7 +385,7 @@
 			if(randn <= 60)
 				if(H.gloves && istype(H.gloves,/obj/item/clothing/gloves/force))
 					playsound(loc, 'sound/weapons/thudswoosh.ogg', 50, 1, -1)
-					visible_message("\red <B>[M] shoves, sending [src] flying!</B>")
+					visible_message("<span class='danger'>[M] shoves, sending [src] flying!</span>")
 					step_away(src,M,15)
 					sleep(1)
 					step_away(src,M,15)
@@ -340,7 +411,7 @@
 						return
 
 			playsound(loc, 'sound/weapons/punchmiss.ogg', 25, 1, -1)
-			visible_message("\red <B>[M] attempted to disarm [src]!</B>")
+			visible_message("<span class='danger'>[M] attempted to disarm [src]!</span>")
 	return
 
 /mob/living/carbon/human/proc/afterattack(atom/target as mob|obj|turf|area, mob/living/user as mob|obj, inrange, params)
@@ -356,29 +427,12 @@
 	src.visible_message("<span class='danger'>[user] has [attack_message] [src]!</span>")
 	user.do_attack_animation(src)
 
-	var/dam_zone = pick("head", "chest", "l_arm", "r_arm", "l_leg", "r_leg", "groin")
+	var/dam_zone = pick(organs_by_name)
 	var/obj/item/organ/external/affecting = get_organ(ran_zone(dam_zone))
 	var/armor_block = run_armor_check(affecting, "melee")
 	apply_damage(damage, BRUTE, affecting, armor_block)
 	updatehealth()
 	return 1
-
-/mob/living/carbon/human/proc/attack_joint(var/obj/item/W, var/mob/living/user, var/def_zone)
-	if(!def_zone) def_zone = user.zone_sel.selecting
-	var/target_zone = get_zone_with_miss_chance(check_zone(def_zone), src)
-
-	if(user == src) // Attacking yourself can't miss
-		target_zone = user.zone_sel.selecting
-	if(!target_zone)
-		return null
-	var/obj/item/organ/external/organ = get_organ(check_zone(target_zone))
-	if(!organ || (organ.dislocated == 2) || (organ.dislocated == -1))
-		return null
-	var/dislocation_str
-	if(prob(W.force))
-		dislocation_str = "[src]'s [organ.joint] [pick("gives way","caves in","crumbles","collapses")]!"
-		organ.dislocate(1)
-	return dislocation_str
 
 //Used to attack a joint through grabbing
 /mob/living/carbon/human/proc/grab_joint(var/mob/living/user, var/def_zone)
@@ -405,6 +459,7 @@
 		admin_attack_log(user, src, "dislocated [organ.joint].", "had his [organ.joint] dislocated.", "dislocated [organ.joint] of")
 		src.visible_message("<span class='danger'>[src]'s [organ.joint] [pick("gives way","caves in","crumbles","collapses")]!</span>")
 		return 1
+	user.visible_message("<span class='warning'>[user] fails to dislocate [src]'s [organ.joint]!</span>")
 	return 0
 
 //Breaks all grips and pulls that the mob currently has.
@@ -430,3 +485,47 @@
 		spawn(1)
 			qdel(rgrab)
 	return success
+
+
+/mob/living/carbon/human/verb/check_attacks()
+	set name = "Check Attacks"
+	set category = "IC"
+	set src = usr
+
+	var/dat = "<b><font size = 5>Known Attacks</font></b><br/><br/>"
+
+	for(var/datum/unarmed_attack/u_attack in species.unarmed_attacks)
+		dat += "<b>Primarily [u_attack.attack_name] </b><br/><br/><br/>"
+
+	src << browse(dat, "window=checkattack")
+	return
+
+/mob/living/carbon/human/check_attacks()
+	var/dat = "<b><font size = 5>Known Attacks</font></b><br/><br/>"
+
+	if(default_attack)
+		dat += "Current default attack: [default_attack.attack_name] - <a href='byond://?src=\ref[src];default_attk=reset_attk'>reset</a><br/><br/>"
+
+	for(var/datum/unarmed_attack/u_attack in species.unarmed_attacks)
+		if(u_attack == default_attack)
+			dat += "<b>Primarily [u_attack.attack_name]</b> - default - <a href='byond://?src=\ref[src];default_attk=reset_attk'>reset</a><br/><br/><br/>"
+		else
+			dat += "<b>Primarily [u_attack.attack_name]</b> - <a href='byond://?src=\ref[src];default_attk=\ref[u_attack]'>set default</a><br/><br/><br/>"
+
+	src << browse(dat, "window=checkattack")
+
+/mob/living/carbon/human/Topic(href, href_list)
+	if(href_list["default_attk"])
+		if(href_list["default_attk"] == "reset_attk")
+			set_default_attack(null)
+		else
+			var/datum/unarmed_attack/u_attack = locate(href_list["default_attk"])
+			if(u_attack && (u_attack in species.unarmed_attacks))
+				set_default_attack(u_attack)
+		check_attacks()
+		return 1
+	else
+		return ..()
+
+/mob/living/carbon/human/proc/set_default_attack(var/datum/unarmed_attack/u_attack)
+	default_attack = u_attack

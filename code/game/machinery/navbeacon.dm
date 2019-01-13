@@ -23,24 +23,20 @@ var/global/list/navbeacons			// no I don't like putting this in, but it will do 
 
 	req_access = list(access_engine)
 
-	New()
-		..()
+	Initialize()
+		. = ..()
 
 		set_codes()
 
 		var/turf/T = loc
-		hide(T.intact)
-		
+		hide(!T.is_plating())
+
 		// add beacon to MULE bot beacon list
 		if(freq == 1400)
-			if(!navbeacons)
-				navbeacons = new()
-			navbeacons += src
-			
-
-		spawn(5)	// must wait for map loading to finish
-			if(radio_controller)
-				radio_controller.add_object(src, freq, RADIO_NAVBEACONS)
+			LAZYADD(navbeacons, src)
+		
+		if(SSradio)
+			SSradio.add_object(src, freq, RADIO_NAVBEACONS)
 
 	// set the transponder codes assoc list from codes_txt
 	proc/set_codes()
@@ -87,14 +83,13 @@ var/global/list/navbeacons			// no I don't like putting this in, but it will do 
 
 		var/request = signal.data["findbeacon"]
 		if(request && ((request in codes) || request == "any" || request == location))
-			spawn(1)
-				post_signal()
+			addtimer(CALLBACK(src, .proc/post_signal), 1)
 
 	// return a signal giving location and transponder codes
 
 	proc/post_signal()
 
-		var/datum/radio_frequency/frequency = radio_controller.return_frequency(freq)
+		var/datum/radio_frequency/frequency = SSradio.return_frequency(freq)
 
 		if(!frequency) return
 
@@ -111,10 +106,10 @@ var/global/list/navbeacons			// no I don't like putting this in, but it will do 
 
 	attackby(var/obj/item/I, var/mob/user)
 		var/turf/T = loc
-		if(T.intact)
+		if(!T.is_plating())
 			return		// prevent intraction when T-scanner revealed
 
-		if(istype(I, /obj/item/weapon/screwdriver))
+		if(isscrewdriver(I))
 			open = !open
 
 			user.visible_message("[user] [open ? "opens" : "closes"] the beacon's cover.", "You [open ? "open" : "close"] the beacon's cover.")
@@ -127,7 +122,7 @@ var/global/list/navbeacons			// no I don't like putting this in, but it will do 
 					src.locked = !src.locked
 					user << "Controls are now [src.locked ? "locked." : "unlocked."]"
 				else
-					user << "\red Access denied."
+					user << "<span class='warning'>Access denied.</span>"
 				updateDialog()
 			else
 				user << "You must open the cover first!"
@@ -145,7 +140,7 @@ var/global/list/navbeacons			// no I don't like putting this in, but it will do 
 
 	interact(var/mob/user, var/ai = 0)
 		var/turf/T = loc
-		if(T.intact)
+		if(!T.is_plating())
 			return		// prevent intraction when T-scanner revealed
 
 		if(!open && !ai)	// can't alter controls if not open, unless you're an AI
@@ -252,6 +247,6 @@ Transponder Codes:<UL>"}
 
 /obj/machinery/navbeacon/Destroy()
 	navbeacons.Remove(src)
-	if(radio_controller)
-		radio_controller.remove_object(src, freq)
-	..()
+	if(SSradio)
+		SSradio.remove_object(src, freq)
+	return ..()

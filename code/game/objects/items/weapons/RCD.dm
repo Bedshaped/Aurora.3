@@ -13,9 +13,9 @@
 	throw_speed = 1
 	throw_range = 5
 	w_class = 3.0
+	origin_tech = list(TECH_ENGINEERING = 4, TECH_MATERIAL = 2)
 	matter = list(DEFAULT_WALL_MATERIAL = 50000)
-	origin_tech = "engineering=4;materials=2"
-	var/datum/effect/effect/system/spark_spread/spark_system
+	var/datum/effect_system/sparks/spark_system
 	var/stored_matter = 0
 	var/working = 0
 	var/mode = 1
@@ -36,9 +36,7 @@
 
 /obj/item/weapon/rcd/New()
 	..()
-	src.spark_system = new /datum/effect/effect/system/spark_spread
-	spark_system.set_up(5, 0, src)
-	spark_system.attach(src)
+	src.spark_system = bind_spark(src, 5)
 
 /obj/item/weapon/rcd/Destroy()
 	qdel(spark_system)
@@ -51,7 +49,8 @@
 		if((stored_matter + 10) > 30)
 			user << "<span class='notice'>The RCD can't hold any more matter-units.</span>"
 			return
-		user.drop_from_inventory(W)
+		//TODO: Possible better animation
+		user.drop_from_inventory(W,src)
 		qdel(W)
 		stored_matter += 10
 		playsound(src.loc, 'sound/machines/click.ogg', 50, 1)
@@ -64,7 +63,7 @@
 	if(++mode > 3) mode = 1
 	user << "<span class='notice'>Changed mode to '[modes[mode]]'</span>"
 	playsound(src.loc, 'sound/effects/pop.ogg', 50, 0)
-	if(prob(20)) src.spark_system.start()
+	if(prob(20)) src.spark_system.queue()
 
 /obj/item/weapon/rcd/afterattack(atom/A, mob/user, proximity)
 	if(!proximity) return
@@ -100,10 +99,10 @@
 		build_delay = 50
 		build_type = "airlock"
 		build_other = /obj/machinery/door/airlock
-	else if(!deconstruct && istype(T,/turf/space))
+	else if(!deconstruct && (istype(T,/turf/space) || istype(T,T.baseturf)))
 		build_cost =  1
 		build_type =  "floor"
-		build_turf =  /turf/simulated/floor/plating/airless
+		build_turf =  /turf/simulated/floor/airless
 	else if(deconstruct && istype(T,/turf/simulated/wall))
 		var/turf/simulated/wall/W = T
 		build_delay = deconstruct ? 50 : 40
@@ -114,7 +113,7 @@
 		build_delay = deconstruct ? 50 : 20
 		build_cost =  deconstruct ? 10 : 3
 		build_type =  deconstruct ? "floor" : "wall"
-		build_turf =  deconstruct ? /turf/space : /turf/simulated/wall
+		build_turf =  deconstruct ? T.baseturf : /turf/simulated/wall
 	else
 		return 0
 
@@ -156,7 +155,7 @@
 	icon_state = "rcd"
 	item_state = "rcdammo"
 	w_class = 2
-	origin_tech = "materials=2"
+	origin_tech = list(TECH_MATERIAL = 2)
 	matter = list(DEFAULT_WALL_MATERIAL = 30000,"glass" = 15000)
 
 /obj/item/weapon/rcd/borg

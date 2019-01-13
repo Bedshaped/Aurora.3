@@ -6,7 +6,7 @@
 		round_time // time of the round at which this should be announced, in seconds
 		message // body of the message
 		author = "NanoTrasen Editor"
-		channel_name = "Nyx Daily"
+		channel_name = "Tau Ceti Daily"
 		can_be_redacted = 0
 		message_type = "Story"
 
@@ -14,7 +14,7 @@
 
 		paycuts_suspicion
 			round_time = 60*10
-			message = {"Reports have leaked that Nanotrasen Inc. is planning to put paycuts into
+			message = {"Reports have leaked that NanoTrasen is planning to put paycuts into
 						effect on many of its Research Stations in Tau Ceti. Apparently these research
 						stations haven't been able to yield the expected revenue, and thus adjustments
 						have to be made."}
@@ -35,7 +35,7 @@
 			 			on live humans, including virology research, genetic manipulation, and \"feeding them
 			 			to the slimes to see what happens\". Allegedly, these test subjects were neither
 			 			humanified monkeys nor volunteers, but rather unqualified staff that were forced into
-			 			the experiments, and reported to have died in a \"work accident\" by Nanotrasen Inc."}
+			 			the experiments, and reported to have died in a \"work accident\" by NanoTrasen."}
 			author = "Unauthorized"
 
 	bluespace_research
@@ -52,21 +52,21 @@
 	random_junk
 
 		cheesy_honkers
-			author = "Assistant Editor Carl Ritz"
+			author = "Editor Carl Ritz"
 			channel_name = "The Gibson Gazette"
 			message = {"Do cheesy honkers increase risk of having a miscarriage? Several health administrations
 						say so!"}
 			round_time = 60 * 15
 
 		net_block
-			author = "Assistant Editor Carl Ritz"
+			author = "Editor Carl Ritz"
 			channel_name = "The Gibson Gazette"
 			message = {"Several corporations banding together to block access to 'wetskrell.nt', site administrators
 			claiming violation of net laws."}
 			round_time = 60 * 50
 
 		found_ssd
-			channel_name = "Nyx Daily"
+			channel_name = "Tau Ceti Daily"
 			author = "Doctor Eric Hanfield"
 
 			message = {"Several people have been found unconscious at their terminals. It is thought that it was due
@@ -78,7 +78,7 @@
 	lotus_tree
 
 		explosions
-			channel_name = "Nyx Daily"
+			channel_name = "Tau Ceti Daily"
 			author = "Reporter Leland H. Howards"
 
 			message = {"The newly-christened civillian transport Lotus Tree suffered two very large explosions near the
@@ -92,7 +92,7 @@
 	food_riots
 
 		breaking_news
-			channel_name = "Nyx Daily"
+			channel_name = "Tau Ceti Daily"
 			author = "Reporter Ro'kii Ar-Raqis"
 
 			message = {"Breaking news: Food riots have broken out throughout the Refuge asteroid colony in the Tenebrae
@@ -103,7 +103,7 @@
 			round_time = 60 * 10
 
 		more
-			channel_name = "Nyx Daily"
+			channel_name = "Tau Ceti Daily"
 			author = "Reporter Ro'kii Ar-Raqis"
 
 			message = {"More on the Refuge food riots: The Refuge Council has condemned NanoTrasen's withdrawal from
@@ -118,7 +118,7 @@
 var/global/list/newscaster_standard_feeds = list(/datum/news_announcement/bluespace_research, /datum/news_announcement/lotus_tree, /datum/news_announcement/random_junk,  /datum/news_announcement/food_riots)
 
 proc/process_newscaster()
-	check_for_newscaster_updates(ticker.mode.newscaster_announcements)
+	check_for_newscaster_updates(SSticker.mode.newscaster_announcements)
 
 var/global/tmp/announced_news_types = list()
 proc/check_for_newscaster_updates(type)
@@ -129,19 +129,10 @@ proc/check_for_newscaster_updates(type)
 			announce_newscaster_news(news)
 
 proc/announce_newscaster_news(datum/news_announcement/news)
-	var/datum/feed_channel/sendto
-	for(var/datum/feed_channel/FC in news_network.network_channels)
-		if(FC.channel_name == news.channel_name)
-			sendto = FC
-			break
-
+	var/datum/feed_channel/sendto = SSnews.GetFeedChannel(news.channel_name)
 	if(!sendto)
-		sendto = new /datum/feed_channel
-		sendto.channel_name = news.channel_name
-		sendto.author = news.author
-		sendto.locked = 1
-		sendto.is_admin_channel = 1
-		news_network.network_channels += sendto
+		SSnews.CreateFeedChannel(news.channel_name, news.author, 1, 1)
 
 	var/author = news.author ? news.author : sendto.author
-	news_network.SubmitArticle(news.message, author, news.channel_name, null, !news.can_be_redacted, news.message_type)
+	var/datum/feed_channel/ch =  SSnews.GetFeedChannel(news.channel_name)
+	SSnews.SubmitArticle(news.message, author, ch, null, !news.can_be_redacted, news.message_type)

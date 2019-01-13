@@ -5,7 +5,9 @@
 	use_power = 0
 	mechanical = 0
 	tray_light = 0
-
+	waterlevel = 0
+	nutrilevel = 0 // So they don't spawn with water or nutrient when built. Soil's hard mode, baby.
+	maxWeedLevel = 10 // Retains the ability for soil to grow weeds, as it should.
 /obj/machinery/portable_atmospherics/hydroponics/soil/attackby(var/obj/item/O as obj, var/mob/user as mob)
 	//A special case for if the container has only water, for manual watering with buckets
 	if (istype(O,/obj/item/weapon/reagent_containers))
@@ -23,13 +25,18 @@
 
 	if(istype(O,/obj/item/weapon/tank))
 		return
+	if(istype(O,/obj/item/weapon/shovel))
+		if(do_after(user, 50))
+			new /obj/item/stack/material/sandstone{amount = 3}(loc)
+			user << "<span class='notice'>You remove the soil from the bed and dismantle the sandstone base.</span>"
+			playsound(src, 'sound/effects/stonedoor_openclose.ogg', 40, 1)
+			qdel(src)
 	else
 		..()
 
 /obj/machinery/portable_atmospherics/hydroponics/soil/New()
 	..()
 	verbs -= /obj/machinery/portable_atmospherics/hydroponics/verb/close_lid_verb
-	verbs -= /obj/machinery/portable_atmospherics/hydroponics/verb/remove_label
 	verbs -= /obj/machinery/portable_atmospherics/hydroponics/verb/setlight
 
 /obj/machinery/portable_atmospherics/hydroponics/soil/CanPass()
@@ -65,7 +72,7 @@
 /obj/machinery/portable_atmospherics/hydroponics/soil/invisible/die()
 	qdel(src)
 
-/obj/machinery/portable_atmospherics/hydroponics/soil/invisible/process()
+/obj/machinery/portable_atmospherics/hydroponics/soil/invisible/machinery_process()
 	if(!seed)
 		qdel(src)
 		return
@@ -78,4 +85,4 @@
 	for(var/obj/effect/plant/plant in get_turf(src))
 		if(plant.invisibility == INVISIBILITY_MAXIMUM)
 			plant.invisibility = initial(plant.invisibility)
-	..()
+	return ..()

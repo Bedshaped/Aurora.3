@@ -62,9 +62,9 @@
 	if (!istype(user))
 		return 0
 
-	var/list/permitted_locations = list("user_dashboard", "contract_overview", "contract_details")
+	var/list/permitted_locations = list("user_dashboard", "contract_overview", "contract_details", "security_incident")
 
-	if (!webint_validate_attributes(list("location" = permitted_locations, "contract"), attributes_text = attributes))
+	if (!webint_validate_attributes(list("location" = permitted_locations, "contract", "incident"), attributes_text = attributes))
 		return 0
 
 	var/token = ""
@@ -83,8 +83,8 @@
 		alert("An error occured while attempting to connect to the database!")
 		return 0
 
-	var/DBQuery/insert_query = dbcon.NewQuery("INSERT INTO ss13_web_sso (ckey, token, ip, created_at) VALUES (:ckey, :token, :ip, NOW())")
-	insert_query.Execute(list(":ckey" = user.ckey, ":token" = token, ":ip" = user.address))
+	var/DBQuery/insert_query = dbcon.NewQuery("INSERT INTO ss13_web_sso (ckey, token, ip, created_at) VALUES (:ckey:, :token:, :ip:, NOW())")
+	insert_query.Execute(list("ckey" = user.ckey, "token" = token, "ip" = user.address))
 
 	if (insert_query.ErrorMsg())
 		alert("An error occured while trying to upload the session data!")

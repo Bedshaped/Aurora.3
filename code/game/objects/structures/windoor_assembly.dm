@@ -16,6 +16,8 @@ obj/structure/windoor_assembly
 	anchored = 0
 	density = 0
 	dir = NORTH
+	w_class = 3
+	flags = ON_BORDER
 
 	var/obj/item/weapon/airlock_electronics/electronics = null
 
@@ -40,7 +42,7 @@ obj/structure/windoor_assembly/New(Loc, start_dir=NORTH, constructed=0)
 obj/structure/windoor_assembly/Destroy()
 	density = 0
 	update_nearby_tiles()
-	..()
+	return ..()
 
 /obj/structure/windoor_assembly/update_icon()
 	icon_state = "[facing]_[secure]windoor_assembly[state]"
@@ -67,7 +69,7 @@ obj/structure/windoor_assembly/Destroy()
 	//I really should have spread this out across more states but thin little windoors are hard to sprite.
 	switch(state)
 		if("01")
-			if(istype(W, /obj/item/weapon/weldingtool) && !anchored )
+			if(iswelder(W) && !anchored )
 				var/obj/item/weapon/weldingtool/WT = W
 				if (WT.remove_fuel(0,user))
 					user.visible_message("[user] dissassembles the windoor assembly.", "You start to dissassemble the windoor assembly.")
@@ -75,23 +77,23 @@ obj/structure/windoor_assembly/Destroy()
 
 					if(do_after(user, 40))
 						if(!src || !WT.isOn()) return
-						user << "\blue You dissasembled the windoor assembly!"
+						user << "<span class='notice'>You dissasembled the windoor assembly!</span>"
 						new /obj/item/stack/material/glass/reinforced(get_turf(src), 5)
 						if(secure)
-							PoolOrNew(/obj/item/stack/rods, list(get_turf(src), 4))
+							new /obj/item/stack/rods(get_turf(src), 4)
 						qdel(src)
 				else
-					user << "\blue You need more welding fuel to dissassemble the windoor assembly."
+					user << "<span class='notice'>You need more welding fuel to dissassemble the windoor assembly.</span>"
 					return
 
 			//Wrenching an unsecure assembly anchors it in place. Step 4 complete
-			if(istype(W, /obj/item/weapon/wrench) && !anchored)
+			if(iswrench(W) && !anchored)
 				playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
 				user.visible_message("[user] secures the windoor assembly to the floor.", "You start to secure the windoor assembly to the floor.")
 
 				if(do_after(user, 40))
 					if(!src) return
-					user << "\blue You've secured the windoor assembly!"
+					user << "<span class='notice'>You've secured the windoor assembly!</span>"
 					src.anchored = 1
 					if(src.secure)
 						src.name = "Secure Anchored Windoor Assembly"
@@ -99,13 +101,13 @@ obj/structure/windoor_assembly/Destroy()
 						src.name = "Anchored Windoor Assembly"
 
 			//Unwrenching an unsecure assembly un-anchors it. Step 4 undone
-			else if(istype(W, /obj/item/weapon/wrench) && anchored)
+			else if(iswrench(W) && anchored)
 				playsound(src.loc, 'sound/items/Ratchet.ogg', 100, 1)
 				user.visible_message("[user] unsecures the windoor assembly to the floor.", "You start to unsecure the windoor assembly to the floor.")
 
 				if(do_after(user, 40))
 					if(!src) return
-					user << "\blue You've unsecured the windoor assembly!"
+					user << "<span class='notice'>You've unsecured the windoor assembly!</span>"
 					src.anchored = 0
 					if(src.secure)
 						src.name = "Secure Windoor Assembly"
@@ -130,7 +132,7 @@ obj/structure/windoor_assembly/Destroy()
 							src.name = "Secure Windoor Assembly"
 
 			//Adding cable to the assembly. Step 5 complete.
-			else if(istype(W, /obj/item/stack/cable_coil) && anchored)
+			else if(iscoil(W) && anchored)
 				user.visible_message("[user] wires the windoor assembly.", "You start to wire the windoor assembly.")
 
 				var/obj/item/stack/cable_coil/CC = W
@@ -148,14 +150,14 @@ obj/structure/windoor_assembly/Destroy()
 		if("02")
 
 			//Removing wire from the assembly. Step 5 undone.
-			if(istype(W, /obj/item/weapon/wirecutters) && !src.electronics)
+			if(iswirecutter(W) && !src.electronics)
 				playsound(src.loc, 'sound/items/Wirecutter.ogg', 100, 1)
 				user.visible_message("[user] cuts the wires from the airlock assembly.", "You start to cut the wires from airlock assembly.")
 
 				if(do_after(user, 40))
 					if(!src) return
 
-					user << "\blue You cut the windoor wires.!"
+					user << "<span class='notice'>You cut the windoor wires.!</span>"
 					new/obj/item/stack/cable_coil(get_turf(user), 1)
 					src.state = "01"
 					if(src.secure)
@@ -165,40 +167,41 @@ obj/structure/windoor_assembly/Destroy()
 
 			//Adding airlock electronics for access. Step 6 complete.
 			else if(istype(W, /obj/item/weapon/airlock_electronics) && W:icon_state != "door_electronics_smoked")
-				playsound(src.loc, 'sound/items/Screwdriver.ogg', 100, 1)
-				user.visible_message("[user] installs the electronics into the airlock assembly.", "You start to install electronics into the airlock assembly.")
-
-				if(do_after(user, 40))
-					if(!src) return
-
-					user.drop_item()
-					W.loc = src
-					user << "\blue You've installed the airlock electronics!"
-					src.name = "Near finished Windoor Assembly"
-					src.electronics = W
-				else
-					W.loc = src.loc
+				var/obj/item/weapon/airlock_electronics/EL = W
+				if(!EL.inuse)
+					playsound(src.loc, 'sound/items/Screwdriver.ogg', 100, 1)
+					user.visible_message("[user] installs the electronics into the airlock assembly.", "You start to install electronics into the airlock assembly.")
+					EL.inuse = 1
+					if(do_after(user, 40))
+						EL.inuse = 0
+						if(!src) return
+						user.drop_from_inventory(EL,src)
+						user << "<span class='notice'>You've installed the airlock electronics!</span>"
+						src.name = "Near finished Windoor Assembly"
+						src.electronics = EL
+					else
+						EL.inuse = 0
 
 			//Screwdriver to remove airlock electronics. Step 6 undone.
-			else if(istype(W, /obj/item/weapon/screwdriver) && src.electronics)
+			else if(isscrewdriver(W) && src.electronics)
 				playsound(src.loc, 'sound/items/Screwdriver.ogg', 100, 1)
 				user.visible_message("[user] removes the electronics from the airlock assembly.", "You start to uninstall electronics from the airlock assembly.")
 
 				if(do_after(user, 40))
 					if(!src || !src.electronics) return
-					user << "\blue You've removed the airlock electronics!"
+					user << "<span class='notice'>You've removed the airlock electronics!</span>"
 					if(src.secure)
 						src.name = "Secure Wired Windoor Assembly"
 					else
 						src.name = "Wired Windoor Assembly"
 					var/obj/item/weapon/airlock_electronics/ae = electronics
 					electronics = null
-					ae.loc = src.loc
+					ae.forceMove(src.loc)
 
 			//Crowbar to complete the assembly, Step 7 complete.
-			else if(istype(W, /obj/item/weapon/crowbar))
+			else if(iscrowbar(W))
 				if(!src.electronics)
-					usr << "\red The assembly is missing electronics."
+					usr << "<span class='warning'>The assembly is missing electronics.</span>"
 					return
 				usr << browse(null, "window=windoor_access")
 				playsound(src.loc, 'sound/items/Crowbar.ogg', 100, 1)
@@ -209,7 +212,7 @@ obj/structure/windoor_assembly/Destroy()
 					if(!src) return
 
 					density = 1 //Shouldn't matter but just incase
-					user << "\blue You finish the windoor!"
+					user << "<span class='notice'>You finish the windoor!</span>"
 
 					if(secure)
 						var/obj/machinery/door/window/brigdoor/windoor = new /obj/machinery/door/window/brigdoor(src.loc)
@@ -228,7 +231,7 @@ obj/structure/windoor_assembly/Destroy()
 						else
 							windoor.req_access = src.electronics.conf_access
 						windoor.electronics = src.electronics
-						src.electronics.loc = windoor
+						src.electronics.forceMove(windoor)
 					else
 						var/obj/machinery/door/window/windoor = new /obj/machinery/door/window(src.loc)
 						if(src.facing == "l")
@@ -246,7 +249,7 @@ obj/structure/windoor_assembly/Destroy()
 						else
 							windoor.req_access = src.electronics.conf_access
 						windoor.electronics = src.electronics
-						src.electronics.loc = windoor
+						src.electronics.forceMove(windoor)
 
 
 					qdel(src)
@@ -260,10 +263,21 @@ obj/structure/windoor_assembly/Destroy()
 
 
 //Rotates the windoor assembly clockwise
-/obj/structure/windoor_assembly/verb/revrotate()
-	set name = "Rotate Windoor Assembly"
+//These directions are fucked up, apparently dm rotates anticlockwise by default
+/obj/structure/windoor_assembly/verb/rotate()
+	set name = "Rotate Windoor Clockwise"
 	set category = "Object"
 	set src in oview(1)
+
+	var/targetdir = turn(src.dir, 270)
+
+	for(var/obj/obstacle in get_turf(src))
+		if (obstacle == src)
+			continue
+
+		if((obstacle.flags & ON_BORDER) && obstacle.dir == targetdir)
+			usr << span("danger", "You can't turn the windoor assembly that way, there's already something there!")
+			return
 
 	if (src.anchored)
 		usr << "It is fastened to the floor; therefore, you can't rotate it!"
@@ -271,7 +285,38 @@ obj/structure/windoor_assembly/Destroy()
 	if(src.state != "01")
 		update_nearby_tiles(need_rebuild=1) //Compel updates before
 
-	src.set_dir(turn(src.dir, 270))
+	src.set_dir(targetdir)
+
+	if(src.state != "01")
+		update_nearby_tiles(need_rebuild=1)
+
+	update_icon()
+	return
+
+
+//Rotates the windoor assembly anticlockwise
+/obj/structure/windoor_assembly/verb/revrotate()
+	set name = "Rotate Windoor Anticlockwise"
+	set category = "Object"
+	set src in oview(1)
+
+	var/targetdir = turn(src.dir, 90)
+
+	for(var/obj/obstacle in get_turf(src))
+		if (obstacle == src)
+			continue
+
+		if((obstacle.flags & ON_BORDER) && obstacle.dir == targetdir)
+			usr << span("danger", "You can't turn the windoor assembly that way, there's already something there!")
+			return
+
+	if (src.anchored)
+		usr << "It is fastened to the floor; therefore, you can't rotate it!"
+		return 0
+	if(src.state != "01")
+		update_nearby_tiles(need_rebuild=1) //Compel updates before
+
+	src.set_dir(targetdir)
 
 	if(src.state != "01")
 		update_nearby_tiles(need_rebuild=1)

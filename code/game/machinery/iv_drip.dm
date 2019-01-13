@@ -16,7 +16,7 @@
 	else
 		icon_state = ""
 
-	overlays = null
+	cut_overlays()
 
 	if(beaker)
 		var/datum/reagents/reagents = beaker.reagents
@@ -34,7 +34,7 @@
 				if(91 to INFINITY)	filling.icon_state = "reagent100"
 
 			filling.icon += reagents.get_color()
-			overlays += filling
+			add_overlay(filling)
 
 /obj/machinery/iv_drip/MouseDrop(over_object, src_location, over_location)
 	..()
@@ -61,8 +61,7 @@
 			user << "There is already a reagent container loaded!"
 			return
 
-		user.drop_item()
-		W.loc = src
+		user.drop_from_inventory(W,src)
 		src.beaker = W
 		user << "You attach \the [W] to \the [src]."
 		src.update_icon()
@@ -71,7 +70,7 @@
 		return ..()
 
 
-/obj/machinery/iv_drip/process()
+/obj/machinery/iv_drip/machinery_process()
 	set background = 1
 
 	if(src.attached)
@@ -85,6 +84,21 @@
 			return
 
 	if(src.attached && src.beaker)
+	
+		var/mob/living/carbon/human/T = attached
+
+		if(!istype(T))
+			return
+		
+		if(!T.dna)
+			return
+			
+		if(NOCLONE in T.mutations)
+			return
+
+		if(T.species.flags & NO_BLOOD)
+			return
+	
 		// Give blood
 		if(mode)
 			if(src.beaker.volume > 0)
@@ -98,17 +112,6 @@
 			// If the beaker is full, ping
 			if(amount == 0)
 				if(prob(5)) visible_message("\The [src] pings.")
-				return
-
-			var/mob/living/carbon/human/T = attached
-
-			if(!istype(T)) return
-			if(!T.dna)
-				return
-			if(NOCLONE in T.mutations)
-				return
-
-			if(T.species && T.species.flags & NO_BLOOD)
 				return
 
 			// If the human is losing too much blood, beep.
@@ -125,8 +128,10 @@
 				update_icon()
 
 /obj/machinery/iv_drip/attack_hand(mob/user as mob)
+	if (isAI(user))
+		return
 	if(src.beaker)
-		src.beaker.loc = get_turf(src)
+		src.beaker.forceMove(get_turf(src))
 		src.beaker = null
 		update_icon()
 	else
@@ -153,6 +158,7 @@
 	if (!(user in view(2)) && user!=src.loc) return
 
 	user << "The IV drip is [mode ? "injecting" : "taking blood"]."
+	user << "<span class='notice'>The transfer rate is set to [src.transfer_amount] u/sec</span>"
 
 	if(beaker)
 		if(beaker.reagents && beaker.reagents.reagent_list.len)
@@ -177,7 +183,7 @@
 		return
 	set_rate:
 		var/amount = input("Set transfer rate as u/sec (between 4 and 0.001)") as num
-		if ((0.001 > transfer_amount || transfer_amount > 4) && transfer_amount != 0)
+		if ((0.001 > amount || amount > 4) && amount != 0)
 			usr << "<span class='warning'>Entered value must be between 0.001 and 4.</span>"
 			goto set_rate
 		if (transfer_amount == 0)

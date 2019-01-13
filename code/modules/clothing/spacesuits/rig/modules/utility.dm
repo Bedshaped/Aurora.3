@@ -1,6 +1,5 @@
 /* Contains:
  * /obj/item/rig_module/device
- * /obj/item/rig_module/device/plasmacutter
  * /obj/item/rig_module/device/healthscanner
  * /obj/item/rig_module/device/drill
  * /obj/item/rig_module/device/orescanner
@@ -11,7 +10,13 @@
  * /obj/item/rig_module/device/broadcaster
  * /obj/item/rig_module/chem_dispenser
  * /obj/item/rig_module/chem_dispenser/injector
+ * /obj/item/rig_module/chem_dispenser/injector/paramedic
  * /obj/item/rig_module/voice
+ * /obj/item/rig_module/device/paperdispenser
+ * /obj/item/rig_module/device/pen
+ * /obj/item/rig_module/device/stamp
+ * /obj/item/rig_module/actuators
+ * /obj/item/rig_module/actuators/combat
  */
 
 /obj/item/rig_module/device
@@ -25,20 +30,6 @@
 	var/device_type
 	var/obj/item/device
 
-/obj/item/rig_module/device/plasmacutter
-	name = "hardsuit plasma cutter"
-	desc = "A lethal-looking industrial cutter."
-	icon_state = "plasmacutter"
-	interface_name = "plasma cutter"
-	interface_desc = "A self-sustaining plasma arc capable of cutting through walls."
-	suit_overlay_active = "plasmacutter"
-	suit_overlay_inactive = "plasmacutter"
-	use_power_cost = 0.5
-	construction_cost = list("glass" = 5250, DEFAULT_WALL_MATERIAL = 30000, "silver" = 5250, "phoron" = 7250)
-	construction_time = 300
-
-	device_type = /obj/item/weapon/pickaxe/plasmacutter
-
 /obj/item/rig_module/device/healthscanner
 	name = "health scanner module"
 	desc = "A hardsuit-mounted health scanner."
@@ -51,7 +42,7 @@
 	device_type = /obj/item/device/healthanalyzer
 
 /obj/item/rig_module/device/drill
-	name = "hardsuit drill mount"
+	name = "hardsuit diamond drill mount"
 	desc = "A very heavy diamond-tipped drill."
 	icon_state = "drill"
 	interface_name = "mounted drill"
@@ -63,6 +54,18 @@
 	construction_time = 350
 
 	device_type = /obj/item/weapon/pickaxe/diamonddrill
+
+/obj/item/rig_module/device/basicdrill
+	name = "hardsuit drill mount"
+	desc = "A very heavy basic drill."
+	icon_state = "drill"
+	interface_name = "mounted drill"
+	interface_desc = "A basic industrial drill."
+	suit_overlay_active = "mounted-drill"
+	suit_overlay_inactive = "mounted-drill"
+	use_power_cost = 0.1
+
+	device_type = /obj/item/weapon/pickaxe/drill
 
 /obj/item/rig_module/device/anomaly_scanner
 	name = "hardsuit anomaly scanner"
@@ -104,7 +107,6 @@
 	if(device_type) device = new device_type(src)
 
 /obj/item/rig_module/device/engage(atom/target)
-
 	if(!..() || !device)
 		return 0
 
@@ -145,14 +147,15 @@
 	interface_desc = "Dispenses loaded chemicals directly into the wearer's bloodstream."
 
 	charges = list(
-		list("tricordrazine", "tricordrazine", 0, 80),
-		list("tramadol",      "tramadol",      0, 80),
-		list("dexalin plus",  "dexalinp",      0, 80),
-		list("antibiotics",   "spaceacillin",  0, 80),
-		list("antitoxins",    "anti_toxin",    0, 80),
-		list("nutrients",     "nutriment",     0, 80),
-		list("hyronalin",     "hyronalin",     0, 80),
-		list("radium",        "radium",        0, 80)
+		list("tricordrazine", "tricordrazine",        0, 80),
+		list("tramadol",      "tramadol",             0, 80),
+		list("dexalin plus",  "dexalinp",             0, 80),
+		list("antibiotics",   "spaceacillin",         0, 80),
+		list("antitoxins",    "anti_toxin",           0, 80),
+		list("nutrients",     "glucose",              0, 80),
+		list("hydration",     "potassium_hydrophoro", 0, 80),
+		list("hyronalin",     "hyronalin",            0, 80),
+		list("radium",        "radium",               0, 80)
 		)
 
 	var/max_reagent_volume = 80 //Used when refilling.
@@ -167,7 +170,8 @@
 		list("dexalin plus",  "dexalinp",      0, 20),
 		list("antibiotics",   "spaceacillin",  0, 20),
 		list("antitoxins",    "anti_toxin",    0, 20),
-		list("nutrients",     "nutriment",     0, 80),
+		list("nutrients",     "glucose",     0, 80),
+		list("hydration",     "potassium_hydrophoro", 0, 80),
 		list("hyronalin",     "hyronalin",     0, 20),
 		list("radium",        "radium",        0, 20)
 		)
@@ -237,10 +241,18 @@
 	else
 		target_mob = H
 
+	if(!H.Adjacent(target_mob))
+		H << "<span class='danger'>You are not close enough to inject them!</span>"
+		return 0
+
 	if(target_mob != H)
 		H << "<span class='danger'>You inject [target_mob] with [chems_to_use] unit\s of [charge.display_name].</span>"
-	target_mob << "<span class='danger'>You feel a rushing in your veins as [chems_to_use] unit\s of [charge.display_name] [chems_to_use == 1 ? "is" : "are"] injected.</span>"
-	target_mob.reagents.add_reagent(charge.display_name, chems_to_use)
+
+	if(target_mob.is_physically_disabled())
+		target_mob.reagents.add_reagent(charge.display_name, chems_to_use)
+	else
+		target_mob << "<span class='danger'>You feel a rushing in your veins as [chems_to_use] unit\s of [charge.display_name] [chems_to_use == 1 ? "is" : "are"] injected.</span>"
+		target_mob.reagents.add_reagent(charge.display_name, chems_to_use)
 
 	charge.charges -= chems_to_use
 	if(charge.charges < 0) charge.charges = 0
@@ -256,12 +268,29 @@
 		list("synaptizine",   "synaptizine",   0, 30),
 		list("hyperzine",     "hyperzine",     0, 30),
 		list("oxycodone",     "oxycodone",     0, 30),
-		list("nutrients",     "nutriment",     0, 80),
+		list("nutrients",     "glucose",     0, 80),
+		list("hydration",     "potassium_hydrophoro", 0, 80)
 		)
 
 	interface_name = "combat chem dispenser"
 	interface_desc = "Dispenses loaded chemicals directly into the bloodstream."
 
+/obj/item/rig_module/chem_dispenser/vaurca
+
+	name = "vaurca combat chemical injector"
+	desc = "A complex web of tubing and needles suitable for vaurcan hardsuit use."
+
+	charges = list(
+		list("synaptizine",   "synaptizine",   0, 30),
+		list("hyperzine",     "hyperzine",     0, 30),
+		list("oxycodone",     "oxycodone",     0, 30),
+		list("phoron",     "phoron",     0, 60),
+		list("kois",     "k'ois paste",     0, 80),
+		list("hydration",     "potassium_hydrophoro", 0, 80)
+		)
+
+	interface_name = "vaurca combat chem dispenser"
+	interface_desc = "Dispenses loaded chemicals directly into the bloodstream."
 
 /obj/item/rig_module/chem_dispenser/injector
 
@@ -275,6 +304,15 @@
 
 	interface_name = "mounted chem injector"
 	interface_desc = "Dispenses loaded chemicals via an arm-mounted injector."
+
+/obj/item/rig_module/chem_dispenser/injector/paramedic //downgraded version
+
+	charges = list(
+		list("tricordrazine",	"tricordrazine", 0, 40),
+		list("tramadol",	"tramadol",      0, 40),
+		list("dexalin",		"dexalin",      0, 40),
+		list("inaprovaline",	"inaprovaline",     0, 40)
+		)
 
 /obj/item/rig_module/voice
 
@@ -392,11 +430,314 @@
 /obj/item/rig_module/maneuvering_jets/installed()
 	..()
 	jets.holder = holder
-	jets.ion_trail.set_up(holder)
+	jets.ion_trail.bind(holder)
 
 /obj/item/rig_module/maneuvering_jets/removed()
 	..()
 	jets.holder = null
-	jets.ion_trail.set_up(jets)
+	jets.ion_trail.bind(jets)
 
 /obj/item/rig_module/foam_sprayer
+
+/obj/item/rig_module/device/paperdispenser
+	name = "hardsuit paper dispenser"
+	desc = "Crisp sheets."
+	icon_state = "paper"
+	interface_name = "paper dispenser"
+	interface_desc = "Dispenses warm, clean, and crisp sheets of paper."
+	engage_string = "Dispense"
+	usable = 1
+	selectable = 0
+	device_type = /obj/item/weapon/paper_bin
+
+/obj/item/rig_module/device/paperdispenser/engage(atom/target)
+
+	if(!..() || !device)
+		return 0
+
+	if(!target)
+		device.attack_hand(holder.wearer)
+		return 1
+
+/obj/item/rig_module/device/pen
+	name = "mounted pen"
+	desc = "For mecha John Hancocks."
+	icon_state = "pen"
+	interface_name = "mounted pen"
+	interface_desc = "Signatures with style(tm)."
+	engage_string = "Change color"
+	usable = 1
+	device_type = /obj/item/weapon/pen/multi
+
+/obj/item/rig_module/device/stamp
+	name = "mounted internal affairs stamp"
+	desc = "DENIED."
+	icon_state = "stamp"
+	interface_name = "mounted stamp"
+	interface_desc = "Leave your mark."
+	engage_string = "Toggle stamp type"
+	usable = 1
+	var/iastamp
+	var/deniedstamp
+
+/obj/item/rig_module/device/stamp/New()
+	..()
+	iastamp = new /obj/item/weapon/stamp/internalaffairs(src)
+	deniedstamp = new /obj/item/weapon/stamp/denied(src)
+	device = iastamp
+
+/obj/item/rig_module/device/stamp/engage(atom/target)
+	if(!..() || !device)
+		return 0
+
+	if(!target)
+		if(device == iastamp)
+			device = deniedstamp
+			holder.wearer << "<span class='notice'>Switched to denied stamp.</span>"
+		else if(device == deniedstamp)
+			device = iastamp
+			holder.wearer << "<span class='notice'>Switched to internal affairs stamp.</span>"
+		return 1
+
+/obj/item/rig_module/device/decompiler
+	name = "mounted matter decompiler"
+	desc = "A drone matter decompiler reconfigured for hardsuit use."
+	icon_state = "ewar"
+	interface_name = "mounted matter decompiler"
+	interface_desc = "Eats trash like no one's business."
+
+	device_type = /obj/item/weapon/matter_decompiler
+
+/obj/item/rig_module/actuators
+	name = "leg actuators"
+	desc = "A set of electromechanical actuators, for safe traversal of multilevelled areas."
+	icon_state = "actuators"
+	interface_name = "leg actuators"
+	interface_desc = "Allows you to fall from heights and to jump up onto ledges."
+
+	construction_cost = list(DEFAULT_WALL_MATERIAL=15000, "glass"= 1250, "silver"=5250)
+	construction_time = 300
+
+	disruptive = 1
+
+	use_power_cost = 5
+	module_cooldown = 25
+
+	/*
+	 * TOGGLE - dampens fall, on or off.
+	 * SELECTABLE - Jump forward or up!
+	 */
+	toggleable = 1
+	selectable = 1
+	usable = 0
+
+	engage_string = "Toggle Leg Actuators"
+	activate_string = "Enable Leg Actuators"
+	deactivate_string = "Disable Leg Actuators"
+
+	var/combatType = 0		// Determines whether or not the actuators can do special combat oriented tasks.
+							// Such as leaping faster, or grappling targets.
+	var/leapDistance = 4	// Determines how far the actuators allow you to leap (radius, inclusive).
+
+/obj/item/rig_module/actuators/combat
+	name = "military grade leg actuators"
+	desc = "A set of high-powered hydraulic actuators, for improved traversal of multilevelled areas."
+	interface_name = "combat leg actuators"
+
+	combatType = 1
+	leapDistance = 7
+
+	use_power_cost = 10
+
+/obj/item/rig_module/actuators/engage(var/atom/target)
+	if (!..())
+		return 0
+
+	// This is for when you toggle it on or off. Why do they both run the same
+	// proc chain ...? :l
+	if (!target)
+		return 1
+
+	var/mob/living/carbon/human/H = holder.wearer
+
+	if (!isturf(H.loc))
+		to_chat(H, "<span class='warning'>You cannot leap out of your current location!</span>")
+		return 0
+
+	var/turf/T = get_turf(target)
+
+	if (!T || T.density)
+		to_chat(H, "<span class='warning'>You cannot leap at solid walls!</span>")
+		return 0
+
+	// Saved, we need it more than 1 place.
+	var/dist = max(get_dist(T, get_turf(H)), 0)
+
+	if (dist)
+		for (var/A in T)
+			var/atom/aa = A
+			if (combatType && ismob(aa))
+				continue
+
+			if (aa.density)
+				to_chat(H, "<span class='warning'>You cannot leap at a location with solid objects on it!</span>")
+				return 0
+
+	if (T.z != H.z || dist > leapDistance)
+		to_chat(H, "<span class='warning'>You cannot leap at such a distant object!</span>")
+		return 0
+
+	// Handle leaping at targets with a combat capable version here.
+	if (combatType && dist && (ismob(target) || (locate(/mob/living) in T)))
+		H.do_leap(target, leapDistance, FALSE)
+		return 1
+
+	// If dist -> horizontal leap. Otherwise, the user clicked the turf that they're
+	// currently on. Which means they want to do a vertical leap upwards!
+	if (dist)
+		H.visible_message("<span class='warning'>\The [H] leaps horizontally at \the [T]!</span>",
+			"<span class='warning'>You leap horizontally at \the [T]!</span>",
+			"<span class='warning'>You hear an electric <i>whirr</i> followed by a weighty thump!</span>")
+		H.face_atom(T)
+		H.throw_at(T, leapDistance, 1, src)
+		return 1
+	else
+		var/turf/simulated/open/TA = GetAbove(src)
+		if (!istype(TA))
+			to_chat(H, "<span class='warning'>There is a ceiling above you that stop you from leaping upwards!</span>")
+			return 0
+
+		for (var/atom/A in TA)
+			if (!A.CanPass(src, TA, 1.5, 0))
+				to_chat(H, "<span class='warning'>\The [A] blocks you!</span>")
+				return 0
+
+		var/turf/leapEnd = get_step(TA, H.dir)
+		if (!leapEnd || isopenturf(leapEnd) || istype(leapEnd, /turf/space)\
+			|| leapEnd.density || leapEnd.contains_dense_objects())
+			to_chat(H, "<span class='warning'>There is no valid ledge to scale ahead of you!</span>")
+			return 0
+
+		H.visible_message("<span class='notice'>\The [H] leaps up, out of view!</span>",
+			"<span class='notice'>You leap up!</span>")
+
+		// This setting is necessary even for combat type, to stop you from moving onto
+		// the turf, falling back down, and then getting forcemoved to the final destination.
+		TA.add_climber(H, CLIMBER_NO_EXIT)
+
+		H.forceMove(TA)
+
+		// Combat type actuators are better, they allow you to jump instantly onto
+		// a ledge. Regular actuators make you have to climb the rest of the way.
+		if (!combatType)
+			H.visible_message("<span class='notice'>\The [H] starts pulling \himself up onto \the [leapEnd].</span>",
+				"<span class='notice'>You start pulling yourself up onto \the [leapEnd].</span>")
+			if (!do_after(H, 4 SECONDS, use_user_turf = TRUE))
+				H.visible_message("<span class='warning'>\The [H] is interrupted and falls!</span>",
+					"<span class='danger'>You are interrupted and fall back down!</span>")
+
+				// Climbers will auto-fall if they exit the turf. This is for in case
+				// something else interrupts them.
+				if (H.loc == TA)
+					TA.remove_climber(H)
+					ADD_FALLING_ATOM(H)
+
+				return 1
+
+			H.visible_message("<span class='notice'>\The [H] finishes climbing onto \the [leapEnd].</span>",
+				"<span class='notice'>You finish climbing onto \the [leapEnd].</span>")
+		else
+			H.visible_message("<span class='warning'>\The [H] lands on \the [leapEnd] with a heavy slam!</span>",
+				"<span class='warning'>You land on \the [leapEnd] with a heavy thud!</span>")
+
+		// open/Exited() removes from climbers.
+		H.forceMove(leapEnd)
+
+		return 1
+
+
+/obj/item/rig_module/cooling_unit
+	name = "mounted cooling unit"
+	toggleable = 1
+	origin_tech = list(TECH_MAGNET = 2, TECH_MATERIAL = 2, TECH_ENGINEERING = 3)
+	interface_name = "mounted cooling unit"
+	interface_desc = "A heat sink with liquid cooled radiator."
+	icon_state = "suitcooler"
+	var/charge_consumption = 1
+	var/max_cooling = 12
+	var/thermostat = T20C
+
+/obj/item/rig_module/cooling_unit/process()
+	if(!active)
+		return passive_power_cost
+
+	var/mob/living/carbon/human/H = holder.wearer
+
+	var/temp_adj = min(H.bodytemperature - thermostat, max_cooling)
+
+	if (temp_adj < 0.5)
+		return passive_power_cost
+
+	H.bodytemperature -= temp_adj
+	active_power_cost = round((temp_adj/max_cooling)*charge_consumption)
+	return active_power_cost
+
+/obj/item/rig_module/boring
+	name = "burrowing lasers"
+	desc = "A set of precise boring lasers designed to carve a hole beneath the user."
+	icon_state = "actuators"
+	interface_name = "boring laser"
+	interface_desc = "Allows you to burrow to the z-level below."
+
+	disruptive = 1
+
+	use_power_cost = 5
+	module_cooldown = 25
+
+	usable = 1
+
+/obj/item/rig_module/boring/engage()
+	if (!..())
+		return 0
+
+	playsound(src,'sound/magic/lightningbolt.ogg',60,1)
+	var/turf/T = get_turf(holder.wearer)
+	if(istype(T, /turf/simulated))
+		if(istype(T, /turf/simulated/mineral) || istype(T, /turf/simulated/wall) || istype(T, /turf/simulated/shuttle))
+			T.ChangeTurf(T.baseturf)
+		else
+			T.ChangeTurf(/turf/space)
+
+
+
+var/global/list/lattice_users = list()
+
+/obj/item/rig_module/lattice
+	name = "neural lattice"
+	desc = "A probing mind collar that synchronizes the subject's pain receptors with all other neural lattices on the local grid."
+	icon_state = "actuators"
+	interface_name = "neural lattice"
+	interface_desc = "Synchronize neural lattice to reduce pain."
+
+	disruptive = 0
+
+	toggleable = 1
+	confined_use = 1
+
+
+/obj/item/rig_module/lattice/activate()
+	if (!..())
+		return 0
+
+	var/mob/living/carbon/human/H = holder.wearer
+	H << "<span class='notice'>Neural lattice engaged. Pain receptors altered.</span>"
+	lattice_users.Add(H)
+
+/obj/item/rig_module/lattice/deactivate()
+	if (!..())
+		return 0
+
+	var/mob/living/carbon/human/H = holder.wearer
+	H << "<span class='notice'>Neural lattice disengaged. Pain receptors restored.</span>"
+	lattice_users.Remove(H)
+

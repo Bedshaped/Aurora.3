@@ -1,7 +1,8 @@
 /obj/machinery/computer/curer
 	name = "cure research machine"
 	icon = 'icons/obj/computer.dmi'
-	icon_state = "dna"
+
+	icon_screen = "dna"
 	circuit = /obj/item/weapon/circuitboard/curefab
 	var/curing
 	var/virusing
@@ -13,12 +14,11 @@
 		var/mob/living/carbon/C = user
 		if(!container)
 			container = I
-			C.drop_item()
-			I.loc = src
+			C.drop_from_inventory(I,src)
 		return
 	if(istype(I,/obj/item/weapon/virusdish))
 		if(virusing)
-			user << "<b>The pathogen materializer is still recharging.."
+			user << "<b>The pathogen materializer is still recharging..</b>"
 			return
 		var/obj/item/weapon/reagent_containers/glass/beaker/product = new(src.loc)
 
@@ -64,10 +64,8 @@
 	onclose(user, "computer")
 	return
 
-/obj/machinery/computer/curer/process()
-	..()
-
-	if(stat & (NOPOWER|BROKEN))
+/obj/machinery/computer/curer/machinery_process()
+	if (inoperable())
 		return
 	use_power(500)
 
@@ -86,7 +84,7 @@
 	if (href_list["antibody"])
 		curing = 10
 	else if(href_list["eject"])
-		container.loc = src.loc
+		container.forceMove(src.loc)
 		container = null
 
 	src.add_fingerprint(usr)

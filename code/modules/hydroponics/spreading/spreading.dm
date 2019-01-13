@@ -2,30 +2,25 @@
 #define VINE_GROWTH_STAGES 5
 
 /proc/spacevine_infestation(var/potency_min=70, var/potency_max=100, var/maturation_min=5, var/maturation_max=15)
-	spawn() //to stop the secrets panel hanging
-		var/list/turf/simulated/floor/turfs = list() //list of all the empty floor turfs in the hallway areas
-		for(var/areapath in typesof(/area/hallway))
-			var/area/A = locate(areapath)
-			for(var/turf/simulated/floor/F in A.contents)
-				if(turf_clear(F))
-					turfs += F
+	set waitfor = FALSE
 
-		if(turfs.len) //Pick a turf to spawn at if we can
-			var/turf/simulated/floor/T = pick(turfs)
-			var/datum/seed/seed = plant_controller.create_random_seed(1)
-			seed.set_trait(TRAIT_SPREAD,2)             // So it will function properly as vines.
-			seed.set_trait(TRAIT_POTENCY,rand(potency_min, potency_max)) // 70-100 potency will help guarantee a wide spread and powerful effects.
-			seed.set_trait(TRAIT_MATURATION,rand(maturation_min, maturation_max))
+	var/turf/T = pick_area_turf(/area/hallway, list(/proc/is_station_turf, /proc/not_turf_contains_dense_objects))
+	if(T)
+		var/datum/seed/seed = SSplants.create_random_seed(1)
+		seed.set_trait(TRAIT_SPREAD,2)             // So it will function properly as vines.
+		seed.set_trait(TRAIT_POTENCY,rand(potency_min, potency_max)) // 70-100 potency will help guarantee a wide spread and powerful effects.
+		seed.set_trait(TRAIT_MATURATION,rand(maturation_min, maturation_max))
 
-			//make vine zero start off fully matured
-			var/obj/effect/plant/vine = new(T,seed)
-			vine.health = vine.max_health
-			vine.mature_time = 0
-			vine.process()
+		//make vine zero start off fully matured
+		var/obj/effect/plant/vine = new(T,seed)
+		vine.health = vine.max_health
+		vine.mature_time = 0
+		vine.process()
 
-			message_admins("<span class='notice'>Event: Spacevines spawned at [T.loc] ([T.x],[T.y],[T.z])</span>")
-			return
-		message_admins("<span class='notice'>Event: Spacevines failed to find a viable turf.</span>")
+		log_and_message_admins("Spacevines spawned at \the [get_area(T)]", location = T)
+		return
+
+	log_and_message_admins("<span class='notice'>Event: Spacevines failed to find a viable turf.</span>")
 
 /obj/effect/dead_plant
 	anchored = 1
@@ -69,33 +64,34 @@
 	var/mature_time		//minimum maturation time
 	var/last_tick = 0
 	var/obj/machinery/portable_atmospherics/hydroponics/soil/invisible/plant
+	var/last_biolum = null
 
 /obj/effect/plant/Destroy()
-	if(plant_controller)
-		plant_controller.remove_plant(src)
+	SSplants.remove_plant(src)
 	for(var/obj/effect/plant/neighbor in range(1,src))
-		plant_controller.add_plant(neighbor)
-	..()
+		if (!QDELETED(neighbor))
+			SSplants.add_plant(neighbor)
+	return ..()
+
 /obj/effect/plant/single
 	spread_chance = 0
 
-/obj/effect/plant/New(var/newloc, var/datum/seed/newseed, var/obj/effect/plant/newparent)
-	..()
+
+/obj/effect/plant/Initialize(mapload, datum/seed/newseed, obj/effect/plant/newparent)
+	. = ..()
 
 	if(!newparent)
 		parent = src
 	else
 		parent = newparent
 
-	if(!plant_controller)
-		sleep(250) // ugly hack, should mean roundstart plants are fine.
-	if(!plant_controller)
-		world << "<span class='danger'>Plant controller does not exist and [src] requires it. Aborting.</span>"
+	if(!SSplants)
+		to_world("<span class='danger'>Plant controller does not exist and [src] requires it. Aborting.</span>")
 		qdel(src)
 		return
 
 	if(!istype(newseed))
-		newseed = plant_controller.seeds[DEFAULT_SEED]
+		newseed = SSplants.seeds[DEFAULT_SEED]
 	seed = newseed
 	if(!seed)
 		qdel(src)
@@ -124,17 +120,19 @@
 
 	mature_time = world.time + seed.get_trait(TRAIT_MATURATION) + 15 //prevent vines from maturing until at least a few seconds after they've been created.
 	spread_chance = seed.get_trait(TRAIT_POTENCY)
-	spread_distance = ((growth_type>0) ? round(spread_chance*0.6) : round(spread_chance*0.3))
+	spread_distance = ((growth_type > 0) ? round(spread_chance * 0.6) : round(spread_chance * 0.3))
 	update_icon()
+	addtimer(CALLBACK(src, .proc/post_initialize), 1)
 
-	spawn(1) // Plants will sometimes be spawned in the turf adjacent to the one they need to end up in, for the sake of correct dir/etc being set.
-		set_dir(calc_dir())
-		update_icon()
-		plant_controller.add_plant(src)
-		// Some plants eat through plating.
-		if(!isnull(seed.chems["pacid"]))
-			var/turf/T = get_turf(src)
-			T.ex_act(prob(80) ? 3 : 2)
+// Plants will sometimes be spawned in the turf adjacent to the one they need to end up in, for the sake of correct dir/etc being set.
+/obj/effect/plant/proc/post_initialize()
+	set_dir(calc_dir())
+	update_icon()
+	SSplants.add_plant(src)
+	// Some plants eat through plating.
+	if(islist(seed.chems) && !isnull(seed.chems["pacid"]))
+		var/turf/T = get_turf(src)
+		T.ex_act(prob(80) ? 3 : 2)
 
 /obj/effect/plant/update_icon()
 	//TODO: should really be caching this.
@@ -160,12 +158,19 @@
 		var/clr
 		if(seed.get_trait(TRAIT_BIOLUM_COLOUR))
 			clr = seed.get_trait(TRAIT_BIOLUM_COLOUR)
-		set_light(1+round(seed.get_trait(TRAIT_POTENCY)/20), l_color = clr)
+		var/val = 1+round(seed.get_trait(TRAIT_POTENCY)/20)
+		if (val != last_biolum)
+			last_biolum = val
+			set_light(val, l_color = clr)
 		return
 	else
-		set_light(0)
+		if (last_biolum)
+			set_light(0)
+			last_biolum = null
 
 /obj/effect/plant/proc/refresh_icon()
+	if(!growth_threshold)
+		growth_threshold = max_health/seed.growth_stages
 	var/growth = min(max_growth,round(health/growth_threshold))
 	var/at_fringe = get_dist(src,parent)
 	if(spread_distance > 5)
@@ -188,12 +193,12 @@
 		icon_state = "[seed.get_trait(TRAIT_PLANT_ICON)]-[growth]"
 
 	if(growth>2 && growth == max_growth)
-		layer = 5
+		layer = (seed && seed.force_layer) ? seed.force_layer : 5
 		opacity = 1
-		if(!isnull(seed.chems["woodpulp"]))
+		if(islist(seed.chems) && !isnull(seed.chems["woodpulp"]))
 			density = 1
 	else
-		layer = 3
+		layer = (seed && seed.force_layer) ? seed.force_layer : 5
 		density = 0
 
 /obj/effect/plant/proc/calc_dir()
@@ -234,9 +239,10 @@
 
 /obj/effect/plant/attackby(var/obj/item/weapon/W, var/mob/user)
 
-	plant_controller.add_plant(src)
+	user.setClickCooldown(DEFAULT_ATTACK_COOLDOWN)
+	SSplants.add_plant(src)
 
-	if(istype(W, /obj/item/weapon/wirecutters) || istype(W, /obj/item/weapon/scalpel))
+	if(iswirecutter(W) || istype(W, /obj/item/weapon/scalpel))
 		if(sampled)
 			user << "<span class='warning'>\The [src] has already been sampled recently.</span>"
 			return

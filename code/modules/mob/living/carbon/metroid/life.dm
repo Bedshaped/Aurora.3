@@ -1,35 +1,25 @@
 /mob/living/carbon/slime/Life()
-	set invisibility = 0
-	set background = 1
+	set background = BACKGROUND_ENABLED
 
-	if (src.monkeyizing)
+	if (src.transforming)
 		return
 
 	..()
 
 	if(stat != DEAD)
-		handle_chemicals_in_body()
 		handle_nutrition()
 
-		if (!client)
-			handle_targets()
-			if (!AIproc)
-				spawn()
-					handle_AI()
-			handle_speech_and_mood()
+		if(is_ventcrawling == 0) // Stops sight returning to normal if inside a vent
+			sight = initial(sight)
 
-	var/datum/gas_mixture/environment
-	if(src.loc)
-		environment = loc.return_air()
+/mob/living/carbon/slime/think()
+	..()
+	handle_targets()
+	if (!AIproc)
+		handle_AI()
+	handle_speech_and_mood()
 
-	regular_hud_updates()
-
-	if(environment)
-		handle_environment(environment) // Handle temperature/pressure differences between body and environment
-
-	handle_regular_status_updates() // Status updates, death etc.
-
-/mob/living/carbon/slime/proc/handle_environment(datum/gas_mixture/environment)
+/mob/living/carbon/slime/handle_environment(datum/gas_mixture/environment)
 	if(!environment)
 		adjustToxLoss(rand(10,20))
 		return
@@ -52,13 +42,16 @@
 
 	//Account for massive pressure differences
 
-	if(bodytemperature < hurt_temperature) // start calculating temperature damage etc
-		if(bodytemperature <= die_temperature)
-			if(bodytemperature <= 50)
+	if(bodytemperature < (T0C + 5)) // start calculating temperature damage etc
+
+		if(bodytemperature <= hurt_temperature)
+			if(bodytemperature <= die_temperature)
 				adjustToxLoss(200)
 			else
+				// could be more fancy, but doesn't worth the complexity: when the slimes goes into a cold area
+				// the damage is mostly determined by how fast its body cools
 				adjustToxLoss(30)
-				
+
 	updatehealth()
 
 	return //TODO: DEFERRED
@@ -80,13 +73,14 @@
 	temp_change = (temperature - current)
 	return temp_change
 
-/mob/living/carbon/slime/proc/handle_chemicals_in_body()
+/mob/living/carbon/slime/handle_chemicals_in_body()
 	chem_effects.Cut()
 	analgesic = 0
 
 	if(touching) touching.metabolize()
 	if(ingested) ingested.metabolize()
 	if(bloodstr) bloodstr.metabolize()
+	if(breathing) breathing.metabolize()
 
 	if(CE_PAINKILLER in chem_effects)
 		analgesic = chem_effects[CE_PAINKILLER]
@@ -95,7 +89,7 @@
 
 	return //TODO: DEFERRED
 
-/mob/living/carbon/slime/proc/handle_regular_status_updates()
+/mob/living/carbon/slime/handle_regular_status_updates()
 
 	src.blinded = null
 
@@ -165,7 +159,7 @@
 /mob/living/carbon/slime/proc/handle_nutrition()
 
 	if (prob(15))
-		nutrition -= 1 + is_adult
+		adjustNutritionLoss(1 + is_adult)
 
 	if(nutrition <= 0)
 		nutrition = 0
@@ -174,7 +168,7 @@
 			src << "<span class='danger'>You are starving!</span>"
 
 	else if (nutrition >= get_grow_nutrition() && amount_grown < 10)
-		nutrition -= 20
+		adjustNutritionLoss(20)
 		amount_grown++
 
 /mob/living/carbon/slime/proc/handle_targets()
@@ -227,13 +221,16 @@
 				if(isslime(L) || L.stat == DEAD) // Ignore other slimes and dead mobs
 					continue
 
+				if(isskrell(L)) // we do not attack skrell - lore reason.
+					continue
+
 				if(L in Friends) // No eating friends!
 					continue
 
 				if(issilicon(L) && (rabid || attacked)) // They can't eat silicons, but they can glomp them in defence
 					targets += L // Possible target found!
 
-				if(istype(L, /mob/living/carbon/human)) //Ignore slime(wo)men
+				if(ishuman(L)) //Ignore slime(wo)men
 					var/mob/living/carbon/human/H = L
 					if(H.species.name == "Slime")
 						continue
@@ -286,6 +283,9 @@
 				step(src, pick(cardinal))
 
 /mob/living/carbon/slime/proc/handle_AI()  // the master AI process
+
+	if(Victim && Victim.stat & DEAD)
+		Victim = null
 
 	if(stat == DEAD || client || Victim) return // If we're dead or have a client, we don't need AI, if we're feeding, we continue feeding
 	AIproc = 1

@@ -1,9 +1,10 @@
 /datum/event/dust
 	startWhen	= 10
 	endWhen		= 30
+	ic_name = "space dust"
 
 /datum/event/dust/announce()
-	command_announcement.Announce("The station is now passing through a belt of space dust.", "Dust Alert")
+	command_announcement.Announce("The station is now passing through a belt of space dust.", "Dust Alert", new_sound = 'sound/AI/spacedust.ogg')
 
 /datum/event/dust/start()
 	dust_swarm(get_severity())

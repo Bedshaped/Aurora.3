@@ -15,8 +15,8 @@
 	var/obj/scanned_object
 	var/report_num = 0
 
-/obj/machinery/artifact_analyser/New()
-	..()
+/obj/machinery/artifact_analyser/Initialize()
+	. = ..()
 	reconnect_scanner()
 
 /obj/machinery/artifact_analyser/proc/reconnect_scanner()
@@ -55,7 +55,7 @@
 	user.set_machine(src)
 	onclose(user, "artanalyser")
 
-/obj/machinery/artifact_analyser/process()
+/obj/machinery/artifact_analyser/machinery_process()
 	if(scan_in_progress && world.time > scan_completion_time)
 		//finish scanning
 		scan_in_progress = 0
@@ -74,12 +74,14 @@
 
 		src.visible_message("<b>[name]</b> states, \"Scanning complete.\"")
 		var/obj/item/weapon/paper/P = new(src.loc)
-		P.name = "[src] report #[++report_num]"
-		P.info = "<b>[src] analysis report #[report_num]</b><br>"
-		P.info += "<br>"
-		P.info += "\icon[scanned_object] [results]"
+		var/pname = "[src] report #[++report_num]"
+		var/info = "<b>[src] analysis report #[report_num]</b><br>"
+		info += "<br>"
+		info += "\icon[scanned_object] [results]"
 		P.stamped = list(/obj/item/weapon/stamp)
 		P.overlays = list("paper_stamped")
+		P.set_content_unsafe(pname, info)
+		print(P)
 
 		if(scanned_object && istype(scanned_object, /obj/machinery/artifact))
 			var/obj/machinery/artifact/A = scanned_object
@@ -135,9 +137,6 @@
 			ecosystem involving self cannibalism and a symbiotic relationship with the contained liquid.<br><br>\
 			Structure is composed of a carbo-titanium alloy with interlaced reinforcing energy fields, and the contained liquid \
 			resembles proto-plasmic residue supportive of single cellular developmental conditions."
-		if(/obj/machinery/power/supermatter)
-			return "Super dense phoron clump - Appears to have been shaped or hewn, structure is composed of matter 2000% denser than ordinary carbon matter residue.\
-			Potential application as unrefined phoron source."
 		if(/obj/machinery/power/supermatter)
 			return "Super dense phoron clump - Appears to have been shaped or hewn, structure is composed of matter 2000% denser than ordinary carbon matter residue.\
 			Potential application as unrefined phoron source."

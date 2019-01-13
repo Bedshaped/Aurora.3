@@ -8,12 +8,6 @@
 	buckle_lying = 0 //force people to sit up in chairs when buckled
 	var/propelled = 0 // Check for fire-extinguisher-driven chairs
 
-/obj/structure/bed/chair/New()
-	..() //Todo make metal/stone chairs display as thrones
-	spawn(3)	//sorry. i don't think there's a better way to do this.
-		update_layer()
-	return
-
 /obj/structure/bed/chair/attackby(obj/item/weapon/W as obj, mob/user as mob)
 	..()
 	if(!padding_material && istype(W, /obj/item/assembly/shock_kit))
@@ -21,12 +15,11 @@
 		if(!SK.status)
 			user << "<span class='notice'>\The [SK] is not ready to be attached!</span>"
 			return
-		user.drop_item()
 		var/obj/structure/bed/chair/e_chair/E = new (src.loc, material.name)
 		playsound(src.loc, 'sound/items/Deconstruct.ogg', 50, 1)
 		E.set_dir(dir)
 		E.part = SK
-		SK.loc = E
+		user.drop_from_inventory(SK,E)
 		SK.master = E
 		qdel(src)
 
@@ -42,24 +35,37 @@
 
 /obj/structure/bed/chair/update_icon()
 	..()
+
+	var/list/stool_cache = SSicon_cache.stool_cache
+
+	var/cache_key = "[base_icon]-[material.name]-over"
+	if(isnull(stool_cache[cache_key]))
+		var/image/I = image('icons/obj/furniture.dmi', "[base_icon]_over")
+		I.color = material.icon_colour
+		I.layer = FLY_LAYER
+		stool_cache[cache_key] = I
+	add_overlay(stool_cache[cache_key])
+	// Padding overlay.
+	if(padding_material)
+		var/padding_cache_key = "[base_icon]-padding-[padding_material.name]-over"
+		if(isnull(stool_cache[padding_cache_key]))
+			var/image/I =  image(icon, "[base_icon]_padding_over")
+			I.color = padding_material.icon_colour
+			I.layer = FLY_LAYER
+			stool_cache[padding_cache_key] = I
+		add_overlay(stool_cache[padding_cache_key])
+
 	if(buckled_mob && padding_material)
-		var/cache_key = "[base_icon]-armrest-[padding_material.name]"
+		cache_key = "[base_icon]-armrest-[padding_material.name]"
 		if(isnull(stool_cache[cache_key]))
 			var/image/I = image(icon, "[base_icon]_armrest")
 			I.layer = MOB_LAYER + 0.1
 			I.color = padding_material.icon_colour
 			stool_cache[cache_key] = I
-		overlays |= stool_cache[cache_key]
-
-/obj/structure/bed/chair/proc/update_layer()
-	if(src.dir == NORTH)
-		src.layer = FLY_LAYER
-	else
-		src.layer = OBJ_LAYER
+		add_overlay(stool_cache[cache_key])
 
 /obj/structure/bed/chair/set_dir()
-	..()
-	update_layer()
+	. = ..()
 	if(buckled_mob)
 		buckled_mob.set_dir(dir)
 
@@ -87,32 +93,32 @@
 	desc = "It's a chair. It looks comfy."
 	icon_state = "comfychair_preview"
 
-/obj/structure/bed/chair/comfy/brown/New(var/newloc,var/newmaterial)
-	..(newloc,"steel","leather")
+/obj/structure/bed/chair/comfy/brown/Initialize(mapload,var/newmaterial)
+	. = ..(mapload,"steel","leather")
 
-/obj/structure/bed/chair/comfy/red/New(var/newloc,var/newmaterial)
-	..(newloc,"steel","carpet")
+/obj/structure/bed/chair/comfy/red/Initialize(var/mapload,var/newmaterial)
+	. = ..(mapload,"steel","carpet")
 
-/obj/structure/bed/chair/comfy/teal/New(var/newloc,var/newmaterial)
-	..(newloc,"steel","teal")
+/obj/structure/bed/chair/comfy/teal/Initialize(var/mapload,var/newmaterial)
+	. = ..(mapload,"steel","teal")
 
-/obj/structure/bed/chair/comfy/black/New(var/newloc,var/newmaterial)
-	..(newloc,"steel","black")
+/obj/structure/bed/chair/comfy/black/Initialize(var/mapload,var/newmaterial)
+	. = ..(mapload,"steel","black")
 
-/obj/structure/bed/chair/comfy/green/New(var/newloc,var/newmaterial)
-	..(newloc,"steel","green")
+/obj/structure/bed/chair/comfy/green/Initialize(var/mapload,var/newmaterial)
+	. = ..(mapload,"steel","green")
 
-/obj/structure/bed/chair/comfy/purp/New(var/newloc,var/newmaterial)
-	..(newloc,"steel","purple")
+/obj/structure/bed/chair/comfy/purp/Initialize(var/mapload,var/newmaterial)
+	. = ..(mapload,"steel","purple")
 
-/obj/structure/bed/chair/comfy/blue/New(var/newloc,var/newmaterial)
-	..(newloc,"steel","blue")
+/obj/structure/bed/chair/comfy/blue/Initialize(var/mapload,var/newmaterial)
+	. = ..(mapload,"steel","blue")
 
-/obj/structure/bed/chair/comfy/beige/New(var/newloc,var/newmaterial)
-	..(newloc,"steel","beige")
+/obj/structure/bed/chair/comfy/beige/Initialize(var/mapload,var/newmaterial)
+	. = ..(mapload,"steel","beige")
 
-/obj/structure/bed/chair/comfy/lime/New(var/newloc,var/newmaterial)
-	..(newloc,"steel","lime")
+/obj/structure/bed/chair/comfy/lime/Initialize(var/mapload,var/newmaterial)
+	. = ..(mapload,"steel","lime")
 
 /obj/structure/bed/chair/office
 	anchored = 0
@@ -122,12 +128,12 @@
 	return
 
 /obj/structure/bed/chair/office/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(istype(W,/obj/item/stack) || istype(W, /obj/item/weapon/wirecutters))
+	if(istype(W,/obj/item/stack) || iswirecutter(W))
 		return
 	..()
 
 /obj/structure/bed/chair/office/Move()
-	..()
+	. = ..()
 	if(buckled_mob)
 		var/mob/living/occupant = buckled_mob
 		occupant.buckled = null
@@ -137,13 +143,14 @@
 			if (propelled)
 				for (var/mob/O in src.loc)
 					if (O != occupant)
-						Bump(O)
+						Collide(O)
 			else
 				unbuckle_mob()
 
-/obj/structure/bed/chair/office/Bump(atom/A)
-	..()
-	if(!buckled_mob)	return
+/obj/structure/bed/chair/office/Collide(atom/A)
+	. = ..()
+	if(!buckled_mob)
+		return
 
 	if(propelled)
 		var/mob/living/occupant = unbuckle_mob()
@@ -172,6 +179,18 @@
 /obj/structure/bed/chair/office/dark
 	icon_state = "officechair_dark"
 
+/obj/structure/bed/chair/office/bridge
+	name = "command chair"
+	desc = "It exudes authority... and looks about as comfortable as a brick."
+	icon_state = "bridge"
+	anchored = 1
+
+/obj/structure/bed/chair/office/Initialize()
+	. = ..()
+	var/image/I = image(icon, "[icon_state]_over")
+	I.layer = FLY_LAYER
+	add_overlay(I)
+
 // Chair types
 /obj/structure/bed/chair/wood
 	name = "wooden chair"
@@ -182,12 +201,18 @@
 	return
 
 /obj/structure/bed/chair/wood/attackby(obj/item/weapon/W as obj, mob/user as mob)
-	if(istype(W,/obj/item/stack) || istype(W, /obj/item/weapon/wirecutters))
+	if(istype(W,/obj/item/stack) || iswirecutter(W))
 		return
 	..()
 
-/obj/structure/bed/chair/wood/New(var/newloc)
-	..(newloc, "wood")
+/obj/structure/bed/chair/wood/Initialize(mapload)
+	. = ..(mapload, "wood")
+	var/image/I = image(icon, "[icon_state]_over")
+	I.layer = FLY_LAYER
+	add_overlay(I)
 
 /obj/structure/bed/chair/wood/wings
 	icon_state = "wooden_chair_wings"
+
+/obj/structure/bed/chair/unmovable
+	can_dismantle = 0
